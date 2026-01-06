@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="light dark" />
   <title>Archive Challenge</title>
+  <meta name="description" content="Six artifacts. One holds the key." />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -19,7 +20,7 @@
 
     <div class="topbar__actions">
       <button id="toggleHintsBtn" class="btn btn--ghost" type="button" aria-pressed="false">
-        Toggle Hints
+        Hints
       </button>
       <button id="toggleContrastBtn" class="btn btn--ghost" type="button" aria-pressed="false">
         High Contrast
@@ -46,7 +47,7 @@
         </div>
         <div class="rulebox__row">
           <span class="pill">Rule</span>
-          <span>Entry is checked <strong>position-by-position</strong>.</span>
+          <span>Validation is <strong>position-by-position</strong>.</span>
         </div>
       </div>
     </section>
@@ -82,7 +83,7 @@
           <li>One artifact is visually “busy” but contains an ordered sequence.</li>
           <li>Try different viewing distances (or zoom levels).</li>
           <li>Ignore content that looks like decoration or filler.</li>
-          <li>Verify order. Don’t assume a straight line.</li>
+          <li>Verify the order. Don’t assume it’s a straight line.</li>
         </ul>
       </div>
     </section>
@@ -106,7 +107,7 @@
             required
           />
           <div id="codeHelp" class="help muted">
-            Tip: letters are case-insensitive. Spaces are ignored.
+            Tip: letters are case-insensitive. Spaces and punctuation are ignored.
           </div>
         </div>
 
@@ -124,15 +125,16 @@
         <summary>How validation works</summary>
         <div class="faq__body">
           <p class="muted">
-            We compare your entry to the correct code, character-by-character (same length required).
-            You’ll be told how many positions differ. This helps you iterate without revealing the answer.
+            We compare your entry to the correct code character-by-character.
+            You’ll be told how many positions differ (plus any length difference),
+            so you can iterate without the site revealing the answer.
           </p>
         </div>
       </details>
     </section>
 
     <footer class="footer muted">
-      <span>Built for puzzle play. No network calls. No tracking.</span>
+      <span>Static site. No tracking. No external calls.</span>
     </footer>
   </main>
 

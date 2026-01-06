@@ -1,12 +1,171 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hello World Page</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Archive Challenge</title>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-    <h1>Hello World!</h1>
-    <p>This is my first web page.</p>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand__mark" aria-hidden="true">⛵</div>
+      <div class="brand__text">
+        <div class="brand__title">The Archive</div>
+        <div class="brand__subtitle">Six artifacts. One holds the key.</div>
+      </div>
+    </div>
+
+    <div class="topbar__actions">
+      <button id="toggleHintsBtn" class="btn btn--ghost" type="button" aria-pressed="false">
+        Toggle Hints
+      </button>
+      <button id="toggleContrastBtn" class="btn btn--ghost" type="button" aria-pressed="false">
+        High Contrast
+      </button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="intro card">
+      <h1>Mission Brief</h1>
+      <p class="muted">
+        You have six artifacts. Five are noise. One contains a hidden alphanumeric code.
+        Identify the correct artifact, extract the code, and submit it below.
+      </p>
+
+      <div class="rulebox" role="note" aria-label="Rules">
+        <div class="rulebox__row">
+          <span class="pill">Rule</span>
+          <span>Only <strong>one</strong> artifact is actionable.</span>
+        </div>
+        <div class="rulebox__row">
+          <span class="pill">Rule</span>
+          <span>Code is <strong>alphanumeric</strong>. No spaces.</span>
+        </div>
+        <div class="rulebox__row">
+          <span class="pill">Rule</span>
+          <span>Entry is checked <strong>position-by-position</strong>.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="artifacts">
+      <div class="artifacts__header">
+        <h2>Artifacts</h2>
+        <div class="filters">
+          <label class="search">
+            <span class="sr-only">Search artifacts</span>
+            <input id="searchInput" type="search" placeholder="Search by label or tag…" autocomplete="off" />
+          </label>
+
+          <label class="select">
+            <span class="sr-only">Filter by type</span>
+            <select id="typeFilter">
+              <option value="all">All types</option>
+              <option value="map">Maps</option>
+              <option value="photo">Photos</option>
+              <option value="scan">Scans</option>
+              <option value="diagram">Diagrams</option>
+              <option value="note">Notes</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div id="artifactGrid" class="grid" aria-live="polite"></div>
+
+      <div id="hintPanel" class="hintPanel card is-hidden" aria-live="polite">
+        <h3>Hints (Optional)</h3>
+        <ul class="hintList">
+          <li>One artifact is visually “busy” but contains an ordered sequence.</li>
+          <li>Try different viewing distances (or zoom levels).</li>
+          <li>Ignore content that looks like decoration or filler.</li>
+          <li>Verify order. Don’t assume a straight line.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="submission card">
+      <h2>Submit Code</h2>
+
+      <form id="codeForm" novalidate>
+        <div class="formRow">
+          <label for="codeInput" class="label">Code</label>
+          <input
+            id="codeInput"
+            name="code"
+            type="text"
+            inputmode="latin"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+            placeholder="Enter the alphanumeric code"
+            aria-describedby="codeHelp"
+            required
+          />
+          <div id="codeHelp" class="help muted">
+            Tip: letters are case-insensitive. Spaces are ignored.
+          </div>
+        </div>
+
+        <div class="formActions">
+          <button class="btn btn--primary" type="submit">Validate</button>
+          <button id="resetBtn" class="btn btn--ghost" type="button">Reset</button>
+        </div>
+      </form>
+
+      <div id="result" class="result" role="status" aria-live="assertive"></div>
+
+      <div class="divider"></div>
+
+      <details class="faq">
+        <summary>How validation works</summary>
+        <div class="faq__body">
+          <p class="muted">
+            We compare your entry to the correct code, character-by-character (same length required).
+            You’ll be told how many positions differ. This helps you iterate without revealing the answer.
+          </p>
+        </div>
+      </details>
+    </section>
+
+    <footer class="footer muted">
+      <span>Built for puzzle play. No network calls. No tracking.</span>
+    </footer>
+  </main>
+
+  <dialog id="artifactModal" class="modal">
+    <div class="modal__header">
+      <div class="modal__titleWrap">
+        <div id="modalTitle" class="modal__title">Artifact</div>
+        <div id="modalMeta" class="modal__meta muted"></div>
+      </div>
+      <button id="closeModalBtn" class="btn btn--ghost" type="button" aria-label="Close">
+        ✕
+      </button>
+    </div>
+
+    <div class="modal__body">
+      <figure class="modal__figure">
+        <img id="modalImg" alt="" />
+        <figcaption id="modalCaption" class="muted"></figcaption>
+      </figure>
+
+      <div class="modal__controls">
+        <button id="zoomOutBtn" class="btn btn--ghost" type="button">−</button>
+        <input id="zoomRange" type="range" min="50" max="300" value="100" />
+        <button id="zoomInBtn" class="btn btn--ghost" type="button">+</button>
+        <span id="zoomLabel" class="muted">100%</span>
+
+        <span class="spacer"></span>
+
+        <button id="copyArtifactIdBtn" class="btn btn--ghost" type="button">Copy ID</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="./app.js"></script>
 </body>
 </html>

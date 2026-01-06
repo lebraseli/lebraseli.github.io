@@ -4,18 +4,17 @@
  * =========================
  * CONFIG
  * =========================
+ * NOTE: This is a front-end-only puzzle. Anyone can view app.js and see SECRET_CODE.
+ * If you need real secrecy, you must validate server-side.
  */
-const SECRET_CODE = "X47Y1ACGNJ"; // ground truth
+const SECRET_CODE = "X47Y1ACGNJ"; // correct code
+
 const NORMALIZE_INPUT = (s) =>
   (s || "")
     .toUpperCase()
     .replace(/\s+/g, "")
-    .replace(/[^A-Z0-9]/g, ""); // allow only A-Z0-9
+    .replace(/[^A-Z0-9]/g, "");
 
-/**
- * Artifacts: One is real, the rest are decoys.
- * Tip: keep "Island Water Chart" as the real one, but do NOT mention it in UI.
- */
 const ARTIFACTS = [
   {
     id: "A-113",
@@ -24,9 +23,7 @@ const ARTIFACTS = [
     tags: ["wavefield", "tile", "aerial"],
     src: "./assets/island-water.png",
     caption: "High-frequency wave texture. No annotations.",
-    meta: "Resolution: user-provided • Format: PNG",
-    // Real one (but keep it non-obvious)
-    isReal: true,
+    meta: "Resolution: provided • Format: PNG",
   },
   {
     id: "B-204",
@@ -36,7 +33,6 @@ const ARTIFACTS = [
     src: "./assets/decoy-1.png",
     caption: "A scan from a cargo ledger. Looks useful. Isn’t.",
     meta: "Scan batch: 07 • Contrast normalized",
-    isReal: false,
   },
   {
     id: "C-318",
@@ -46,7 +42,6 @@ const ARTIFACTS = [
     src: "./assets/decoy-2.png",
     caption: "A clean diagram intended to misdirect attention.",
     meta: "Draft: v3 • No embedded code",
-    isReal: false,
   },
   {
     id: "D-409",
@@ -56,7 +51,6 @@ const ARTIFACTS = [
     src: "./assets/decoy-3.png",
     caption: "A photo that invites zooming. It won’t pay off.",
     meta: "Lens: long • Color: corrected",
-    isReal: false,
   },
   {
     id: "E-522",
@@ -66,7 +60,6 @@ const ARTIFACTS = [
     src: "./assets/decoy-4.png",
     caption: "Classic-looking noise that suggests hidden text.",
     meta: "Paper: aged • Ink: uneven",
-    isReal: false,
   },
   {
     id: "F-601",
@@ -76,7 +69,6 @@ const ARTIFACTS = [
     src: "./assets/decoy-5.png",
     caption: "A route sheet designed to seem like a cipher grid.",
     meta: "Grid: stylized • No key present",
-    isReal: false,
   },
 ];
 
@@ -85,14 +77,25 @@ const ARTIFACTS = [
  * UTILITIES
  * =========================
  */
-function countPositionalMismatches(a, b) {
-  // a and b assumed normalized uppercase alnum
-  const len = Math.min(a.length, b.length);
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (m) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;"
+  }[m]));
+}
+
+function countMismatchesPositional(a, b) {
+  const minLen = Math.min(a.length, b.length);
   let mismatches = 0;
-  for (let i = 0; i < len; i++) {
+
+  for (let i = 0; i < minLen; i++) {
     if (a[i] !== b[i]) mismatches++;
   }
-  // If lengths differ, count extra chars as mismatches (optional logic)
+
+  // Count extra length as mismatches (this is the "how many wrong" behavior you asked for)
   mismatches += Math.abs(a.length - b.length);
   return mismatches;
 }
@@ -105,19 +108,9 @@ function setResult(kind, html) {
   el.innerHTML = html;
 }
 
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, (m) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "\"": "&quot;",
-    "'": "&#39;"
-  }[m]));
-}
-
 /**
  * =========================
- * RENDER
+ * RENDER: ARTIFACT GRID
  * =========================
  */
 function renderArtifacts(list) {
@@ -128,9 +121,6 @@ function renderArtifacts(list) {
     const card = document.createElement("button");
     card.type = "button";
     card.className = "artifact";
-    card.setAttribute("data-id", a.id);
-    card.setAttribute("data-title", a.title);
-    card.setAttribute("data-type", a.type);
     card.setAttribute("aria-label", `Open artifact ${a.title} (${a.id})`);
 
     card.innerHTML = `
@@ -162,56 +152,6 @@ function renderArtifacts(list) {
 
 /**
  * =========================
- * MODAL (preview + zoom)
- * =========================
- */
-let currentZoom = 100;
-
-function openModal(artifact) {
-  const modal = document.getElementById("artifactModal");
-  const title = document.getElementById("modalTitle");
-  const meta = document.getElementById("modalMeta");
-  const img = document.getElementById("modalImg");
-  const caption = document.getElementById("modalCaption");
-  const zoomRange = document.getElementById("zoomRange");
-  const zoomLabel = document.getElementById("zoomLabel");
-
-  title.textContent = `${artifact.title}`;
-  meta.textContent = `${artifact.id} • Type: ${artifact.type} • Tags: ${artifact.tags.join(", ")}`;
-  img.src = artifact.src;
-  img.alt = `${artifact.title} preview`;
-  caption.textContent = artifact.caption;
-
-  currentZoom = 100;
-  zoomRange.value = String(currentZoom);
-  zoomLabel.textContent = `${currentZoom}%`;
-  img.style.transform = `scale(${currentZoom / 100})`;
-
-  // Track last opened for copy
-  modal.dataset.activeId = artifact.id;
-
-  modal.showModal();
-}
-
-function closeModal() {
-  const modal = document.getElementById("artifactModal");
-  if (modal.open) modal.close();
-}
-
-function setZoom(val) {
-  const modal = document.getElementById("artifactModal");
-  const img = document.getElementById("modalImg");
-  const zoomRange = document.getElementById("zoomRange");
-  const zoomLabel = document.getElementById("zoomLabel");
-
-  currentZoom = Math.max(50, Math.min(300, val));
-  zoomRange.value = String(currentZoom);
-  zoomLabel.textContent = `${currentZoom}%`;
-  img.style.transform = `scale(${currentZoom / 100})`;
-}
-
-/**
- * =========================
  * FILTERS
  * =========================
  */
@@ -231,6 +171,53 @@ function applyFilters() {
 
 /**
  * =========================
+ * MODAL: IMAGE PREVIEW + ZOOM
+ * =========================
+ */
+let currentZoom = 100;
+
+function openModal(artifact) {
+  const modal = document.getElementById("artifactModal");
+  const title = document.getElementById("modalTitle");
+  const meta = document.getElementById("modalMeta");
+  const img = document.getElementById("modalImg");
+  const caption = document.getElementById("modalCaption");
+  const zoomRange = document.getElementById("zoomRange");
+  const zoomLabel = document.getElementById("zoomLabel");
+
+  title.textContent = artifact.title;
+  meta.textContent = `${artifact.id} • Type: ${artifact.type} • Tags: ${artifact.tags.join(", ")}`;
+  img.src = artifact.src;
+  img.alt = `${artifact.title} preview`;
+  caption.textContent = artifact.caption;
+
+  currentZoom = 100;
+  zoomRange.value = String(currentZoom);
+  zoomLabel.textContent = `${currentZoom}%`;
+  img.style.transform = `scale(${currentZoom / 100})`;
+
+  modal.dataset.activeId = artifact.id;
+  modal.showModal();
+}
+
+function closeModal() {
+  const modal = document.getElementById("artifactModal");
+  if (modal.open) modal.close();
+}
+
+function setZoom(val) {
+  const img = document.getElementById("modalImg");
+  const zoomRange = document.getElementById("zoomRange");
+  const zoomLabel = document.getElementById("zoomLabel");
+
+  currentZoom = Math.max(50, Math.min(300, val));
+  zoomRange.value = String(currentZoom);
+  zoomLabel.textContent = `${currentZoom}%`;
+  img.style.transform = `scale(${currentZoom / 100})`;
+}
+
+/**
+ * =========================
  * VALIDATION
  * =========================
  */
@@ -238,33 +225,29 @@ function validateCode(userRaw) {
   const user = NORMALIZE_INPUT(userRaw);
   const target = SECRET_CODE;
 
-  // For user experience, allow case-insensitive + ignore spaces/symbols
   if (!user) {
-    setResult("bad", `⚠️ <strong>Enter a code</strong> <span class="muted">— alphanumeric only.</span>`);
+    setResult("bad", `⚠️ <strong>Enter a code.</strong> <span class="muted">Alphanumeric only.</span>`);
     return;
   }
 
-  // Option: show length mismatch explicitly but still give mismatch count
-  const mismatches = countPositionalMismatches(user, target);
+  const mismatches = countMismatchesPositional(user, target);
 
   if (user === target) {
     setResult("ok", `✅ <strong>Access granted.</strong> <span class="muted">Code verified.</span>`);
-    // Optional: reveal next-step content
-    // document.body.dataset.unlocked = "true";
     return;
   }
 
-  // Provide structured feedback without leaking the code
-  const lenNote = user.length !== target.length
-    ? `<span class="kpi">Length off by ${Math.abs(user.length - target.length)}</span>`
-    : `<span class="kpi">Length OK</span>`;
+  const lengthDelta = Math.abs(user.length - target.length);
+  const lengthNote = lengthDelta === 0
+    ? `<span class="kpi">Length OK</span>`
+    : `<span class="kpi">Length off by ${lengthDelta}</span>`;
 
   setResult(
     "bad",
     `❌ <strong>Not quite.</strong>
      <span class="kpi">${mismatches} wrong</span>
-     ${lenNote}
-     <span class="muted">Try again.</span>`
+     ${lengthNote}
+     <span class="muted">Refine and resubmit.</span>`
   );
 }
 
@@ -274,22 +257,18 @@ function validateCode(userRaw) {
  * =========================
  */
 function init() {
-  // Render initial grid
   renderArtifacts(ARTIFACTS);
 
-  // Filters
   document.getElementById("searchInput").addEventListener("input", applyFilters);
   document.getElementById("typeFilter").addEventListener("change", applyFilters);
 
-  // Hints panel
   const hintPanel = document.getElementById("hintPanel");
   const toggleHintsBtn = document.getElementById("toggleHintsBtn");
   toggleHintsBtn.addEventListener("click", () => {
-    const isHidden = hintPanel.classList.toggle("is-hidden");
-    toggleHintsBtn.setAttribute("aria-pressed", String(!isHidden));
+    const nowHidden = hintPanel.classList.toggle("is-hidden");
+    toggleHintsBtn.setAttribute("aria-pressed", String(!nowHidden));
   });
 
-  // Contrast mode
   const toggleContrastBtn = document.getElementById("toggleContrastBtn");
   toggleContrastBtn.addEventListener("click", () => {
     document.documentElement.classList.toggle("high-contrast");
@@ -297,32 +276,25 @@ function init() {
     toggleContrastBtn.setAttribute("aria-pressed", String(enabled));
   });
 
-  // Form submission
   const form = document.getElementById("codeForm");
   const input = document.getElementById("codeInput");
+
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     validateCode(input.value);
   });
 
-  // Reset
   document.getElementById("resetBtn").addEventListener("click", () => {
     input.value = "";
-    setResult("", "");
+    setResult("", `ℹ️ <span class="muted">Open artifacts, identify the correct one, then submit the code.</span>`);
     input.focus();
   });
 
-  // Modal controls
+  // Modal wiring
   document.getElementById("closeModalBtn").addEventListener("click", closeModal);
-  document.getElementById("artifactModal").addEventListener("click", (e) => {
-    // Click outside content closes
-    const modal = document.getElementById("artifactModal");
-    const rect = modal.getBoundingClientRect();
-    const inDialog =
-      e.clientX >= rect.left && e.clientX <= rect.right &&
-      e.clientY >= rect.top && e.clientY <= rect.bottom;
-    // If click is on backdrop, close. (Native dialog dispatch: click often comes from inside)
-    // We'll only close when target is dialog itself.
+
+  const modal = document.getElementById("artifactModal");
+  modal.addEventListener("click", (e) => {
     if (e.target === modal) closeModal();
   });
 
@@ -334,17 +306,15 @@ function init() {
   document.getElementById("zoomOutBtn").addEventListener("click", () => setZoom(currentZoom - 10));
 
   document.getElementById("copyArtifactIdBtn").addEventListener("click", async () => {
-    const modal = document.getElementById("artifactModal");
     const id = modal.dataset.activeId || "";
     try {
       await navigator.clipboard.writeText(id);
-      setResult("", `📋 <strong>Copied.</strong> <span class="muted">Artifact ID ${escapeHtml(id)} copied to clipboard.</span>`);
+      setResult("", `📋 <strong>Copied.</strong> <span class="muted">Artifact ID ${escapeHtml(id)} copied.</span>`);
     } catch {
-      setResult("bad", `⚠️ <strong>Copy failed.</strong> <span class="muted">Your browser blocked clipboard access.</span>`);
+      setResult("bad", `⚠️ <strong>Copy failed.</strong> <span class="muted">Clipboard access blocked.</span>`);
     }
   });
 
-  // Initial message
   setResult("", `ℹ️ <span class="muted">Open artifacts, identify the correct one, then submit the code.</span>`);
 }
 

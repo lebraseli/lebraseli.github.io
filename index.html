@@ -1,111 +1,192 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>The Archive</title>
-  <meta name="description" content="The Archive — a single artifact holds the key." />
-  <link rel="stylesheet" href="./styles.css" />
-</head>
-<body>
-  <div id="app" class="app">
-    <!-- Top bar -->
-    <header class="topbar" role="banner">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>The Archive</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+
+  <body>
+    <header class="topbar">
       <div class="brand">
         <div class="brand__icon" aria-hidden="true">🧭</div>
         <div class="brand__text">
           <div class="brand__title">The Archive</div>
-          <div class="brand__sub">One artifact holds the key.</div>
+          <div class="brand__subtitle">One artifact. One sequence. One way through.</div>
         </div>
       </div>
 
       <div class="topbar__actions">
-        <button id="btnHints" class="chip" type="button" aria-haspopup="dialog" aria-controls="hintsModal">
-          Hints
-        </button>
-        <button id="btnContrast" class="chip" type="button" aria-pressed="false">
-          High Contrast
-        </button>
+        <button id="btnHints" class="btn btn--ghost" type="button">Hints</button>
+        <button id="btnContrast" class="btn btn--ghost" type="button" aria-pressed="false">High Contrast</button>
       </div>
     </header>
 
-    <!-- Main -->
-    <main class="main" role="main">
-      <section class="card hero">
-        <h1 class="hero__title">Mission Brief</h1>
-        <p class="hero__lead">
-          You have one piece of evidence. Your objective is to identify what it represents and advance the sequence.
-        </p>
+    <main class="shell">
+      <!-- STAGE 1: "AI CHECK" DESCRIPTION GATE -->
+      <section id="stage-ai" class="card card--hero" aria-labelledby="aiTitle">
+        <div class="card__head">
+          <h1 id="aiTitle">Mission Brief</h1>
+          <p class="muted">
+            You do not have the physical copy. Your first task is to <strong>describe what you see</strong>.
+            If your description is plausible, the archive will unlock the next prompt.
+          </p>
+        </div>
 
-        <div class="rules">
-          <div class="rule">
-            <span class="rule__tag">Scope</span>
-            <span class="rule__text">Single evidence item is in play.</span>
+        <div class="split">
+          <div class="pane">
+            <div class="pane__title">
+              Evidence
+              <span class="pill">E-001</span>
+            </div>
+
+            <figure class="evidence">
+              <img
+                src="./assets/island-water.png"
+                alt="Evidence image"
+                loading="eager"
+                decoding="async"
+              />
+              <figcaption class="muted">
+                Open and zoom. A hidden sequence is present, but it’s not announced.
+              </figcaption>
+            </figure>
           </div>
-          <div class="rule">
-            <span class="rule__tag">Input</span>
-            <span class="rule__text">Submit your best interpretation first.</span>
-          </div>
-          <div class="rule">
-            <span class="rule__tag">Flow</span>
-            <span class="rule__text">You will be prompted for exact entries later.</span>
+
+          <div class="pane">
+            <div class="pane__title">
+              Verification
+              <span class="pill pill--soft">Local</span>
+            </div>
+
+            <label class="field">
+              <span class="field__label">Describe the evidence</span>
+              <textarea
+                id="aiInput"
+                class="input textarea"
+                rows="7"
+                placeholder="Write what you think the image shows. Be specific."
+                autocomplete="off"
+                spellcheck="false"
+              ></textarea>
+              <span class="field__hint">This is a UX gate. No external calls.</span>
+            </label>
+
+            <div class="row">
+              <button id="aiValidate" class="btn btn--primary" type="button">Run AI check</button>
+              <button id="aiClear" class="btn btn--ghost" type="button">Clear</button>
+            </div>
+
+            <div id="aiResult" class="result" aria-live="polite"></div>
+
+            <div class="divider"></div>
+
+            <details class="details">
+              <summary>How the “AI check” works</summary>
+              <p class="muted">
+                It’s a deterministic semantic scorer: it requires multiple independent concepts
+                (water + islands + hidden sequence cues) and rejects repetitive / low-effort strings.
+              </p>
+            </details>
           </div>
         </div>
       </section>
 
-      <section class="card evidence">
-        <div class="evidence__header">
-          <h2 class="evidence__title">Evidence</h2>
-          <div class="evidence__meta">Open, zoom, and inspect.</div>
+      <!-- STAGE 2: ENTER THE ISLAND/WATER CODE -->
+      <section id="stage-code1" class="card hidden" aria-labelledby="code1Title">
+        <div class="card__head">
+          <h2 id="code1Title">Submit the sequence</h2>
+          <p class="muted">
+            Enter what you believe the sequence is. Capitalization doesn’t matter. Spaces/punctuation are ignored.
+          </p>
         </div>
 
-        <figure class="evidence__figure">
-          <a class="evidence__zoom" href="./assets/island-water.png" target="_blank" rel="noopener">
-            <img
-              src="./assets/island-water.png"
-              alt="Aerial ocean surface with many small islands"
-              loading="eager"
-              draggable="false"
-            />
-          </a>
-          <figcaption class="evidence__caption">
-            Island/Water evidence. Click to open in a new tab for full-resolution inspection.
-          </figcaption>
-        </figure>
+        <div class="entry">
+          <input
+            id="code1Input"
+            class="input"
+            type="text"
+            inputmode="text"
+            autocomplete="off"
+            placeholder="Enter sequence"
+          />
+          <button id="code1Btn" class="btn btn--primary" type="button">Validate</button>
+        </div>
+
+        <div id="code1Feedback" class="feedback" aria-live="polite"></div>
       </section>
 
-      <!-- Stage container (swapped by JS) -->
-      <section id="stageHost" class="card stage" aria-live="polite"></section>
+      <!-- STAGE 3: BLINKING SCREEN + INVISIBLE PASSWORD CAPTURE -->
+      <section id="stage-blink" class="blink hidden" aria-hidden="true">
+        <div class="blink__overlay">
+          <!-- invisible full-screen input that captures keyboard -->
+          <input
+            id="blinkInput"
+            class="blink__input"
+            type="password"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            aria-label="Hidden input"
+          />
+          <div class="blink__hint" aria-hidden="true"></div>
+        </div>
+      </section>
 
-      <footer class="footer">
-        <span>Static site. No tracking. No external calls.</span>
+      <!-- STAGE 4: ORIGAMI WORD (AUTO IN/OUT), THEN WAIT FOR 1324 AGAIN -->
+      <section id="stage-origami" class="origami hidden" aria-hidden="true">
+        <div class="origami__canvas">
+          <div id="origamiWord" class="origami__word">Origami</div>
+          <input
+            id="origamiInput"
+            class="origami__input"
+            type="password"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            aria-label="Hidden input"
+          />
+        </div>
+      </section>
+
+      <!-- STAGE 5: FINAL ENTRY (BURNT MARKS) -->
+      <section id="stage-code2" class="card hidden" aria-labelledby="code2Title">
+        <div class="card__head">
+          <h2 id="code2Title">Final Entry</h2>
+          <p class="muted">
+            Enter the next sequence.
+          </p>
+        </div>
+
+        <div class="entry">
+          <input
+            id="code2Input"
+            class="input"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="Enter sequence"
+          />
+          <button id="code2Btn" class="btn btn--primary" type="button">Validate</button>
+        </div>
+
+        <div id="code2Feedback" class="feedback" aria-live="polite"></div>
+      </section>
+
+      <!-- STAGE 6: COMPLETE -->
+      <section id="stage-done" class="card hidden" aria-labelledby="doneTitle">
+        <div class="card__head">
+          <h2 id="doneTitle">Access Granted</h2>
+          <p class="muted">Proceed.</p>
+        </div>
+      </section>
+
+      <footer class="footer muted">
+        Static site. No tracking. No external calls.
       </footer>
     </main>
-  </div>
 
-  <!-- Toast -->
-  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true">
-    <div id="toastText" class="toast__text">TRY AGAIN</div>
-  </div>
+    <div id="toast" class="toast" aria-live="polite" aria-atomic="true"></div>
 
-  <!-- Full-screen flasher overlay -->
-  <div id="flashOverlay" class="flash" aria-hidden="true"></div>
-
-  <!-- Hints modal -->
-  <dialog id="hintsModal" class="modal" aria-label="Hints">
-    <div class="modal__header">
-      <div class="modal__title">Hints</div>
-      <button id="btnCloseHints" class="modal__close" type="button">✕</button>
-    </div>
-    <div class="modal__body">
-      <ul class="hintlist">
-        <li>Start by describing what the evidence is, not what it “contains.”</li>
-        <li>Zoom in. Look for patterns that repeat.</li>
-        <li>Later steps accept mixed capitalization and ignore spaces/punctuation.</li>
-      </ul>
-    </div>
-  </dialog>
-
-  <script src="./app.js"></script>
-</body>
+    <script src="./app.js"></script>
+  </body>
 </html>

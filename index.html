@@ -3,151 +3,106 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="color-scheme" content="light dark" />
   <title>The Archive</title>
-  <meta name="description" content="One artifact holds the key." />
+  <meta name="description" content="The Archive — a single artifact holds the key." />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <div class="brand__mark" aria-hidden="true">⛵</div>
-      <div class="brand__text">
-        <div class="brand__title">The Archive</div>
-        <div class="brand__subtitle">One artifact holds the key.</div>
-      </div>
-    </div>
-
-    <div class="topbar__actions">
-      <button id="toggleHintsBtn" class="btn btn--ghost" type="button" aria-pressed="false">
-        Hints
-      </button>
-      <button id="toggleContrastBtn" class="btn btn--ghost" type="button" aria-pressed="false">
-        High Contrast
-      </button>
-    </div>
-  </header>
-
-  <main class="container">
-    <section class="intro card">
-      <h1>Mission Brief</h1>
-      <p class="muted">
-        Your objective is to extract an alphanumeric code from a single piece of evidence.
-        Submit the code to unlock the next instruction.
-      </p>
-
-      <div class="rulebox" role="note" aria-label="Rules">
-        <div class="rulebox__row">
-          <span class="pill">Scope</span>
-          <span>Only <strong>one</strong> evidence item is in play.</span>
-        </div>
-        <div class="rulebox__row">
-          <span class="pill">Input</span>
-          <span>Code is <strong>alphanumeric</strong>. No spaces.</span>
-        </div>
-        <div class="rulebox__row">
-          <span class="pill">Feedback</span>
-          <span>Validation reports <strong>how many characters are wrong</strong>.</span>
+  <div id="app" class="app">
+    <!-- Top bar -->
+    <header class="topbar" role="banner">
+      <div class="brand">
+        <div class="brand__icon" aria-hidden="true">🧭</div>
+        <div class="brand__text">
+          <div class="brand__title">The Archive</div>
+          <div class="brand__sub">One artifact holds the key.</div>
         </div>
       </div>
-    </section>
 
-    <section class="evidence">
-      <div class="sectionHeader">
-        <h2>Evidence</h2>
-        <span class="muted">Open, zoom, and extract the hidden sequence.</span>
+      <div class="topbar__actions">
+        <button id="btnHints" class="chip" type="button" aria-haspopup="dialog" aria-controls="hintsModal">
+          Hints
+        </button>
+        <button id="btnContrast" class="chip" type="button" aria-pressed="false">
+          High Contrast
+        </button>
       </div>
+    </header>
 
-      <div id="evidenceCardHost" class="grid grid--single"></div>
+    <!-- Main -->
+    <main class="main" role="main">
+      <section class="card hero">
+        <h1 class="hero__title">Mission Brief</h1>
+        <p class="hero__lead">
+          You have one piece of evidence. Your objective is to identify what it represents and advance the sequence.
+        </p>
 
-      <div id="hintPanel" class="hintPanel card is-hidden" aria-live="polite">
-        <h3>Hints (Optional)</h3>
-        <ul class="hintList">
-          <li>Assume the code is present, but intentionally low-salience.</li>
-          <li>Use zoom and distance strategically.</li>
-          <li>Confirm character order before submitting.</li>
-          <li>Do not overfit to decorative elements—stay systematic.</li>
-        </ul>
-      </div>
-    </section>
-
-    <section class="submission card">
-      <h2>Submit Code</h2>
-
-      <form id="codeForm" novalidate>
-        <div class="formRow">
-          <label for="codeInput" class="label">Code</label>
-          <input
-            id="codeInput"
-            name="code"
-            type="text"
-            inputmode="latin"
-            autocomplete="off"
-            autocapitalize="characters"
-            spellcheck="false"
-            placeholder="Enter the extracted alphanumeric code"
-            aria-describedby="codeHelp"
-            required
-          />
-          <div id="codeHelp" class="help muted">
-            Case-insensitive. Spaces and punctuation are ignored.
+        <div class="rules">
+          <div class="rule">
+            <span class="rule__tag">Scope</span>
+            <span class="rule__text">Single evidence item is in play.</span>
+          </div>
+          <div class="rule">
+            <span class="rule__tag">Input</span>
+            <span class="rule__text">Submit your best interpretation first.</span>
+          </div>
+          <div class="rule">
+            <span class="rule__tag">Flow</span>
+            <span class="rule__text">You will be prompted for exact entries later.</span>
           </div>
         </div>
+      </section>
 
-        <div class="formActions">
-          <button class="btn btn--primary" type="submit">Validate</button>
-          <button id="resetBtn" class="btn btn--ghost" type="button">Reset</button>
+      <section class="card evidence">
+        <div class="evidence__header">
+          <h2 class="evidence__title">Evidence</h2>
+          <div class="evidence__meta">Open, zoom, and inspect.</div>
         </div>
-      </form>
 
-      <div id="result" class="result" role="status" aria-live="assertive"></div>
+        <figure class="evidence__figure">
+          <a class="evidence__zoom" href="./assets/island-water.png" target="_blank" rel="noopener">
+            <img
+              src="./assets/island-water.png"
+              alt="Aerial ocean surface with many small islands"
+              loading="eager"
+              draggable="false"
+            />
+          </a>
+          <figcaption class="evidence__caption">
+            Island/Water evidence. Click to open in a new tab for full-resolution inspection.
+          </figcaption>
+        </figure>
+      </section>
 
-      <div class="divider"></div>
+      <!-- Stage container (swapped by JS) -->
+      <section id="stageHost" class="card stage" aria-live="polite"></section>
 
-      <details class="faq">
-        <summary>How feedback works</summary>
-        <div class="faq__body">
-          <p class="muted">
-            The validator compares your entry to the correct code character-by-character.
-            You’ll see how many positions differ (plus any length difference) so you can iterate
-            without the page disclosing the answer.
-          </p>
-        </div>
-      </details>
-    </section>
+      <footer class="footer">
+        <span>Static site. No tracking. No external calls.</span>
+      </footer>
+    </main>
+  </div>
 
-    <footer class="footer muted">
-      <span>Static site. No tracking. No external calls.</span>
-    </footer>
-  </main>
+  <!-- Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true">
+    <div id="toastText" class="toast__text">TRY AGAIN</div>
+  </div>
 
-  <dialog id="evidenceModal" class="modal">
+  <!-- Full-screen flasher overlay -->
+  <div id="flashOverlay" class="flash" aria-hidden="true"></div>
+
+  <!-- Hints modal -->
+  <dialog id="hintsModal" class="modal" aria-label="Hints">
     <div class="modal__header">
-      <div class="modal__titleWrap">
-        <div id="modalTitle" class="modal__title">Evidence</div>
-        <div id="modalMeta" class="modal__meta muted"></div>
-      </div>
-      <button id="closeModalBtn" class="btn btn--ghost" type="button" aria-label="Close">
-        ✕
-      </button>
+      <div class="modal__title">Hints</div>
+      <button id="btnCloseHints" class="modal__close" type="button">✕</button>
     </div>
-
     <div class="modal__body">
-      <figure class="modal__figure">
-        <img id="modalImg" alt="" />
-        <figcaption id="modalCaption" class="muted"></figcaption>
-      </figure>
-
-      <div class="modal__controls">
-        <button id="zoomOutBtn" class="btn btn--ghost" type="button">−</button>
-        <input id="zoomRange" type="range" min="50" max="350" value="100" />
-        <button id="zoomInBtn" class="btn btn--ghost" type="button">+</button>
-        <span id="zoomLabel" class="muted">100%</span>
-
-        <span class="spacer"></span>
-
-        <button id="copyEvidenceIdBtn" class="btn btn--ghost" type="button">Copy ID</button>
-      </div>
+      <ul class="hintlist">
+        <li>Start by describing what the evidence is, not what it “contains.”</li>
+        <li>Zoom in. Look for patterns that repeat.</li>
+        <li>Later steps accept mixed capitalization and ignore spaces/punctuation.</li>
+      </ul>
     </div>
   </dialog>
 

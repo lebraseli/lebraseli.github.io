@@ -1,237 +1,335 @@
-"use strict";
+/* =========================
+   The Archive — single-page flow (GitHub Pages friendly)
+   ========================= */
 
-/**
- * IMPORTANT SECURITY NOTE (blunt):
- * This is a static GitHub Pages site. Anyone can view app.js and read SECRET_CODE.
- * If you require real secrecy, you need server-side validation (Worker/Function).
- */
-const SECRET_CODE = "X47Y1ACGNJ";
+(() => {
+  // === CONFIG ===
+  const ISLAND_CODE = "X47Y1ACGNJ";
+  const OPERATOR_CODE = "1324";
+  const BURNT_CODE = "2357";
 
-const NORMALIZE_INPUT = (s) =>
-  (s || "")
-    .toUpperCase()
-    .replace(/\s+/g, "")
-    .replace(/[^A-Z0-9]/g, "");
+  // Flash pattern: 15 cycles of [white 1s, black 1s] = 30s total
+  const FLASH_CYCLES = 15;
+  const FLASH_STEP_MS = 1000;
 
-const EVIDENCE = {
-  id: "E-001",
-  title: "Island/Water Evidence",
-  type: "map",
-  tags: ["archipelago", "wavefield", "aerial"],
-  src: "./assets/island-water.png",
-  caption: "Single evidence tile. Use zoom to locate the embedded sequence.",
-  meta: "PNG • User-provided • High detail recommended",
-};
+  // === DOM ===
+  const stageHost = document.getElementById("stageHost");
+  const toast = document.getElementById("toast");
+  const toastText = document.getElementById("toastText");
+  const flashOverlay = document.getElementById("flashOverlay");
 
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, (m) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "\"": "&quot;",
-    "'": "&#39;"
-  }[m]));
-}
+  const btnHints = document.getElementById("btnHints");
+  const hintsModal = document.getElementById("hintsModal");
+  const btnCloseHints = document.getElementById("btnCloseHints");
+  const btnContrast = document.getElementById("btnContrast");
 
-function countMismatchesPositional(a, b) {
-  const minLen = Math.min(a.length, b.length);
-  let mismatches = 0;
-  for (let i = 0; i < minLen; i++) {
-    if (a[i] !== b[i]) mismatches++;
-  }
-  mismatches += Math.abs(a.length - b.length);
-  return mismatches;
-}
+  // === Helpers ===
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function setResult(kind, html) {
-  const el = document.getElementById("result");
-  el.classList.remove("result--ok", "result--bad");
-  if (kind === "ok") el.classList.add("result--ok");
-  if (kind === "bad") el.classList.add("result--bad");
-  el.innerHTML = html;
-}
-
-/**
- * Render single evidence card
- */
-function renderEvidence() {
-  const host = document.getElementById("evidenceCardHost");
-  host.innerHTML = "";
-
-  const card = document.createElement("button");
-  card.type = "button";
-  card.className = "artifact";
-  card.setAttribute("aria-label", `Open evidence ${EVIDENCE.title} (${EVIDENCE.id})`);
-
-  card.innerHTML = `
-    <img class="artifact__img" src="${escapeHtml(EVIDENCE.src)}" alt="" loading="lazy" />
-    <div class="artifact__body">
-      <div class="artifact__title">
-        <span>${escapeHtml(EVIDENCE.title)}</span>
-        <span class="badge">${escapeHtml(EVIDENCE.id)}</span>
-      </div>
-      <div class="tagrow">
-        ${EVIDENCE.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("")}
-      </div>
-      <div class="muted" style="font-size:13px;">${escapeHtml(EVIDENCE.caption)}</div>
-    </div>
-  `;
-
-  card.addEventListener("click", () => openModal(EVIDENCE));
-  host.appendChild(card);
-}
-
-/**
- * Modal: image preview + zoom
- */
-let currentZoom = 100;
-
-function openModal(item) {
-  const modal = document.getElementById("evidenceModal");
-  const title = document.getElementById("modalTitle");
-  const meta = document.getElementById("modalMeta");
-  const img = document.getElementById("modalImg");
-  const caption = document.getElementById("modalCaption");
-  const zoomRange = document.getElementById("zoomRange");
-  const zoomLabel = document.getElementById("zoomLabel");
-
-  title.textContent = item.title;
-  meta.textContent = `${item.id} • ${item.type} • Tags: ${item.tags.join(", ")}`;
-  img.src = item.src;
-  img.alt = `${item.title} preview`;
-  caption.textContent = item.caption;
-
-  currentZoom = 100;
-  zoomRange.value = String(currentZoom);
-  zoomLabel.textContent = `${currentZoom}%`;
-  img.style.transform = `scale(${currentZoom / 100})`;
-
-  modal.dataset.activeId = item.id;
-  modal.showModal();
-}
-
-function closeModal() {
-  const modal = document.getElementById("evidenceModal");
-  if (modal.open) modal.close();
-}
-
-function setZoom(val) {
-  const img = document.getElementById("modalImg");
-  const zoomRange = document.getElementById("zoomRange");
-  const zoomLabel = document.getElementById("zoomLabel");
-
-  currentZoom = Math.max(50, Math.min(350, val));
-  zoomRange.value = String(currentZoom);
-  zoomLabel.textContent = `${currentZoom}%`;
-  img.style.transform = `scale(${currentZoom / 100})`;
-}
-
-/**
- * Validation + success instructions (your updated narrative)
- */
-function validateCode(userRaw) {
-  const user = NORMALIZE_INPUT(userRaw);
-  const target = SECRET_CODE;
-
-  if (!user) {
-    setResult("bad", `⚠️ <strong>Code required.</strong> <span class="muted">Enter the extracted alphanumeric sequence.</span>`);
-    return;
+  // Normalize: remove spaces + punctuation, keep only A-Z0-9, uppercase.
+  function normalizeEntry(raw) {
+    return (raw || "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
   }
 
-  const mismatches = countMismatchesPositional(user, target);
+  function showToast(message = "TRY AGAIN", durationMs = 1200) {
+    toastText.textContent = message;
+    toast.classList.add("is-on");
+    window.clearTimeout(showToast._t);
+    showToast._t = window.setTimeout(() => toast.classList.remove("is-on"), durationMs);
+  }
 
-  if (user === target) {
-    setResult("ok", `
-      ✅ <strong>Verified.</strong>
-      <span class="muted">Proceed to the next stage.</span>
-      <div class="divider" style="margin:12px 0;"></div>
-      <div>
-        <div style="font-weight:700; margin-bottom:6px;">Next instruction (read carefully):</div>
-        <div class="muted" style="line-height:1.55;">
-          You will be given a separate parchment-style page with a horizontal number line labeled <strong>0–9</strong>,
-          including tick marks. The parchment edge will be <strong>burned</strong> at specific positions along that line.
-          <br/><br/>
-          Interpret each burn as a selected digit. <strong>Order does not matter</strong>—collect the digits you find and enter them when prompted on the next page.
-        </div>
+  function setStage(html) {
+    stageHost.innerHTML = html;
+  }
+
+  function focusFirstInput() {
+    const el = stageHost.querySelector("input");
+    if (el) el.focus();
+  }
+
+  function setHighContrast(on) {
+    document.body.classList.toggle("hicontrast", on);
+    btnContrast.setAttribute("aria-pressed", String(on));
+  }
+
+  // === Modal controls ===
+  btnHints.addEventListener("click", () => hintsModal.showModal());
+  btnCloseHints.addEventListener("click", () => hintsModal.close());
+  hintsModal.addEventListener("click", (e) => {
+    const rect = hintsModal.getBoundingClientRect();
+    const inDialog =
+      e.clientX >= rect.left && e.clientX <= rect.right &&
+      e.clientY >= rect.top && e.clientY <= rect.bottom;
+    if (!inDialog) hintsModal.close();
+  });
+
+  // === High contrast toggle ===
+  let hc = false;
+  btnContrast.addEventListener("click", () => {
+    hc = !hc;
+    setHighContrast(hc);
+  });
+
+  // === Stages ===
+  function stage1_interpretation() {
+    setStage(`
+      <h3>Step 1</h3>
+      <p>
+        Describe what you believe this evidence represents. Be specific.
+      </p>
+
+      <div class="formrow">
+        <input id="interpretation" class="input" type="text" inputmode="text" autocomplete="off"
+          placeholder="What is this, in plain terms?" aria-label="Interpretation" />
+        <button id="btnContinue1" class="btn" type="button">Continue</button>
+      </div>
+
+      <div class="smallnote">
+        Tip: If you're unsure, consult an AI tool to validate whether your interpretation is meaningful.
       </div>
     `);
-    return;
+
+    const input = stageHost.querySelector("#interpretation");
+    const btn = stageHost.querySelector("#btnContinue1");
+
+    const proceed = () => {
+      const v = (input.value || "").trim();
+      // Gate lightly: require some effort without mentioning “code”
+      if (v.length < 6) {
+        showToast("ADD DETAIL");
+        return;
+      }
+      stage2_codeEntry();
+    };
+
+    btn.addEventListener("click", proceed);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") proceed();
+    });
+
+    focusFirstInput();
   }
 
-  const lengthDelta = Math.abs(user.length - target.length);
-  const lengthNote = lengthDelta === 0
-    ? `<span class="kpi">Length OK</span>`
-    : `<span class="kpi">Length off by ${lengthDelta}</span>`;
+  function stage2_codeEntry() {
+    setStage(`
+      <h3>Step 2</h3>
+      <p>
+        Submit what you extracted from the evidence.
+      </p>
 
-  setResult(
-    "bad",
-    `❌ <strong>Incorrect.</strong>
-     <span class="kpi">${mismatches} wrong</span>
-     ${lengthNote}
-     <span class="muted">Re-check the evidence and resubmit.</span>`
-  );
-}
+      <div class="formrow">
+        <input id="codeEntry" class="input" type="text" inputmode="text" autocomplete="off"
+          placeholder="Enter your extracted sequence" aria-label="Extracted sequence" />
+        <button id="btnValidate" class="btn" type="button">Validate</button>
+        <button id="btnReset" class="btn secondary" type="button">Reset</button>
+      </div>
 
-/**
- * Boot
- */
-function init() {
-  renderEvidence();
+      <div class="smallnote">
+        Case-insensitive. Spaces and punctuation are ignored.
+      </div>
+    `);
 
-  const hintPanel = document.getElementById("hintPanel");
-  const toggleHintsBtn = document.getElementById("toggleHintsBtn");
-  toggleHintsBtn.addEventListener("click", () => {
-    const nowHidden = hintPanel.classList.toggle("is-hidden");
-    toggleHintsBtn.setAttribute("aria-pressed", String(!nowHidden));
-  });
+    const input = stageHost.querySelector("#codeEntry");
+    const btnValidate = stageHost.querySelector("#btnValidate");
+    const btnReset = stageHost.querySelector("#btnReset");
 
-  const toggleContrastBtn = document.getElementById("toggleContrastBtn");
-  toggleContrastBtn.addEventListener("click", () => {
-    document.documentElement.classList.toggle("high-contrast");
-    const enabled = document.documentElement.classList.contains("high-contrast");
-    toggleContrastBtn.setAttribute("aria-pressed", String(enabled));
-  });
+    const validate = async () => {
+      const normalized = normalizeEntry(input.value);
+      if (normalized !== ISLAND_CODE) {
+        showToast("TRY AGAIN");
+        return;
+      }
 
-  const form = document.getElementById("codeForm");
-  const input = document.getElementById("codeInput");
+      // Correct → flash sequence (30s), then operator gate
+      input.blur();
+      await runFlashSequence();
+      stage3_operatorGate1();
+    };
 
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    validateCode(input.value);
-  });
+    btnValidate.addEventListener("click", validate);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") validate();
+    });
+    btnReset.addEventListener("click", () => {
+      input.value = "";
+      input.focus();
+    });
 
-  document.getElementById("resetBtn").addEventListener("click", () => {
-    input.value = "";
-    setResult("", `ℹ️ <span class="muted">Open the evidence, extract the sequence, then submit it.</span>`);
-    input.focus();
-  });
+    focusFirstInput();
+  }
 
-  // Modal wiring
-  document.getElementById("closeModalBtn").addEventListener("click", closeModal);
+  async function runFlashSequence() {
+    // Disable interactions visually
+    stageHost.querySelectorAll("button,input").forEach(el => el.disabled = true);
 
-  const modal = document.getElementById("evidenceModal");
-  modal.addEventListener("click", (e) => {
-    if (e.target === modal) closeModal();
-  });
+    // Ensure overlay is above everything
+    flashOverlay.classList.add("is-on");
 
-  document.getElementById("zoomRange").addEventListener("input", (e) => {
-    setZoom(parseInt(e.target.value, 10));
-  });
+    for (let i = 0; i < FLASH_CYCLES; i++) {
+      // White 1s
+      flashOverlay.style.background = "#FFFFFF";
+      flashOverlay.classList.add("is-on");
+      await sleep(FLASH_STEP_MS);
 
-  document.getElementById("zoomInBtn").addEventListener("click", () => setZoom(currentZoom + 10));
-  document.getElementById("zoomOutBtn").addEventListener("click", () => setZoom(currentZoom - 10));
-
-  document.getElementById("copyEvidenceIdBtn").addEventListener("click", async () => {
-    const id = modal.dataset.activeId || "";
-    try {
-      await navigator.clipboard.writeText(id);
-      setResult("", `📋 <strong>Copied.</strong> <span class="muted">Evidence ID ${escapeHtml(id)} copied.</span>`);
-    } catch {
-      setResult("bad", `⚠️ <strong>Copy failed.</strong> <span class="muted">Clipboard access blocked.</span>`);
+      // Black 1s
+      flashOverlay.style.background = "#000000";
+      await sleep(FLASH_STEP_MS);
     }
-  });
 
-  setResult("", `ℹ️ <span class="muted">Open the evidence, extract the sequence, then submit it.</span>`);
-}
+    // Remove overlay
+    flashOverlay.classList.remove("is-on");
+    flashOverlay.style.background = "#FFFFFF";
+  }
 
-init();
+  function stage3_operatorGate1() {
+    setStage(`
+      <h3>Operator Gate</h3>
+      <p>
+        Awaiting authorization.
+      </p>
+
+      <div class="formrow">
+        <input id="op1" class="input" type="password" inputmode="numeric" autocomplete="off"
+          placeholder="••••" aria-label="Operator authorization" />
+        <button id="btnOp1" class="btn" type="button">Submit</button>
+      </div>
+
+      <div class="smallnote">
+        No feedback is provided for incorrect entries.
+      </div>
+    `);
+
+    const input = stageHost.querySelector("#op1");
+    const btn = stageHost.querySelector("#btnOp1");
+
+    const submit = () => {
+      const v = normalizeEntry(input.value);
+      if (v === OPERATOR_CODE) {
+        stage3_showOrigami();
+      } else {
+        // Intentionally silent (do nothing)
+        input.value = "";
+      }
+    };
+
+    btn.addEventListener("click", submit);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") submit();
+    });
+
+    focusFirstInput();
+  }
+
+  function stage3_showOrigami() {
+    setStage(`
+      <h3>Message</h3>
+      <div class="divider"></div>
+      <div style="display:grid; place-items:center; padding: 24px 8px;">
+        <div style="font-size: 40px; font-weight: 950; letter-spacing: -.03em;">Origami</div>
+      </div>
+      <div class="divider"></div>
+      <div class="formrow">
+        <button id="btnContinueAfterOrigami" class="btn" type="button">Continue</button>
+      </div>
+    `);
+
+    stageHost.querySelector("#btnContinueAfterOrigami").addEventListener("click", () => {
+      stage4_operatorGate2();
+    });
+  }
+
+  function stage4_operatorGate2() {
+    setStage(`
+      <h3>Operator Gate</h3>
+      <p>
+        Awaiting authorization.
+      </p>
+
+      <div class="formrow">
+        <input id="op2" class="input" type="password" inputmode="numeric" autocomplete="off"
+          placeholder="••••" aria-label="Operator authorization" />
+        <button id="btnOp2" class="btn" type="button">Submit</button>
+      </div>
+
+      <div class="smallnote">
+        No feedback is provided for incorrect entries.
+      </div>
+    `);
+
+    const input = stageHost.querySelector("#op2");
+    const btn = stageHost.querySelector("#btnOp2");
+
+    const submit = () => {
+      const v = normalizeEntry(input.value);
+      if (v === OPERATOR_CODE) {
+        stage5_burntMarksCode();
+      } else {
+        // Silent
+        input.value = "";
+      }
+    };
+
+    btn.addEventListener("click", submit);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") submit();
+    });
+
+    focusFirstInput();
+  }
+
+  function stage5_burntMarksCode() {
+    setStage(`
+      <h3>Final Entry</h3>
+      <p>
+        Submit the sequence indicated by the burned marks.
+      </p>
+
+      <div class="formrow">
+        <input id="burnt" class="input" type="text" inputmode="numeric" autocomplete="off"
+          placeholder="Enter sequence" aria-label="Burned marks sequence" />
+        <button id="btnBurnt" class="btn" type="button">Validate</button>
+      </div>
+
+      <div class="smallnote">
+        Case-insensitive. Spaces and punctuation are ignored.
+      </div>
+    `);
+
+    const input = stageHost.querySelector("#burnt");
+    const btn = stageHost.querySelector("#btnBurnt");
+
+    const validate = () => {
+      const v = normalizeEntry(input.value);
+      if (v !== BURNT_CODE) {
+        showToast("TRY AGAIN");
+        return;
+      }
+      stage6_success();
+    };
+
+    btn.addEventListener("click", validate);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") validate();
+    });
+
+    focusFirstInput();
+  }
+
+  function stage6_success() {
+    setStage(`
+      <h3>Confirmed</h3>
+      <p>
+        Proceed.
+      </p>
+      <div class="divider"></div>
+      <div class="smallnote">
+        (End of current web flow.)
+      </div>
+    `);
+  }
+
+  // === Boot ===
+  stage1_interpretation();
+})();

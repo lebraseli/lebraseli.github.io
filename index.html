@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="light dark" />
-  <title>Archive Challenge</title>
-  <meta name="description" content="Six artifacts. One holds the key." />
+  <title>The Archive</title>
+  <meta name="description" content="One artifact holds the key." />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -14,7 +14,7 @@
       <div class="brand__mark" aria-hidden="true">⛵</div>
       <div class="brand__text">
         <div class="brand__title">The Archive</div>
-        <div class="brand__subtitle">Six artifacts. One holds the key.</div>
+        <div class="brand__subtitle">One artifact holds the key.</div>
       </div>
     </div>
 
@@ -32,58 +32,41 @@
     <section class="intro card">
       <h1>Mission Brief</h1>
       <p class="muted">
-        You have six artifacts. Five are noise. One contains a hidden alphanumeric code.
-        Identify the correct artifact, extract the code, and submit it below.
+        Your objective is to extract an alphanumeric code from a single piece of evidence.
+        Submit the code to unlock the next instruction.
       </p>
 
       <div class="rulebox" role="note" aria-label="Rules">
         <div class="rulebox__row">
-          <span class="pill">Rule</span>
-          <span>Only <strong>one</strong> artifact is actionable.</span>
+          <span class="pill">Scope</span>
+          <span>Only <strong>one</strong> evidence item is in play.</span>
         </div>
         <div class="rulebox__row">
-          <span class="pill">Rule</span>
+          <span class="pill">Input</span>
           <span>Code is <strong>alphanumeric</strong>. No spaces.</span>
         </div>
         <div class="rulebox__row">
-          <span class="pill">Rule</span>
-          <span>Validation is <strong>position-by-position</strong>.</span>
+          <span class="pill">Feedback</span>
+          <span>Validation reports <strong>how many characters are wrong</strong>.</span>
         </div>
       </div>
     </section>
 
-    <section class="artifacts">
-      <div class="artifacts__header">
-        <h2>Artifacts</h2>
-        <div class="filters">
-          <label class="search">
-            <span class="sr-only">Search artifacts</span>
-            <input id="searchInput" type="search" placeholder="Search by label or tag…" autocomplete="off" />
-          </label>
-
-          <label class="select">
-            <span class="sr-only">Filter by type</span>
-            <select id="typeFilter">
-              <option value="all">All types</option>
-              <option value="map">Maps</option>
-              <option value="photo">Photos</option>
-              <option value="scan">Scans</option>
-              <option value="diagram">Diagrams</option>
-              <option value="note">Notes</option>
-            </select>
-          </label>
-        </div>
+    <section class="evidence">
+      <div class="sectionHeader">
+        <h2>Evidence</h2>
+        <span class="muted">Open, zoom, and extract the hidden sequence.</span>
       </div>
 
-      <div id="artifactGrid" class="grid" aria-live="polite"></div>
+      <div id="evidenceCardHost" class="grid grid--single"></div>
 
       <div id="hintPanel" class="hintPanel card is-hidden" aria-live="polite">
         <h3>Hints (Optional)</h3>
         <ul class="hintList">
-          <li>One artifact is visually “busy” but contains an ordered sequence.</li>
-          <li>Try different viewing distances (or zoom levels).</li>
-          <li>Ignore content that looks like decoration or filler.</li>
-          <li>Verify the order. Don’t assume it’s a straight line.</li>
+          <li>Assume the code is present, but intentionally low-salience.</li>
+          <li>Use zoom and distance strategically.</li>
+          <li>Confirm character order before submitting.</li>
+          <li>Do not overfit to decorative elements—stay systematic.</li>
         </ul>
       </div>
     </section>
@@ -102,12 +85,12 @@
             autocomplete="off"
             autocapitalize="characters"
             spellcheck="false"
-            placeholder="Enter the alphanumeric code"
+            placeholder="Enter the extracted alphanumeric code"
             aria-describedby="codeHelp"
             required
           />
           <div id="codeHelp" class="help muted">
-            Tip: letters are case-insensitive. Spaces and punctuation are ignored.
+            Case-insensitive. Spaces and punctuation are ignored.
           </div>
         </div>
 
@@ -122,12 +105,12 @@
       <div class="divider"></div>
 
       <details class="faq">
-        <summary>How validation works</summary>
+        <summary>How feedback works</summary>
         <div class="faq__body">
           <p class="muted">
-            We compare your entry to the correct code character-by-character.
-            You’ll be told how many positions differ (plus any length difference),
-            so you can iterate without the site revealing the answer.
+            The validator compares your entry to the correct code character-by-character.
+            You’ll see how many positions differ (plus any length difference) so you can iterate
+            without the page disclosing the answer.
           </p>
         </div>
       </details>
@@ -138,10 +121,10 @@
     </footer>
   </main>
 
-  <dialog id="artifactModal" class="modal">
+  <dialog id="evidenceModal" class="modal">
     <div class="modal__header">
       <div class="modal__titleWrap">
-        <div id="modalTitle" class="modal__title">Artifact</div>
+        <div id="modalTitle" class="modal__title">Evidence</div>
         <div id="modalMeta" class="modal__meta muted"></div>
       </div>
       <button id="closeModalBtn" class="btn btn--ghost" type="button" aria-label="Close">
@@ -157,13 +140,13 @@
 
       <div class="modal__controls">
         <button id="zoomOutBtn" class="btn btn--ghost" type="button">−</button>
-        <input id="zoomRange" type="range" min="50" max="300" value="100" />
+        <input id="zoomRange" type="range" min="50" max="350" value="100" />
         <button id="zoomInBtn" class="btn btn--ghost" type="button">+</button>
         <span id="zoomLabel" class="muted">100%</span>
 
         <span class="spacer"></span>
 
-        <button id="copyArtifactIdBtn" class="btn btn--ghost" type="button">Copy ID</button>
+        <button id="copyEvidenceIdBtn" class="btn btn--ghost" type="button">Copy ID</button>
       </div>
     </div>
   </dialog>

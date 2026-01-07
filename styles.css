@@ -377,3 +377,15 @@ h3{ font-size: 16px; }
   --muted: rgba(255,255,255,0.78);
   --border: rgba(255,255,255,0.22);
 }
+
+.sectionHeader{
+  display:flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 16px 0 10px;
+}
+
+.grid--single{
+  grid-template-columns: minmax(0, 1fr);
+}

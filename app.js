@@ -1,335 +1,328 @@
-/* =========================
-   The Archive — single-page flow (GitHub Pages friendly)
-   ========================= */
+/* ====== CONFIG ====== */
+const CODE1 = "X47Y1ACGNJ"; // island/water code
+const PASS = "1324";        // operator pass
+const CODE2 = "2357";       // burnt marks code
 
-(() => {
-  // === CONFIG ===
-  const ISLAND_CODE = "X47Y1ACGNJ";
-  const OPERATOR_CODE = "1324";
-  const BURNT_CODE = "2357";
+/* ====== HELPERS ====== */
+function normalizeSequence(s) {
+  return (s || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
 
-  // Flash pattern: 15 cycles of [white 1s, black 1s] = 30s total
-  const FLASH_CYCLES = 15;
-  const FLASH_STEP_MS = 1000;
+function showToast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  window.clearTimeout(showToast._t);
+  showToast._t = window.setTimeout(() => el.classList.remove("show"), 2200);
+}
 
-  // === DOM ===
-  const stageHost = document.getElementById("stageHost");
-  const toast = document.getElementById("toast");
-  const toastText = document.getElementById("toastText");
-  const flashOverlay = document.getElementById("flashOverlay");
+function setVisible(id, visible) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle("hidden", !visible);
+}
 
-  const btnHints = document.getElementById("btnHints");
-  const hintsModal = document.getElementById("hintsModal");
-  const btnCloseHints = document.getElementById("btnCloseHints");
-  const btnContrast = document.getElementById("btnContrast");
+/* ====== “AI CHECK” (DETERMINISTIC SEMANTIC GATE) ======
+   Goal: reject low-effort (AAAAAA), require multiple independent concepts.
+*/
+function aiCheck(inputRaw) {
+  const raw = (inputRaw || "").trim();
 
-  // === Helpers ===
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-  // Normalize: remove spaces + punctuation, keep only A-Z0-9, uppercase.
-  function normalizeEntry(raw) {
-    return (raw || "")
-      .toUpperCase()
-      .replace(/[^A-Z0-9]/g, "");
+  // 1) Hard reject ultra-short / single-token / repeated char spam
+  if (raw.length < 28) {
+    return { ok: false, reason: "Too short. Describe the scene with more detail." };
   }
 
-  function showToast(message = "TRY AGAIN", durationMs = 1200) {
-    toastText.textContent = message;
-    toast.classList.add("is-on");
-    window.clearTimeout(showToast._t);
-    showToast._t = window.setTimeout(() => toast.classList.remove("is-on"), durationMs);
-  }
-
-  function setStage(html) {
-    stageHost.innerHTML = html;
-  }
-
-  function focusFirstInput() {
-    const el = stageHost.querySelector("input");
-    if (el) el.focus();
-  }
-
-  function setHighContrast(on) {
-    document.body.classList.toggle("hicontrast", on);
-    btnContrast.setAttribute("aria-pressed", String(on));
-  }
-
-  // === Modal controls ===
-  btnHints.addEventListener("click", () => hintsModal.showModal());
-  btnCloseHints.addEventListener("click", () => hintsModal.close());
-  hintsModal.addEventListener("click", (e) => {
-    const rect = hintsModal.getBoundingClientRect();
-    const inDialog =
-      e.clientX >= rect.left && e.clientX <= rect.right &&
-      e.clientY >= rect.top && e.clientY <= rect.bottom;
-    if (!inDialog) hintsModal.close();
-  });
-
-  // === High contrast toggle ===
-  let hc = false;
-  btnContrast.addEventListener("click", () => {
-    hc = !hc;
-    setHighContrast(hc);
-  });
-
-  // === Stages ===
-  function stage1_interpretation() {
-    setStage(`
-      <h3>Step 1</h3>
-      <p>
-        Describe what you believe this evidence represents. Be specific.
-      </p>
-
-      <div class="formrow">
-        <input id="interpretation" class="input" type="text" inputmode="text" autocomplete="off"
-          placeholder="What is this, in plain terms?" aria-label="Interpretation" />
-        <button id="btnContinue1" class="btn" type="button">Continue</button>
-      </div>
-
-      <div class="smallnote">
-        Tip: If you're unsure, consult an AI tool to validate whether your interpretation is meaningful.
-      </div>
-    `);
-
-    const input = stageHost.querySelector("#interpretation");
-    const btn = stageHost.querySelector("#btnContinue1");
-
-    const proceed = () => {
-      const v = (input.value || "").trim();
-      // Gate lightly: require some effort without mentioning “code”
-      if (v.length < 6) {
-        showToast("ADD DETAIL");
-        return;
-      }
-      stage2_codeEntry();
-    };
-
-    btn.addEventListener("click", proceed);
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") proceed();
-    });
-
-    focusFirstInput();
-  }
-
-  function stage2_codeEntry() {
-    setStage(`
-      <h3>Step 2</h3>
-      <p>
-        Submit what you extracted from the evidence.
-      </p>
-
-      <div class="formrow">
-        <input id="codeEntry" class="input" type="text" inputmode="text" autocomplete="off"
-          placeholder="Enter your extracted sequence" aria-label="Extracted sequence" />
-        <button id="btnValidate" class="btn" type="button">Validate</button>
-        <button id="btnReset" class="btn secondary" type="button">Reset</button>
-      </div>
-
-      <div class="smallnote">
-        Case-insensitive. Spaces and punctuation are ignored.
-      </div>
-    `);
-
-    const input = stageHost.querySelector("#codeEntry");
-    const btnValidate = stageHost.querySelector("#btnValidate");
-    const btnReset = stageHost.querySelector("#btnReset");
-
-    const validate = async () => {
-      const normalized = normalizeEntry(input.value);
-      if (normalized !== ISLAND_CODE) {
-        showToast("TRY AGAIN");
-        return;
-      }
-
-      // Correct → flash sequence (30s), then operator gate
-      input.blur();
-      await runFlashSequence();
-      stage3_operatorGate1();
-    };
-
-    btnValidate.addEventListener("click", validate);
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") validate();
-    });
-    btnReset.addEventListener("click", () => {
-      input.value = "";
-      input.focus();
-    });
-
-    focusFirstInput();
-  }
-
-  async function runFlashSequence() {
-    // Disable interactions visually
-    stageHost.querySelectorAll("button,input").forEach(el => el.disabled = true);
-
-    // Ensure overlay is above everything
-    flashOverlay.classList.add("is-on");
-
-    for (let i = 0; i < FLASH_CYCLES; i++) {
-      // White 1s
-      flashOverlay.style.background = "#FFFFFF";
-      flashOverlay.classList.add("is-on");
-      await sleep(FLASH_STEP_MS);
-
-      // Black 1s
-      flashOverlay.style.background = "#000000";
-      await sleep(FLASH_STEP_MS);
+  const onlyLettersDigits = raw.replace(/[^a-zA-Z0-9]/g, "");
+  if (onlyLettersDigits.length > 0) {
+    const uniqueChars = new Set(onlyLettersDigits.toUpperCase().split(""));
+    const uniquenessRatio = uniqueChars.size / onlyLettersDigits.length;
+    if (uniquenessRatio < 0.18) {
+      return { ok: false, reason: "Low-entropy input. Write a real description." };
     }
-
-    // Remove overlay
-    flashOverlay.classList.remove("is-on");
-    flashOverlay.style.background = "#FFFFFF";
   }
 
-  function stage3_operatorGate1() {
-    setStage(`
-      <h3>Operator Gate</h3>
-      <p>
-        Awaiting authorization.
-      </p>
+  // 2) Tokenize
+  const text = raw.toLowerCase();
+  const tokens = text
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
 
-      <div class="formrow">
-        <input id="op1" class="input" type="password" inputmode="numeric" autocomplete="off"
-          placeholder="••••" aria-label="Operator authorization" />
-        <button id="btnOp1" class="btn" type="button">Submit</button>
-      </div>
+  const uniqTokens = new Set(tokens);
+  if (tokens.length < 8 || uniqTokens.size < 6) {
+    return { ok: false, reason: "Not enough distinct words. Be more specific." };
+  }
 
-      <div class="smallnote">
-        No feedback is provided for incorrect entries.
-      </div>
-    `);
+  // 3) Required concept groups (must hit at least 3 groups)
+  // Group A: water
+  const water = ["ocean", "sea", "water", "waves", "wave", "surf", "blue", "tide"];
+  // Group B: islands
+  const islands = ["island", "islands", "archipelago", "isle", "atoll", "cays", "shore", "beach", "sand"];
+  // Group C: aerial/top-down
+  const aerial = ["aerial", "overhead", "topdown", "top-down", "birdseye", "bird's-eye", "map", "satellite"];
+  // Group D: hidden/sequence/code cue
+  const codecue = ["code", "cipher", "sequence", "letters", "numbers", "alphanumeric", "hidden", "decode", "message"];
 
-    const input = stageHost.querySelector("#op1");
-    const btn = stageHost.querySelector("#btnOp1");
+  const hits = {
+    water: water.some(w => text.includes(w)),
+    islands: islands.some(w => text.includes(w)),
+    aerial: aerial.some(w => text.includes(w.replace("topdown","top")) || text.includes(w)),
+    codecue: codecue.some(w => text.includes(w)),
+  };
 
-    const submit = () => {
-      const v = normalizeEntry(input.value);
-      if (v === OPERATOR_CODE) {
-        stage3_showOrigami();
-      } else {
-        // Intentionally silent (do nothing)
-        input.value = "";
-      }
+  const score = Object.values(hits).filter(Boolean).length;
+
+  if (score < 3) {
+    return {
+      ok: false,
+      reason: "Not plausible. Mention what environment it is, what objects are present, and what makes it actionable."
     };
-
-    btn.addEventListener("click", submit);
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") submit();
-    });
-
-    focusFirstInput();
   }
 
-  function stage3_showOrigami() {
-    setStage(`
-      <h3>Message</h3>
-      <div class="divider"></div>
-      <div style="display:grid; place-items:center; padding: 24px 8px;">
-        <div style="font-size: 40px; font-weight: 950; letter-spacing: -.03em;">Origami</div>
-      </div>
-      <div class="divider"></div>
-      <div class="formrow">
-        <button id="btnContinueAfterOrigami" class="btn" type="button">Continue</button>
-      </div>
-    `);
-
-    stageHost.querySelector("#btnContinueAfterOrigami").addEventListener("click", () => {
-      stage4_operatorGate2();
-    });
+  // 4) Soft plausibility: ensure nouns exist beyond water/islands
+  const extraSignals = ["texture", "pattern", "shapes", "tiny", "scattered", "cluster", "forming", "arranged", "different"];
+  const hasExtra = extraSignals.some(w => text.includes(w));
+  if (!hasExtra) {
+    return { ok: false, reason: "Add one more concrete observation about layout/pattern." };
   }
 
-  function stage4_operatorGate2() {
-    setStage(`
-      <h3>Operator Gate</h3>
-      <p>
-        Awaiting authorization.
-      </p>
+  return { ok: true, reason: "AI check passed. Continue." };
+}
 
-      <div class="formrow">
-        <input id="op2" class="input" type="password" inputmode="numeric" autocomplete="off"
-          placeholder="••••" aria-label="Operator authorization" />
-        <button id="btnOp2" class="btn" type="button">Submit</button>
-      </div>
+/* ====== UI WIRING ====== */
+const els = {
+  btnHints: document.getElementById("btnHints"),
+  btnContrast: document.getElementById("btnContrast"),
 
-      <div class="smallnote">
-        No feedback is provided for incorrect entries.
-      </div>
-    `);
+  aiInput: document.getElementById("aiInput"),
+  aiValidate: document.getElementById("aiValidate"),
+  aiClear: document.getElementById("aiClear"),
+  aiResult: document.getElementById("aiResult"),
 
-    const input = stageHost.querySelector("#op2");
-    const btn = stageHost.querySelector("#btnOp2");
+  code1Input: document.getElementById("code1Input"),
+  code1Btn: document.getElementById("code1Btn"),
+  code1Feedback: document.getElementById("code1Feedback"),
 
-    const submit = () => {
-      const v = normalizeEntry(input.value);
-      if (v === OPERATOR_CODE) {
-        stage5_burntMarksCode();
-      } else {
-        // Silent
-        input.value = "";
-      }
-    };
+  blinkStage: document.getElementById("stage-blink"),
+  blinkInput: document.getElementById("blinkInput"),
 
-    btn.addEventListener("click", submit);
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") submit();
-    });
+  origamiStage: document.getElementById("stage-origami"),
+  origamiWord: document.getElementById("origamiWord"),
+  origamiInput: document.getElementById("origamiInput"),
 
-    focusFirstInput();
+  code2Input: document.getElementById("code2Input"),
+  code2Btn: document.getElementById("code2Btn"),
+  code2Feedback: document.getElementById("code2Feedback"),
+};
+
+function tryAgain(feedbackEl) {
+  if (!feedbackEl) return;
+  feedbackEl.innerHTML = `<span class="tryagain">TRY AGAIN</span>`;
+  // glide out after a moment
+  const node = feedbackEl.querySelector(".tryagain");
+  window.setTimeout(() => node && node.classList.add("out"), 900);
+  window.setTimeout(() => (feedbackEl.innerHTML = ""), 1200);
+}
+
+/* ====== Stage Transitions ====== */
+function goToStageCode1() {
+  setVisible("stage-ai", false);
+  setVisible("stage-code1", true);
+  els.code1Input.value = "";
+  els.code1Input.focus();
+  showToast("Unlocked: sequence entry.");
+}
+
+let blinkInterval = null;
+let blinkIsWhite = true;
+
+function startBlinking() {
+  setVisible("stage-code1", false);
+  setVisible("stage-blink", true);
+
+  // Make sure the input captures keyboard anywhere.
+  const focusBlink = () => els.blinkInput && els.blinkInput.focus();
+  focusBlink();
+  document.addEventListener("click", focusBlink, { capture: true });
+
+  // Start infinite blinking: white(1s) <-> black(1s)
+  blinkIsWhite = true;
+  const apply = () => {
+    els.blinkStage.style.background = blinkIsWhite ? "#FFFFFF" : "#000000";
+  };
+  apply();
+  blinkInterval = window.setInterval(() => {
+    blinkIsWhite = !blinkIsWhite;
+    apply();
+  }, 1000);
+
+  // ENTER submits password
+  els.blinkInput.value = "";
+  els.blinkInput.addEventListener("keydown", onBlinkKeydown);
+}
+
+function stopBlinking() {
+  if (blinkInterval) window.clearInterval(blinkInterval);
+  blinkInterval = null;
+  setVisible("stage-blink", false);
+  els.blinkInput.removeEventListener("keydown", onBlinkKeydown);
+}
+
+function onBlinkKeydown(e) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    const v = normalizeSequence(els.blinkInput.value);
+    if (v === PASS) {
+      stopBlinking();
+      goToOrigami();
+    } else {
+      // “Nothing happens if wrong” — do literally nothing.
+      els.blinkInput.value = "";
+    }
+  }
+}
+
+let origamiTimer = null;
+let origamiReadyForSecondPass = false;
+
+function goToOrigami() {
+  setVisible("stage-origami", true);
+
+  // off-white (not pure white)
+  els.origamiStage.style.background = "#f7f4ef";
+
+  // Animate word in from left
+  els.origamiWord.style.transition = "transform 900ms cubic-bezier(.2,.9,.2,1), left 900ms cubic-bezier(.2,.9,.2,1), opacity 500ms ease";
+  els.origamiWord.style.left = "-40%";
+  els.origamiWord.style.opacity = "0.95";
+  // force layout
+  void els.origamiWord.offsetWidth;
+  els.origamiWord.style.left = "10%";
+
+  // Focus hidden input full-screen
+  const focusOrigami = () => els.origamiInput && els.origamiInput.focus();
+  focusOrigami();
+  document.addEventListener("click", focusOrigami, { capture: true });
+
+  // Word stays 30s then glides out right
+  window.clearTimeout(origamiTimer);
+  origamiTimer = window.setTimeout(() => {
+    els.origamiWord.style.left = "120%";
+    // after it exits, we keep screen white and continue waiting for PASS again
+  }, 30000);
+
+  // While on this screen: wait for 1324 (after they realize it's a code)
+  origamiReadyForSecondPass = true;
+  els.origamiInput.value = "";
+  els.origamiInput.addEventListener("keydown", onOrigamiKeydown);
+}
+
+function onOrigamiKeydown(e) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    const v = normalizeSequence(els.origamiInput.value);
+    els.origamiInput.value = "";
+    if (!origamiReadyForSecondPass) return;
+    if (v === PASS) {
+      // Move to final code entry screen (no hint text about burnt marks)
+      els.origamiInput.removeEventListener("keydown", onOrigamiKeydown);
+      setVisible("stage-origami", false);
+      setVisible("stage-code2", true);
+      els.code2Input.value = "";
+      els.code2Input.focus();
+    } else {
+      // “Nothing happens if wrong”
+    }
+  }
+}
+
+/* ====== Event Listeners ====== */
+els.btnHints.addEventListener("click", () => {
+  showToast("Hint: describe environment + objects + what makes it actionable.");
+});
+
+els.btnContrast.addEventListener("click", () => {
+  const on = document.body.classList.toggle("hc");
+  els.btnContrast.setAttribute("aria-pressed", on ? "true" : "false");
+});
+
+els.aiValidate.addEventListener("click", () => {
+  const res = aiCheck(els.aiInput.value);
+  els.aiResult.textContent = res.reason;
+  if (res.ok) {
+    els.aiResult.style.borderStyle = "solid";
+    els.aiResult.style.borderColor = "rgba(45,108,223,.35)";
+    els.aiResult.style.background = "rgba(45,108,223,.08)";
+    window.setTimeout(goToStageCode1, 650);
+  } else {
+    els.aiResult.style.borderStyle = "dashed";
+    els.aiResult.style.borderColor = "rgba(207,46,46,.35)";
+    els.aiResult.style.background = "rgba(207,46,46,.06)";
+  }
+});
+
+els.aiClear.addEventListener("click", () => {
+  els.aiInput.value = "";
+  els.aiResult.textContent = "";
+  els.aiResult.style.borderColor = "";
+  els.aiResult.style.background = "";
+  els.aiInput.focus();
+});
+
+function validateCode1() {
+  const guess = normalizeSequence(els.code1Input.value);
+  const target = normalizeSequence(CODE1);
+
+  if (guess === target) {
+    els.code1Feedback.textContent = "Accepted.";
+    window.setTimeout(() => {
+      els.code1Feedback.textContent = "";
+      startBlinking();
+    }, 450);
+    return;
   }
 
-  function stage5_burntMarksCode() {
-    setStage(`
-      <h3>Final Entry</h3>
-      <p>
-        Submit the sequence indicated by the burned marks.
-      </p>
-
-      <div class="formrow">
-        <input id="burnt" class="input" type="text" inputmode="numeric" autocomplete="off"
-          placeholder="Enter sequence" aria-label="Burned marks sequence" />
-        <button id="btnBurnt" class="btn" type="button">Validate</button>
-      </div>
-
-      <div class="smallnote">
-        Case-insensitive. Spaces and punctuation are ignored.
-      </div>
-    `);
-
-    const input = stageHost.querySelector("#burnt");
-    const btn = stageHost.querySelector("#btnBurnt");
-
-    const validate = () => {
-      const v = normalizeEntry(input.value);
-      if (v !== BURNT_CODE) {
-        showToast("TRY AGAIN");
-        return;
-      }
-      stage6_success();
-    };
-
-    btn.addEventListener("click", validate);
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") validate();
-    });
-
-    focusFirstInput();
+  // Count wrong-by-position (same length comparison)
+  const L = Math.max(target.length, guess.length);
+  let wrong = 0;
+  for (let i = 0; i < L; i++) {
+    if ((guess[i] || "") !== (target[i] || "")) wrong++;
   }
 
-  function stage6_success() {
-    setStage(`
-      <h3>Confirmed</h3>
-      <p>
-        Proceed.
-      </p>
-      <div class="divider"></div>
-      <div class="smallnote">
-        (End of current web flow.)
-      </div>
-    `);
+  // Smooth glide-in TRY AGAIN
+  tryAgain(els.code1Feedback);
+}
+
+els.code1Btn.addEventListener("click", validateCode1);
+els.code1Input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") validateCode1();
+});
+
+function validateCode2() {
+  const guess = normalizeSequence(els.code2Input.value);
+  const target = normalizeSequence(CODE2);
+
+  if (guess === target) {
+    els.code2Feedback.textContent = "Accepted.";
+    window.setTimeout(() => {
+      setVisible("stage-code2", false);
+      setVisible("stage-done", true);
+    }, 500);
+    return;
   }
 
-  // === Boot ===
-  stage1_interpretation();
-})();
+  tryAgain(els.code2Feedback);
+}
+
+els.code2Btn.addEventListener("click", validateCode2);
+els.code2Input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") validateCode2();
+});
+
+/* ====== On load: focus first stage ====== */
+window.addEventListener("load", () => {
+  els.aiInput.focus();
+});

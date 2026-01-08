@@ -1,5 +1,3 @@
-/* app.js (FULL) */
-
 /* ====== CONFIG ====== */
 const CODE1 = "X47Y1ACGNJ"; // island/water code
 const PASS  = "1324";       // operator pass
@@ -7,9 +5,7 @@ const CODE2 = "2357";       // burnt marks code
 
 /* ====== HELPERS ====== */
 function normalizeSequence(s) {
-  return (s || "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "");
+  return (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
 function showToast(msg) {
@@ -21,54 +17,87 @@ function showToast(msg) {
   showToast._t = window.setTimeout(() => el.classList.remove("show"), 2200);
 }
 
-function setVisible(id, visible) {
+/**
+ * Animated visibility toggle:
+ * - show: removes .hidden and fades/slides in
+ * - hide: fades/slides out, then applies .hidden
+ */
+function setVisibleAnimated(id, visible, opts = {}) {
   const el = document.getElementById(id);
   if (!el) return;
-  el.classList.toggle("hidden", !visible);
+
+  const {
+    duration = 420,
+    inTransform = "translateY(10px)",
+    outTransform = "translateY(10px)",
+    easing = "cubic-bezier(.2,.9,.2,1)"
+  } = opts;
+
+  // If already correct state, no-op
+  const isHidden = el.classList.contains("hidden");
+  if (visible && !isHidden && el.style.opacity === "1") return;
+  if (!visible && isHidden) return;
+
+  // Ensure transitions are consistent
+  el.style.transition = `opacity ${duration}ms ${easing}, transform ${duration}ms ${easing}`;
+
+  if (visible) {
+    el.classList.remove("hidden");
+    el.style.opacity = "0";
+    el.style.transform = inTransform;
+    // force layout
+    void el.offsetWidth;
+    requestAnimationFrame(() => {
+      el.style.opacity = "1";
+      el.style.transform = "translateY(0)";
+    });
+  } else {
+    el.style.opacity = "0";
+    el.style.transform = outTransform;
+    window.setTimeout(() => {
+      el.classList.add("hidden");
+    }, duration + 30);
+  }
 }
 
-function tryAgain(feedbackEl) {
-  if (!feedbackEl) return;
-  feedbackEl.innerHTML = `<span class="tryagain">TRY AGAIN</span>`;
-  const node = feedbackEl.querySelector(".tryagain");
-  window.setTimeout(() => node && node.classList.add("out"), 900);
-  window.setTimeout(() => (feedbackEl.innerHTML = ""), 1200);
+function swapStages(fromId, toId, opts = {}) {
+  // hide first (smooth), then show second (smooth)
+  if (fromId) setVisibleAnimated(fromId, false, opts.from || {});
+  if (toId) {
+    const delay = (opts.from && opts.from.duration) ? opts.from.duration : 420;
+    window.setTimeout(() => {
+      setVisibleAnimated(toId, true, opts.to || {});
+      updateTopbarForStage(toId);
+    }, delay);
+  }
 }
 
-/* ====== “AI CHECK” (LOOSER GATE) ======
-   Requirement (per your latest spec):
-   Pass if it includes the words "island" AND "code" (case-insensitive).
-   Still block obvious spam like "AAAAAA".
+function setHintsEnabled(on) {
+  const btn = document.getElementById("btnHints");
+  if (!btn) return;
+  btn.classList.toggle("hidden", !on);
+}
+
+/* ====== “AI CHECK” (RELAXED RULE) ======
+   Requirement: MUST pass if it includes the words "island" AND "code"
+   (case-insensitive, anywhere in text).
 */
 function aiCheck(inputRaw) {
   const raw = (inputRaw || "").trim();
   const text = raw.toLowerCase();
 
-  // Hard reject ultra-short / repeated-char spam
-  if (raw.length < 8) {
-    return { ok: false, reason: "Too short. Describe what you see." };
-  }
-
-  const onlyLettersDigits = raw.replace(/[^a-zA-Z0-9]/g, "");
-  if (onlyLettersDigits.length > 0) {
-    const uniqueChars = new Set(onlyLettersDigits.toUpperCase().split(""));
-    const uniquenessRatio = uniqueChars.size / onlyLettersDigits.length;
-    if (uniquenessRatio < 0.14) {
-      return { ok: false, reason: "Low-effort input. Write a real description." };
-    }
-  }
-
-  const hasIsland = /\bisland(s)?\b/.test(text);
-  const hasCode   = /\bcode\b/.test(text);
-
-  if (hasIsland && hasCode) {
+  if (text.includes("island") && text.includes("code")) {
     return { ok: true, reason: "AI check passed. Continue." };
   }
 
+  // Otherwise keep a light plausibility gate (not overly strict)
+  if (raw.length < 14) {
+    return { ok: false, reason: "Add a little more detail." };
+  }
   return { ok: false, reason: "Not plausible. Describe environment, objects, and what stands out." };
 }
 
-/* ====== ELEMENTS ====== */
+/* ====== UI WIRING ====== */
 const els = {
   btnHints: document.getElementById("btnHints"),
   btnContrast: document.getElementById("btnContrast"),
@@ -83,9 +112,11 @@ const els = {
   code1Feedback: document.getElementById("code1Feedback"),
 
   thinkStage: document.getElementById("stage-think"),
+  thinkText: document.getElementById("thinkText"),
   thinkInput: document.getElementById("thinkInput"),
 
   origamiStage: document.getElementById("stage-origami"),
+  origamiWord: document.getElementById("origamiWord"),
   origamiInput: document.getElementById("origamiInput"),
 
   code2Input: document.getElementById("code2Input"),
@@ -93,67 +124,157 @@ const els = {
   code2Feedback: document.getElementById("code2Feedback"),
 };
 
-/* ====== STAGE MANAGEMENT ====== */
-const STAGES = ["stage-ai", "stage-code1", "stage-think", "stage-origami", "stage-code2", "stage-done"];
-
-function showOnly(stageId) {
-  STAGES.forEach(id => setVisible(id, id === stageId));
+function tryAgain(feedbackEl) {
+  if (!feedbackEl) return;
+  feedbackEl.innerHTML = `<span class="tryagain">TRY AGAIN</span>`;
+  const node = feedbackEl.querySelector(".tryagain");
+  window.setTimeout(() => node && node.classList.add("out"), 900);
+  window.setTimeout(() => (feedbackEl.innerHTML = ""), 1200);
 }
 
-function getCurrentStage() {
-  for (const id of STAGES) {
-    const el = document.getElementById(id);
-    if (el && !el.classList.contains("hidden")) return id;
+/* ====== TOPBAR / HINTS BEHAVIOR ====== */
+function updateTopbarForStage(stageId) {
+  // Only allow Hints on first 2 pages:
+  // stage-ai (describe) and stage-code1 (sequence entry)
+  const allowHints = (stageId === "stage-ai" || stageId === "stage-code1");
+  setHintsEnabled(allowHints);
+}
+
+function showStageHint() {
+  // Hint text changes by current stage
+  const stageAIVisible = !document.getElementById("stage-ai")?.classList.contains("hidden");
+  const stageC1Visible = !document.getElementById("stage-code1")?.classList.contains("hidden");
+  const stageThinkVisible = !document.getElementById("stage-think")?.classList.contains("hidden");
+  const stageOrigamiVisible = !document.getElementById("stage-origami")?.classList.contains("hidden");
+  const stageC2Visible = !document.getElementById("stage-code2")?.classList.contains("hidden");
+
+  if (stageAIVisible) {
+    showToast("Describe environment, objects, and what stands out.");
+    return;
   }
-  return "stage-ai";
-}
-
-/* Per-page hints */
-function hintForStage(stageId) {
-  switch (stageId) {
-    case "stage-ai":
-      return "Describe environment, objects, and what stands out.";
-    case "stage-code1":
-      return "Open the image and inspect closely.";
-    case "stage-think":
-      return "Wait for the operator to proceed.";
-    case "stage-origami":
-      return "Think folding and alignment.";
-    case "stage-code2":
-      return "Enter the next code.";
-    default:
-      return "Proceed.";
+  if (stageC1Visible) {
+    showToast("Look again. Don’t assume it’s random.");
+    return;
   }
+  // Hints are hidden beyond this point, but keep a safe fallback:
+  if (stageThinkVisible) showToast("…");
+  else if (stageOrigamiVisible) showToast("…");
+  else if (stageC2Visible) showToast("…");
 }
 
-/* ====== BUTTONS ====== */
-els.btnHints.addEventListener("click", () => {
-  showToast(hintForStage(getCurrentStage()));
-});
+/* ====== STAGE TRANSITIONS ====== */
+function goToStageCode1() {
+  swapStages("stage-ai", "stage-code1", {
+    from: { duration: 420, outTransform: "translateY(8px)" },
+    to:   { duration: 520, inTransform: "translateY(10px)" }
+  });
+  els.code1Input.value = "";
+  window.setTimeout(() => els.code1Input.focus(), 560);
+}
 
-els.btnContrast.addEventListener("click", () => {
+function goToThink() {
+  // Show think stage full-screen
+  setVisibleAnimated("stage-code1", false, { duration: 360, outTransform: "translateY(6px)" });
+
+  window.setTimeout(() => {
+    setVisibleAnimated("stage-think", true, { duration: 520, inTransform: "translateY(0px)" });
+    updateTopbarForStage("stage-think");
+
+    // Background behavior: white normally, black in high contrast
+    syncThinkTheme();
+
+    // Ensure you can type without clicking
+    focusThink();
+  }, 380);
+}
+
+function focusThink() {
+  const focus = () => els.thinkInput && els.thinkInput.focus();
+  focus();
+  document.addEventListener("pointerdown", focus, { capture: true });
+}
+
+function syncThinkTheme() {
+  const hc = document.body.classList.contains("hc");
+  if (!els.thinkStage) return;
+  els.thinkStage.style.background = hc ? "#000" : "#ffffff";
+  els.thinkText.style.color = hc ? "#ffffff" : "#111";
+}
+
+function goToOrigamiWithGlide() {
+  // Think text glides out right
+  els.thinkText.classList.remove("slide-in-left", "slide-out-right");
+  void els.thinkText.offsetWidth;
+  els.thinkText.classList.add("slide-out-right");
+
+  // After glide out, swap stages and glide Origami in
+  window.setTimeout(() => {
+    setVisibleAnimated("stage-think", false, { duration: 220, outTransform: "translateY(0)" });
+
+    window.setTimeout(() => {
+      setVisibleAnimated("stage-origami", true, { duration: 420, inTransform: "translateY(0)" });
+      updateTopbarForStage("stage-origami"); // Hints hidden here; High Contrast remains
+
+      // Ensure consistent background for origami stage
+      syncOrigamiTheme();
+
+      // Origami glides in from left (and stays)
+      els.origamiWord.classList.remove("slide-out-right");
+      els.origamiWord.classList.add("slide-in-left");
+      // Keep it present; do NOT auto-exit
+
+      // Capture typing without clicking
+      focusOrigami();
+    }, 260);
+  }, 520);
+}
+
+function focusOrigami() {
+  const focus = () => els.origamiInput && els.origamiInput.focus();
+  focus();
+  document.addEventListener("pointerdown", focus, { capture: true });
+}
+
+function syncOrigamiTheme() {
+  const hc = document.body.classList.contains("hc");
+  els.origamiStage.style.background = hc ? "#000" : "#f7f4ef";
+  els.origamiWord.style.color = hc ? "#fff" : "#0c0f12";
+}
+
+function goToStageCode2() {
+  swapStages("stage-origami", "stage-code2", {
+    from: { duration: 380, outTransform: "translateY(0)" },
+    to:   { duration: 520, inTransform: "translateY(10px)" }
+  });
+  window.setTimeout(() => {
+    els.code2Input.value = "";
+    els.code2Input.focus();
+  }, 560);
+}
+
+/* ====== EVENTS ====== */
+els.btnHints?.addEventListener("click", showStageHint);
+
+els.btnContrast?.addEventListener("click", () => {
   const on = document.body.classList.toggle("hc");
   els.btnContrast.setAttribute("aria-pressed", on ? "true" : "false");
+
+  // Re-sync stage-specific theming
+  syncThinkTheme();
+  syncOrigamiTheme();
 });
 
-/* ====== AI CHECK WIRING ====== */
-els.aiValidate.addEventListener("click", () => {
+els.aiValidate?.addEventListener("click", () => {
   const res = aiCheck(els.aiInput.value);
 
-  // Show feedback only when there's something to say (removes the “random box” idle state)
-  els.aiResult.textContent = res.reason;
   els.aiResult.classList.remove("hidden");
+  els.aiResult.textContent = res.reason;
 
   if (res.ok) {
     els.aiResult.style.borderStyle = "solid";
     els.aiResult.style.borderColor = "rgba(45,108,223,.35)";
     els.aiResult.style.background = "rgba(45,108,223,.08)";
-    window.setTimeout(() => {
-      showOnly("stage-code1");
-      els.code1Input.value = "";
-      els.code1Input.focus();
-      showToast("Unlocked: sequence entry.");
-    }, 450);
+    window.setTimeout(goToStageCode1, 380);
   } else {
     els.aiResult.style.borderStyle = "dashed";
     els.aiResult.style.borderColor = "rgba(207,46,46,.35)";
@@ -161,16 +282,13 @@ els.aiValidate.addEventListener("click", () => {
   }
 });
 
-els.aiClear.addEventListener("click", () => {
+els.aiClear?.addEventListener("click", () => {
   els.aiInput.value = "";
   els.aiResult.textContent = "";
   els.aiResult.classList.add("hidden");
-  els.aiResult.style.borderColor = "";
-  els.aiResult.style.background = "";
   els.aiInput.focus();
 });
 
-/* ====== CODE 1 ====== */
 function validateCode1() {
   const guess = normalizeSequence(els.code1Input.value);
   const target = normalizeSequence(CODE1);
@@ -180,86 +298,42 @@ function validateCode1() {
     window.setTimeout(() => {
       els.code1Feedback.textContent = "";
       goToThink();
-    }, 350);
+    }, 250);
     return;
   }
   tryAgain(els.code1Feedback);
 }
 
-els.code1Btn.addEventListener("click", validateCode1);
-els.code1Input.addEventListener("keydown", (e) => {
+els.code1Btn?.addEventListener("click", validateCode1);
+els.code1Input?.addEventListener("keydown", (e) => {
   if (e.key === "Enter") validateCode1();
 });
 
-/* ====== THINK STAGE (“This is time to think.”) ======
-   - No flashing
-   - No extra High Contrast button (header is the only one)
-   - No visible textbox, but user can type anywhere; ENTER submits PASS.
-*/
-function goToThink() {
-  showOnly("stage-think");
-
-  // Ensure we can type immediately without clicking
-  const focusThink = () => els.thinkInput && els.thinkInput.focus();
-  focusThink();
-
-  // Capture typing even if they click around
-  document.addEventListener("click", focusThink, { capture: true });
-
+/* THINK: Enter PASS immediately, no waiting, no blinking, no visible input box */
+els.thinkInput?.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  const v = normalizeSequence(els.thinkInput.value);
   els.thinkInput.value = "";
-  els.thinkInput.addEventListener("keydown", onThinkKeydown);
-}
-
-function leaveThink() {
-  els.thinkInput.removeEventListener("keydown", onThinkKeydown);
-}
-
-function onThinkKeydown(e) {
-  if (e.key === "Enter") {
-    e.preventDefault();
-    const v = normalizeSequence(els.thinkInput.value);
-    els.thinkInput.value = "";
-    if (v === PASS) {
-      leaveThink();
-      goToOrigami();
-    } else {
-      // “Nothing happens if wrong” → do nothing
-    }
+  if (v === PASS) {
+    goToOrigamiWithGlide();
   }
-}
+});
 
-/* ====== ORIGAMI ======
-   - Word stays until PASS is entered
-   - Header remains available (Hints + High Contrast)
-*/
-function goToOrigami() {
-  showOnly("stage-origami");
-
-  const focusOrigami = () => els.origamiInput && els.origamiInput.focus();
-  focusOrigami();
-  document.addEventListener("click", focusOrigami, { capture: true });
-
+/* ORIGAMI: stays until PASS entered */
+els.origamiInput?.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  const v = normalizeSequence(els.origamiInput.value);
   els.origamiInput.value = "";
-  els.origamiInput.addEventListener("keydown", onOrigamiKeydown);
-}
-
-function onOrigamiKeydown(e) {
-  if (e.key === "Enter") {
-    e.preventDefault();
-    const v = normalizeSequence(els.origamiInput.value);
-    els.origamiInput.value = "";
-    if (v === PASS) {
-      els.origamiInput.removeEventListener("keydown", onOrigamiKeydown);
-      showOnly("stage-code2");
-      els.code2Input.value = "";
-      els.code2Input.focus();
-    } else {
-      // nothing if wrong
-    }
+  if (v === PASS) {
+    // Smooth glide out right (optional) then next screen
+    els.origamiWord.classList.remove("slide-in-left");
+    els.origamiWord.classList.add("slide-out-right");
+    window.setTimeout(goToStageCode2, 360);
   }
-}
+});
 
-/* ====== CODE 2 ====== */
 function validateCode2() {
   const guess = normalizeSequence(els.code2Input.value);
   const target = normalizeSequence(CODE2);
@@ -267,20 +341,24 @@ function validateCode2() {
   if (guess === target) {
     els.code2Feedback.textContent = "Accepted.";
     window.setTimeout(() => {
-      showOnly("stage-done");
-    }, 450);
+      swapStages("stage-code2", "stage-done", {
+        from: { duration: 420, outTransform: "translateY(6px)" },
+        to:   { duration: 520, inTransform: "translateY(10px)" }
+      });
+    }, 260);
     return;
   }
   tryAgain(els.code2Feedback);
 }
 
-els.code2Btn.addEventListener("click", validateCode2);
-els.code2Input.addEventListener("keydown", (e) => {
+els.code2Btn?.addEventListener("click", validateCode2);
+els.code2Input?.addEventListener("keydown", (e) => {
   if (e.key === "Enter") validateCode2();
 });
 
-/* ====== INIT ====== */
+/* ====== ON LOAD ====== */
 window.addEventListener("load", () => {
-  showOnly("stage-ai");
-  els.aiInput && els.aiInput.focus();
+  // Initial stage: AI visible, hints enabled
+  updateTopbarForStage("stage-ai");
+  els.aiInput?.focus();
 });

@@ -247,20 +247,27 @@ h2{ font-size: 22px; }
 }
 .feedback .tryagain.out{ animation: glideOut .18s ease both; }
 
-/* FULL SCREEN STAGES */
+/* FULL SCREEN STAGES (FIXED LAYERING) */
 .stage-full{
   position: fixed;
   inset: 0;
-  z-index: 40; /* below header (50), above content */
+
+  /* IMPORTANT: must sit above the main shell/footer */
+  z-index: 9000;
+
   background: var(--thinkBg);
 }
+
 .stage-full__center{
   position:absolute;
   inset:0;
   display:grid;
   place-items:center;
 }
+
 .stage-full__title{
+  position: relative;
+  z-index: 1;
   font-size: clamp(34px, 6vw, 74px);
   font-weight: 900;
   color: var(--thinkText);
@@ -268,6 +275,7 @@ h2{ font-size: 22px; }
   text-align:center;
   padding: 0 18px;
 }
+
 .stage-full__input{
   position:absolute;
   inset:0;
@@ -278,6 +286,12 @@ h2{ font-size: 22px; }
   background: transparent;
   color: transparent;
   caret-color: transparent;
+  z-index: 2; /* captures typing while text remains visible */
+}
+
+/* Keep header on top of full-screen stages */
+.topbar{
+  z-index: 9500;
 }
 
 /* ORIGAMI */

@@ -12,6 +12,7 @@ function normalizeSequence(s) {
 
 function showToast(msg) {
   const el = document.getElementById("toast");
+  if (!el) return;
   el.textContent = msg;
   el.classList.add("show");
   window.clearTimeout(showToast._t);
@@ -57,13 +58,9 @@ function aiCheck(inputRaw) {
   }
 
   // 3) Required concept groups (must hit at least 3 groups)
-  // Group A: water
   const water = ["ocean", "sea", "water", "waves", "wave", "surf", "blue", "tide"];
-  // Group B: islands
   const islands = ["island", "islands", "archipelago", "isle", "atoll", "cays", "shore", "beach", "sand"];
-  // Group C: aerial/top-down
   const aerial = ["aerial", "overhead", "topdown", "top-down", "birdseye", "bird's-eye", "map", "satellite"];
-  // Group D: hidden/sequence/code cue
   const codecue = ["code", "cipher", "sequence", "letters", "numbers", "alphanumeric", "hidden", "decode", "message"];
 
   const hits = {
@@ -121,7 +118,6 @@ const els = {
 function tryAgain(feedbackEl) {
   if (!feedbackEl) return;
   feedbackEl.innerHTML = `<span class="tryagain">TRY AGAIN</span>`;
-  // glide out after a moment
   const node = feedbackEl.querySelector(".tryagain");
   window.setTimeout(() => node && node.classList.add("out"), 900);
   window.setTimeout(() => (feedbackEl.innerHTML = ""), 1200);
@@ -133,7 +129,7 @@ function goToStageCode1() {
   setVisible("stage-code1", true);
   els.code1Input.value = "";
   els.code1Input.focus();
-  showToast("Unlocked: sequence entry.");
+  showToast("Unlocked.");
 }
 
 let blinkInterval = null;
@@ -143,12 +139,10 @@ function startBlinking() {
   setVisible("stage-code1", false);
   setVisible("stage-blink", true);
 
-  // Make sure the input captures keyboard anywhere.
   const focusBlink = () => els.blinkInput && els.blinkInput.focus();
   focusBlink();
   document.addEventListener("click", focusBlink, { capture: true });
 
-  // Start infinite blinking: white(1s) <-> black(1s)
   blinkIsWhite = true;
   const apply = () => {
     els.blinkStage.style.background = blinkIsWhite ? "#FFFFFF" : "#000000";
@@ -159,7 +153,6 @@ function startBlinking() {
     apply();
   }, 1000);
 
-  // ENTER submits password
   els.blinkInput.value = "";
   els.blinkInput.addEventListener("keydown", onBlinkKeydown);
 }
@@ -179,8 +172,8 @@ function onBlinkKeydown(e) {
       stopBlinking();
       goToOrigami();
     } else {
-      // “Nothing happens if wrong” — do literally nothing.
       els.blinkInput.value = "";
+      // Wrong pass: do nothing.
     }
   }
 }
@@ -191,30 +184,23 @@ let origamiReadyForSecondPass = false;
 function goToOrigami() {
   setVisible("stage-origami", true);
 
-  // off-white (not pure white)
   els.origamiStage.style.background = "#f7f4ef";
 
-  // Animate word in from left
-  els.origamiWord.style.transition = "transform 900ms cubic-bezier(.2,.9,.2,1), left 900ms cubic-bezier(.2,.9,.2,1), opacity 500ms ease";
+  els.origamiWord.style.transition = "left 900ms cubic-bezier(.2,.9,.2,1), opacity 500ms ease";
   els.origamiWord.style.left = "-40%";
   els.origamiWord.style.opacity = "0.95";
-  // force layout
   void els.origamiWord.offsetWidth;
   els.origamiWord.style.left = "10%";
 
-  // Focus hidden input full-screen
   const focusOrigami = () => els.origamiInput && els.origamiInput.focus();
   focusOrigami();
   document.addEventListener("click", focusOrigami, { capture: true });
 
-  // Word stays 30s then glides out right
   window.clearTimeout(origamiTimer);
   origamiTimer = window.setTimeout(() => {
     els.origamiWord.style.left = "120%";
-    // after it exits, we keep screen white and continue waiting for PASS again
   }, 30000);
 
-  // While on this screen: wait for 1324 (after they realize it's a code)
   origamiReadyForSecondPass = true;
   els.origamiInput.value = "";
   els.origamiInput.addEventListener("keydown", onOrigamiKeydown);
@@ -225,33 +211,35 @@ function onOrigamiKeydown(e) {
     e.preventDefault();
     const v = normalizeSequence(els.origamiInput.value);
     els.origamiInput.value = "";
+
     if (!origamiReadyForSecondPass) return;
+
     if (v === PASS) {
-      // Move to final code entry screen (no hint text about burnt marks)
       els.origamiInput.removeEventListener("keydown", onOrigamiKeydown);
       setVisible("stage-origami", false);
       setVisible("stage-code2", true);
       els.code2Input.value = "";
       els.code2Input.focus();
     } else {
-      // “Nothing happens if wrong”
+      // Wrong pass: do nothing.
     }
   }
 }
 
 /* ====== Event Listeners ====== */
-els.btnHints.addEventListener("click", () => {
-  showToast("Hint: describe environment + objects + what makes it actionable.");
+els.btnHints?.addEventListener("click", () => {
+  showToast("Hint: describe the environment and the key visual elements.");
 });
 
-els.btnContrast.addEventListener("click", () => {
+els.btnContrast?.addEventListener("click", () => {
   const on = document.body.classList.toggle("hc");
   els.btnContrast.setAttribute("aria-pressed", on ? "true" : "false");
 });
 
-els.aiValidate.addEventListener("click", () => {
+els.aiValidate?.addEventListener("click", () => {
   const res = aiCheck(els.aiInput.value);
   els.aiResult.textContent = res.reason;
+
   if (res.ok) {
     els.aiResult.style.borderStyle = "solid";
     els.aiResult.style.borderColor = "rgba(45,108,223,.35)";
@@ -264,7 +252,7 @@ els.aiValidate.addEventListener("click", () => {
   }
 });
 
-els.aiClear.addEventListener("click", () => {
+els.aiClear?.addEventListener("click", () => {
   els.aiInput.value = "";
   els.aiResult.textContent = "";
   els.aiResult.style.borderColor = "";
@@ -285,19 +273,11 @@ function validateCode1() {
     return;
   }
 
-  // Count wrong-by-position (same length comparison)
-  const L = Math.max(target.length, guess.length);
-  let wrong = 0;
-  for (let i = 0; i < L; i++) {
-    if ((guess[i] || "") !== (target[i] || "")) wrong++;
-  }
-
-  // Smooth glide-in TRY AGAIN
   tryAgain(els.code1Feedback);
 }
 
-els.code1Btn.addEventListener("click", validateCode1);
-els.code1Input.addEventListener("keydown", (e) => {
+els.code1Btn?.addEventListener("click", validateCode1);
+els.code1Input?.addEventListener("keydown", (e) => {
   if (e.key === "Enter") validateCode1();
 });
 
@@ -317,12 +297,11 @@ function validateCode2() {
   tryAgain(els.code2Feedback);
 }
 
-els.code2Btn.addEventListener("click", validateCode2);
-els.code2Input.addEventListener("keydown", (e) => {
+els.code2Btn?.addEventListener("click", validateCode2);
+els.code2Input?.addEventListener("keydown", (e) => {
   if (e.key === "Enter") validateCode2();
 });
 
-/* ====== On load: focus first stage ====== */
 window.addEventListener("load", () => {
-  els.aiInput.focus();
+  els.aiInput?.focus();
 });

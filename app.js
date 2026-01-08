@@ -1,3 +1,5 @@
+/* app.js (FULL) */
+
 /* ====== CONFIG ====== */
 const CODE1 = "X47Y1ACGNJ"; // island/water code
 const PASS  = "1324";       // operator pass
@@ -33,33 +35,31 @@ function tryAgain(feedbackEl) {
   window.setTimeout(() => (feedbackEl.innerHTML = ""), 1200);
 }
 
-/* ====== “AI CHECK” (DETERMINISTIC UX GATE) ======
-   Requirement: pass if it includes the words "island" AND "code"
-   (case-insensitive, singular/plural allowed). Still rejects obvious spam.
+/* ====== “AI CHECK” (LOOSER GATE) ======
+   Requirement (per your latest spec):
+   Pass if it includes the words "island" AND "code" (case-insensitive).
+   Still block obvious spam like "AAAAAA".
 */
 function aiCheck(inputRaw) {
   const raw = (inputRaw || "").trim();
   const text = raw.toLowerCase();
 
-  // reject extremely short
-  if (raw.length < 10) {
-    return { ok: false, reason: "Too short. Describe environment, objects, and what stands out." };
+  // Hard reject ultra-short / repeated-char spam
+  if (raw.length < 8) {
+    return { ok: false, reason: "Too short. Describe what you see." };
   }
 
-  // reject obvious low-entropy spam like AAAAAA or repeated single token
-  const compact = raw.replace(/[^a-zA-Z0-9]/g, "");
-  if (compact.length >= 6) {
-    const upper = compact.toUpperCase();
-    const uniqueChars = new Set(upper.split(""));
-    const uniquenessRatio = uniqueChars.size / upper.length;
-    if (uniquenessRatio < 0.18) {
-      return { ok: false, reason: "Low-entropy input. Write a real description." };
+  const onlyLettersDigits = raw.replace(/[^a-zA-Z0-9]/g, "");
+  if (onlyLettersDigits.length > 0) {
+    const uniqueChars = new Set(onlyLettersDigits.toUpperCase().split(""));
+    const uniquenessRatio = uniqueChars.size / onlyLettersDigits.length;
+    if (uniquenessRatio < 0.14) {
+      return { ok: false, reason: "Low-effort input. Write a real description." };
     }
   }
 
-  // PASS condition: contains island(s) and code (simple + forgiving)
-  const hasIsland = /\bislands?\b/.test(text) || /\barchipelago\b/.test(text) || /\bisle\b/.test(text);
-  const hasCode   = /\bcode\b/.test(text) || /\bcipher\b/.test(text) || /\bsequence\b/.test(text);
+  const hasIsland = /\bisland(s)?\b/.test(text);
+  const hasCode   = /\bcode\b/.test(text);
 
   if (hasIsland && hasCode) {
     return { ok: true, reason: "AI check passed. Continue." };
@@ -68,12 +68,10 @@ function aiCheck(inputRaw) {
   return { ok: false, reason: "Not plausible. Describe environment, objects, and what stands out." };
 }
 
-/* ====== UI WIRING ====== */
+/* ====== ELEMENTS ====== */
 const els = {
   btnHints: document.getElementById("btnHints"),
   btnContrast: document.getElementById("btnContrast"),
-  btnContrastThink: document.getElementById("btnContrastThink"),
-  btnContrastOrigami: document.getElementById("btnContrastOrigami"),
 
   aiInput: document.getElementById("aiInput"),
   aiValidate: document.getElementById("aiValidate"),
@@ -84,11 +82,10 @@ const els = {
   code1Btn: document.getElementById("code1Btn"),
   code1Feedback: document.getElementById("code1Feedback"),
 
-  thinkStage: document.getElementById("stage-blink"),
-  thinkInput: document.getElementById("blinkInput"),
+  thinkStage: document.getElementById("stage-think"),
+  thinkInput: document.getElementById("thinkInput"),
 
   origamiStage: document.getElementById("stage-origami"),
-  origamiWord: document.getElementById("origamiWord"),
   origamiInput: document.getElementById("origamiInput"),
 
   code2Input: document.getElementById("code2Input"),
@@ -96,30 +93,124 @@ const els = {
   code2Feedback: document.getElementById("code2Feedback"),
 };
 
-/* ====== Stage Transitions ====== */
-function goToStageCode1() {
-  setVisible("stage-ai", false);
-  setVisible("stage-code1", true);
-  els.code1Input.value = "";
-  els.code1Input.focus();
-  showToast("Unlocked: sequence entry.");
+/* ====== STAGE MANAGEMENT ====== */
+const STAGES = ["stage-ai", "stage-code1", "stage-think", "stage-origami", "stage-code2", "stage-done"];
+
+function showOnly(stageId) {
+  STAGES.forEach(id => setVisible(id, id === stageId));
 }
 
-function startThinkStage() {
-  setVisible("stage-code1", false);
-  setVisible("stage-blink", true);
+function getCurrentStage() {
+  for (const id of STAGES) {
+    const el = document.getElementById(id);
+    if (el && !el.classList.contains("hidden")) return id;
+  }
+  return "stage-ai";
+}
 
-  // Focus input anywhere
+/* Per-page hints */
+function hintForStage(stageId) {
+  switch (stageId) {
+    case "stage-ai":
+      return "Describe environment, objects, and what stands out.";
+    case "stage-code1":
+      return "Open the image and inspect closely.";
+    case "stage-think":
+      return "Wait for the operator to proceed.";
+    case "stage-origami":
+      return "Think folding and alignment.";
+    case "stage-code2":
+      return "Enter the next code.";
+    default:
+      return "Proceed.";
+  }
+}
+
+/* ====== BUTTONS ====== */
+els.btnHints.addEventListener("click", () => {
+  showToast(hintForStage(getCurrentStage()));
+});
+
+els.btnContrast.addEventListener("click", () => {
+  const on = document.body.classList.toggle("hc");
+  els.btnContrast.setAttribute("aria-pressed", on ? "true" : "false");
+});
+
+/* ====== AI CHECK WIRING ====== */
+els.aiValidate.addEventListener("click", () => {
+  const res = aiCheck(els.aiInput.value);
+
+  // Show feedback only when there's something to say (removes the “random box” idle state)
+  els.aiResult.textContent = res.reason;
+  els.aiResult.classList.remove("hidden");
+
+  if (res.ok) {
+    els.aiResult.style.borderStyle = "solid";
+    els.aiResult.style.borderColor = "rgba(45,108,223,.35)";
+    els.aiResult.style.background = "rgba(45,108,223,.08)";
+    window.setTimeout(() => {
+      showOnly("stage-code1");
+      els.code1Input.value = "";
+      els.code1Input.focus();
+      showToast("Unlocked: sequence entry.");
+    }, 450);
+  } else {
+    els.aiResult.style.borderStyle = "dashed";
+    els.aiResult.style.borderColor = "rgba(207,46,46,.35)";
+    els.aiResult.style.background = "rgba(207,46,46,.06)";
+  }
+});
+
+els.aiClear.addEventListener("click", () => {
+  els.aiInput.value = "";
+  els.aiResult.textContent = "";
+  els.aiResult.classList.add("hidden");
+  els.aiResult.style.borderColor = "";
+  els.aiResult.style.background = "";
+  els.aiInput.focus();
+});
+
+/* ====== CODE 1 ====== */
+function validateCode1() {
+  const guess = normalizeSequence(els.code1Input.value);
+  const target = normalizeSequence(CODE1);
+
+  if (guess === target) {
+    els.code1Feedback.textContent = "Accepted.";
+    window.setTimeout(() => {
+      els.code1Feedback.textContent = "";
+      goToThink();
+    }, 350);
+    return;
+  }
+  tryAgain(els.code1Feedback);
+}
+
+els.code1Btn.addEventListener("click", validateCode1);
+els.code1Input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") validateCode1();
+});
+
+/* ====== THINK STAGE (“This is time to think.”) ======
+   - No flashing
+   - No extra High Contrast button (header is the only one)
+   - No visible textbox, but user can type anywhere; ENTER submits PASS.
+*/
+function goToThink() {
+  showOnly("stage-think");
+
+  // Ensure we can type immediately without clicking
   const focusThink = () => els.thinkInput && els.thinkInput.focus();
   focusThink();
+
+  // Capture typing even if they click around
   document.addEventListener("click", focusThink, { capture: true });
 
   els.thinkInput.value = "";
   els.thinkInput.addEventListener("keydown", onThinkKeydown);
 }
 
-function stopThinkStage() {
-  setVisible("stage-blink", false);
+function leaveThink() {
   els.thinkInput.removeEventListener("keydown", onThinkKeydown);
 }
 
@@ -127,23 +218,22 @@ function onThinkKeydown(e) {
   if (e.key === "Enter") {
     e.preventDefault();
     const v = normalizeSequence(els.thinkInput.value);
+    els.thinkInput.value = "";
     if (v === PASS) {
-      stopThinkStage();
+      leaveThink();
       goToOrigami();
     } else {
-      // "Nothing happens if wrong"
-      els.thinkInput.value = "";
+      // “Nothing happens if wrong” → do nothing
     }
   }
 }
 
+/* ====== ORIGAMI ======
+   - Word stays until PASS is entered
+   - Header remains available (Hints + High Contrast)
+*/
 function goToOrigami() {
-  setVisible("stage-origami", true);
-
-  // Keep the word visible until PASS is entered (no auto-fly-out)
-  els.origamiStage.style.background = document.body.classList.contains("hc") ? "#0f141b" : "#f7f4ef";
-  els.origamiWord.style.left = "10%";
-  els.origamiWord.style.opacity = "0.95";
+  showOnly("stage-origami");
 
   const focusOrigami = () => els.origamiInput && els.origamiInput.focus();
   focusOrigami();
@@ -160,84 +250,16 @@ function onOrigamiKeydown(e) {
     els.origamiInput.value = "";
     if (v === PASS) {
       els.origamiInput.removeEventListener("keydown", onOrigamiKeydown);
-      setVisible("stage-origami", false);
-      setVisible("stage-code2", true);
+      showOnly("stage-code2");
       els.code2Input.value = "";
       els.code2Input.focus();
     } else {
-      // Nothing happens if wrong
+      // nothing if wrong
     }
   }
 }
 
-/* ====== Event Listeners ====== */
-function syncContrastButtons() {
-  const on = document.body.classList.contains("hc");
-  if (els.btnContrast) els.btnContrast.setAttribute("aria-pressed", on ? "true" : "false");
-  if (els.btnContrastThink) els.btnContrastThink.setAttribute("aria-pressed", on ? "true" : "false");
-  if (els.btnContrastOrigami) els.btnContrastOrigami.setAttribute("aria-pressed", on ? "true" : "false");
-}
-
-function toggleContrast() {
-  document.body.classList.toggle("hc");
-  syncContrastButtons();
-}
-
-if (els.btnHints) {
-  els.btnHints.addEventListener("click", () => {
-    showToast("Describe environment, objects, and what stands out.");
-  });
-}
-
-if (els.btnContrast) els.btnContrast.addEventListener("click", toggleContrast);
-if (els.btnContrastThink) els.btnContrastThink.addEventListener("click", toggleContrast);
-if (els.btnContrastOrigami) els.btnContrastOrigami.addEventListener("click", toggleContrast);
-
-els.aiValidate.addEventListener("click", () => {
-  const res = aiCheck(els.aiInput.value);
-  els.aiResult.textContent = res.reason;
-
-  if (res.ok) {
-    els.aiResult.style.borderStyle = "solid";
-    els.aiResult.style.borderColor = "rgba(45,108,223,.35)";
-    els.aiResult.style.background = "rgba(45,108,223,.08)";
-    window.setTimeout(goToStageCode1, 400);
-  } else {
-    els.aiResult.style.borderStyle = "dashed";
-    els.aiResult.style.borderColor = "rgba(207,46,46,.35)";
-    els.aiResult.style.background = "rgba(207,46,46,.06)";
-  }
-});
-
-els.aiClear.addEventListener("click", () => {
-  els.aiInput.value = "";
-  els.aiResult.textContent = "";
-  els.aiResult.style.borderColor = "";
-  els.aiResult.style.background = "";
-  els.aiInput.focus();
-});
-
-function validateCode1() {
-  const guess = normalizeSequence(els.code1Input.value);
-  const target = normalizeSequence(CODE1);
-
-  if (guess === target) {
-    els.code1Feedback.textContent = "Accepted.";
-    window.setTimeout(() => {
-      els.code1Feedback.textContent = "";
-      startThinkStage(); // now the mellow “time to think” screen
-    }, 350);
-    return;
-  }
-
-  tryAgain(els.code1Feedback);
-}
-
-els.code1Btn.addEventListener("click", validateCode1);
-els.code1Input.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") validateCode1();
-});
-
+/* ====== CODE 2 ====== */
 function validateCode2() {
   const guess = normalizeSequence(els.code2Input.value);
   const target = normalizeSequence(CODE2);
@@ -245,12 +267,10 @@ function validateCode2() {
   if (guess === target) {
     els.code2Feedback.textContent = "Accepted.";
     window.setTimeout(() => {
-      setVisible("stage-code2", false);
-      setVisible("stage-done", true);
+      showOnly("stage-done");
     }, 450);
     return;
   }
-
   tryAgain(els.code2Feedback);
 }
 
@@ -259,8 +279,8 @@ els.code2Input.addEventListener("keydown", (e) => {
   if (e.key === "Enter") validateCode2();
 });
 
-/* ====== On load ====== */
+/* ====== INIT ====== */
 window.addEventListener("load", () => {
-  syncContrastButtons();
-  if (els.aiInput) els.aiInput.focus();
+  showOnly("stage-ai");
+  els.aiInput && els.aiInput.focus();
 });

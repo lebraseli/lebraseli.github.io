@@ -5,138 +5,163 @@
   <title>The Archive</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Styles -->
   <link rel="stylesheet" href="styles.css" />
 
   <!-- Smooth fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 
 <body>
-
-  <!-- HEADER -->
+  <!-- TOP BAR -->
   <header class="topbar">
     <div class="brand">
-      <span class="icon">🧭</span>
+      <div class="brand__icon" aria-hidden="true">🧭</div>
       <div>
-        <div class="title">The Archive</div>
-        <div class="subtitle">One artifact. One sequence. One way through.</div>
+        <div class="brand__title">The Archive</div>
+        <div class="brand__subtitle">One artifact. One way through.</div>
       </div>
+    </div>
+
+    <div class="topbar__actions">
+      <button class="btn btn--ghost" id="btnHints" type="button">Hints</button>
+      <button class="btn btn--ghost" id="btnContrast" type="button" aria-pressed="false">High Contrast</button>
     </div>
   </header>
 
-  <!-- MAIN CONTENT -->
-  <main id="stage-describe" class="stage active">
+  <main class="shell">
 
-    <section class="mission">
-      <h1>Mission Brief</h1>
-      <p>
-        You do not have the physical copy.
-        Your first task is to <strong>describe what you see</strong>.
-        If your description is plausible, the archive will unlock the next prompt.
-      </p>
-    </section>
-
-    <section class="content">
-
-      <!-- IMAGE PANEL -->
-      <div class="panel image-panel">
-        <img
-          src="./assets/island-water.png"
-          alt="Aerial ocean surface with many small islands"
-        />
-        <p class="hint">Open and inspect. A hidden sequence is present, but it is not announced.</p>
+    <!-- HERO / BRIEF -->
+    <section class="card card--hero">
+      <div class="card__head">
+        <h1>Mission Brief</h1>
+        <p class="muted" style="margin-top:10px;">
+          You do not have the physical copy. Your first task is to <strong>describe what you see</strong>.
+          If your description is plausible, the archive will unlock the next prompt.
+        </p>
       </div>
 
-      <!-- AI CHECK PANEL -->
-      <div class="panel verify-panel">
-        <h2>Verification</h2>
-        <label for="description">Describe the evidence</label>
+      <!-- STAGE: AI -->
+      <section id="stage-ai" class="card__body">
+        <div class="split">
+          <!-- Left: image -->
+          <div class="pane">
+            <div class="pane__title">
+              <span>Artifact</span>
+              <span class="pill">Open, zoom, and inspect.</span>
+            </div>
 
-        <textarea
-          id="description"
-          placeholder="Describe the environment, what objects are present, and why it might be actionable."
-        ></textarea>
+            <figure class="evidence">
+              <a href="assets/island-water.png" target="_blank" rel="noopener">
+                <img src="assets/island-water.png" alt="Aerial ocean surface with many small islands" />
+              </a>
+              <figcaption class="muted">
+                Click to open in a new tab for closer inspection.
+              </figcaption>
+            </figure>
+          </div>
 
-        <div class="buttons">
-          <button id="run-ai">Run AI check</button>
-          <button id="clear-ai" class="secondary">Clear</button>
+          <!-- Right: AI gate -->
+          <div class="pane">
+            <div class="pane__title">
+              <span>Verification</span>
+              <span class="pill pill--soft">Local</span>
+            </div>
+
+            <div class="field">
+              <div class="field__label">Describe what you see</div>
+              <textarea id="aiInput" class="input textarea" placeholder="Be specific and concrete."></textarea>
+              <div class="field__hint">This is a UX gate. No external calls.</div>
+            </div>
+
+            <div class="row">
+              <button id="aiValidate" class="btn btn--primary" type="button">Run AI check</button>
+              <button id="aiClear" class="btn btn--ghost" type="button">Clear</button>
+            </div>
+
+            <div id="aiResult" class="result" aria-live="polite"></div>
+
+            <div class="divider"></div>
+
+            <details class="details">
+              <summary>How the “AI check” works</summary>
+              <p class="muted">
+                It’s a local plausibility gate that expects a coherent, detailed description.
+              </p>
+            </details>
+          </div>
         </div>
+      </section>
 
-        <div id="ai-feedback" class="feedback"></div>
+      <!-- STAGE: CODE 1 -->
+      <section id="stage-code1" class="hidden">
+        <div class="pane" style="margin: 0 18px 18px;">
+          <div class="pane__title">
+            <span>Sequence Entry</span>
+            <span class="pill">Case-insensitive</span>
+          </div>
 
-        <details class="explain">
-          <summary>How the “AI check” works</summary>
-          <p>
-            This is a local UX gate. No external calls are made.
-            Plausibility is determined by structure, specificity,
-            and recognition of actionable patterns.
+          <div class="entry">
+            <input id="code1Input" class="input" type="text" placeholder="Enter sequence" autocomplete="off" />
+            <button id="code1Btn" class="btn btn--primary" type="button">Validate</button>
+          </div>
+
+          <div id="code1Feedback" class="feedback" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <!-- STAGE: CODE 2 -->
+      <section id="stage-code2" class="hidden">
+        <div class="pane" style="margin: 0 18px 18px;">
+          <div class="pane__title">
+            <span>Final Entry</span>
+            <span class="pill">Case-insensitive</span>
+          </div>
+
+          <div class="entry">
+            <input id="code2Input" class="input" type="text" placeholder="Enter sequence" autocomplete="off" />
+            <button id="code2Btn" class="btn btn--primary" type="button">Validate</button>
+          </div>
+
+          <div id="code2Feedback" class="feedback" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <!-- STAGE: DONE -->
+      <section id="stage-done" class="hidden">
+        <div class="pane" style="margin: 0 18px 18px;">
+          <div class="pane__title">
+            <span>Complete</span>
+          </div>
+          <p class="muted" style="margin:0;">
+            Entry accepted.
           </p>
-        </details>
-      </div>
+        </div>
+      </section>
 
     </section>
+
+    <div class="footer muted">Static site. No tracking. No external calls.</div>
   </main>
 
-  <!-- CODE ENTRY STAGE -->
-  <main id="stage-code" class="stage">
-    <section class="mission">
-      <h1>Sequence Entry</h1>
-      <p>Submit the extracted alphanumeric sequence.</p>
-    </section>
-
-    <section class="panel single">
-      <input
-        id="code-input"
-        type="text"
-        placeholder="Enter sequence"
-        autocomplete="off"
-      />
-      <button id="validate-code">Validate</button>
-      <div id="code-feedback" class="feedback"></div>
-    </section>
-  </main>
-
-  <!-- BLINKING STAGE -->
-  <div id="blink-stage" class="blink hidden">
-    <input
-      id="blink-capture"
-      class="blinkCapture"
-      type="password"
-      autocomplete="off"
-    />
+  <!-- BLINK STAGE -->
+  <div id="stage-blink" class="blink hidden" aria-hidden="true">
+    <div class="blink__overlay"></div>
+    <input id="blinkInput" class="blink__input" type="password" autocomplete="off" />
   </div>
 
   <!-- ORIGAMI STAGE -->
-  <div id="origami-stage" class="origami hidden">
-    <div class="origami-word">Origami</div>
+  <div id="stage-origami" class="origami hidden" aria-hidden="true">
+    <div class="origami__canvas">
+      <div id="origamiWord" class="origami__word">Origami</div>
+    </div>
+    <input id="origamiInput" class="origami__input" type="password" autocomplete="off" />
   </div>
 
-  <!-- FINAL ENTRY -->
-  <main id="stage-final" class="stage">
-    <section class="panel single">
-      <h1>Final Entry</h1>
-      <p>Submit the sequence indicated by the burned marks.</p>
+  <!-- TOAST -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-      <input
-        id="final-code"
-        type="text"
-        placeholder="Enter sequence"
-        autocomplete="off"
-      />
-      <button id="final-validate">Validate</button>
-      <div id="final-feedback" class="feedback"></div>
-    </section>
-  </main>
-
-  <!-- FOOTER -->
-  <footer>
-    Static site. No tracking. No external calls.
-  </footer>
-
-  <!-- APP LOGIC -->
   <script src="app.js"></script>
 </body>
 </html>

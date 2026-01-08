@@ -34,64 +34,46 @@ function tryAgain(feedbackEl) {
 }
 
 /* ====== “AI CHECK” (DETERMINISTIC UX GATE) ======
-   Make it pass for reasonable descriptions, still reject spam like AAAAAA.
+   Requirement: pass if it includes the words "island" AND "code"
+   (case-insensitive, singular/plural allowed). Still rejects obvious spam.
 */
 function aiCheck(inputRaw) {
   const raw = (inputRaw || "").trim();
-  if (raw.length < 16) {
-    return { ok: false, reason: "Too short. Add a little more detail." };
+  const text = raw.toLowerCase();
+
+  // reject extremely short
+  if (raw.length < 10) {
+    return { ok: false, reason: "Too short. Describe environment, objects, and what stands out." };
   }
 
-  // Hard reject obvious spam / repeated characters
-  const only = raw.replace(/[^a-zA-Z0-9]/g, "");
-  if (only.length >= 8) {
-    const up = only.toUpperCase();
-    const uniqueChars = new Set(up.split(""));
-    const uniquenessRatio = uniqueChars.size / up.length;
-    // Relaxed threshold (avoid false negatives), still kills AAAAAA… patterns
-    if (uniquenessRatio < 0.12) {
-      return { ok: false, reason: "Low-effort input. Write a real description." };
+  // reject obvious low-entropy spam like AAAAAA or repeated single token
+  const compact = raw.replace(/[^a-zA-Z0-9]/g, "");
+  if (compact.length >= 6) {
+    const upper = compact.toUpperCase();
+    const uniqueChars = new Set(upper.split(""));
+    const uniquenessRatio = uniqueChars.size / upper.length;
+    if (uniquenessRatio < 0.18) {
+      return { ok: false, reason: "Low-entropy input. Write a real description." };
     }
   }
 
-  const text = raw.toLowerCase();
+  // PASS condition: contains island(s) and code (simple + forgiving)
+  const hasIsland = /\bislands?\b/.test(text) || /\barchipelago\b/.test(text) || /\bisle\b/.test(text);
+  const hasCode   = /\bcode\b/.test(text) || /\bcipher\b/.test(text) || /\bsequence\b/.test(text);
 
-  // Token sanity (relaxed)
-  const tokens = text
-    .replace(/[^a-z0-9\s]/g, " ")
-    .split(/\s+/)
-    .filter(Boolean);
-
-  const uniq = new Set(tokens);
-  if (tokens.length < 5 || uniq.size < 4) {
-    return { ok: false, reason: "Add a bit more detail (a few distinct words)." };
+  if (hasIsland && hasCode) {
+    return { ok: true, reason: "AI check passed. Continue." };
   }
 
-  // Concept groups: require (islands) AND (code-cue) AND (either water OR aerial)
-  const islands = ["island", "islands", "archipelago", "isle", "atoll", "cay", "cays", "shore", "beach", "sand"];
-  const water   = ["ocean", "sea", "water", "waves", "wave", "surf", "blue", "tide"];
-  const aerial  = ["aerial", "overhead", "top down", "topdown", "bird", "satellite", "map", "from above"];
-  const codecue = ["code", "cipher", "sequence", "letters", "numbers", "alphanumeric", "hidden", "decode", "message", "spells"];
-
-  const hitIslands = islands.some(w => text.includes(w));
-  const hitCode    = codecue.some(w => text.includes(w));
-  const hitWater   = water.some(w => text.includes(w));
-  const hitAerial  = aerial.some(w => text.includes(w));
-
-  if (!hitIslands || !hitCode || !(hitWater || hitAerial)) {
-    return {
-      ok: false,
-      reason: "Not plausible. Describe environment, objects, and what stands out."
-    };
-  }
-
-  return { ok: true, reason: "AI check passed. Continue." };
+  return { ok: false, reason: "Not plausible. Describe environment, objects, and what stands out." };
 }
 
 /* ====== UI WIRING ====== */
 const els = {
   btnHints: document.getElementById("btnHints"),
   btnContrast: document.getElementById("btnContrast"),
+  btnContrastThink: document.getElementById("btnContrastThink"),
+  btnContrastOrigami: document.getElementById("btnContrastOrigami"),
 
   aiInput: document.getElementById("aiInput"),
   aiValidate: document.getElementById("aiValidate"),
@@ -102,8 +84,8 @@ const els = {
   code1Btn: document.getElementById("code1Btn"),
   code1Feedback: document.getElementById("code1Feedback"),
 
-  blinkStage: document.getElementById("stage-blink"),
-  blinkInput: document.getElementById("blinkInput"),
+  thinkStage: document.getElementById("stage-blink"),
+  thinkInput: document.getElementById("blinkInput"),
 
   origamiStage: document.getElementById("stage-origami"),
   origamiWord: document.getElementById("origamiWord"),
@@ -114,137 +96,127 @@ const els = {
   code2Feedback: document.getElementById("code2Feedback"),
 };
 
-/* ====== STAGES ====== */
+/* ====== Stage Transitions ====== */
 function goToStageCode1() {
   setVisible("stage-ai", false);
   setVisible("stage-code1", true);
   els.code1Input.value = "";
   els.code1Input.focus();
-  showToast("Unlocked.");
+  showToast("Unlocked: sequence entry.");
 }
 
-/* ====== BLINK ====== */
-let blinkInterval = null;
-let blinkIsWhite = true;
-
-function onBlinkKeydown(e) {
-  if (e.key !== "Enter") return;
-  e.preventDefault();
-  const v = normalizeSequence(els.blinkInput.value);
-  if (v === PASS) {
-    stopBlinking();
-    goToOrigami();
-  } else {
-    // wrong pass: nothing happens
-    els.blinkInput.value = "";
-  }
-}
-
-function startBlinking() {
+function startThinkStage() {
   setVisible("stage-code1", false);
   setVisible("stage-blink", true);
 
-  // focus capture anywhere
-  const focusBlink = () => els.blinkInput && els.blinkInput.focus();
-  focusBlink();
-  document.addEventListener("click", focusBlink, { capture: true });
+  // Focus input anywhere
+  const focusThink = () => els.thinkInput && els.thinkInput.focus();
+  focusThink();
+  document.addEventListener("click", focusThink, { capture: true });
 
-  // infinite blinking white/black
-  blinkIsWhite = true;
-  const apply = () => {
-    els.blinkStage.style.background = blinkIsWhite ? "#FFFFFF" : "#000000";
-  };
-  apply();
-
-  if (blinkInterval) window.clearInterval(blinkInterval);
-  blinkInterval = window.setInterval(() => {
-    blinkIsWhite = !blinkIsWhite;
-    apply();
-  }, 1000);
-
-  // allow immediate typing
-  els.blinkInput.value = "";
-  els.blinkInput.removeEventListener("keydown", onBlinkKeydown);
-  els.blinkInput.addEventListener("keydown", onBlinkKeydown);
+  els.thinkInput.value = "";
+  els.thinkInput.addEventListener("keydown", onThinkKeydown);
 }
 
-function stopBlinking() {
-  if (blinkInterval) window.clearInterval(blinkInterval);
-  blinkInterval = null;
+function stopThinkStage() {
   setVisible("stage-blink", false);
-  els.blinkInput.removeEventListener("keydown", onBlinkKeydown);
+  els.thinkInput.removeEventListener("keydown", onThinkKeydown);
 }
 
-/* ====== ORIGAMI (STAYS UNTIL PASS) ====== */
-function onOrigamiKeydown(e) {
-  if (e.key !== "Enter") return;
-  e.preventDefault();
-  const v = normalizeSequence(els.origamiInput.value);
-  els.origamiInput.value = "";
-
-  if (v === PASS) {
-    // proceed to final code entry
-    els.origamiInput.removeEventListener("keydown", onOrigamiKeydown);
-    setVisible("stage-origami", false);
-    setVisible("stage-code2", true);
-    els.code2Input.value = "";
-    els.code2Input.focus();
-  } else {
-    // wrong: nothing happens
+function onThinkKeydown(e) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    const v = normalizeSequence(els.thinkInput.value);
+    if (v === PASS) {
+      stopThinkStage();
+      goToOrigami();
+    } else {
+      // "Nothing happens if wrong"
+      els.thinkInput.value = "";
+    }
   }
 }
 
 function goToOrigami() {
   setVisible("stage-origami", true);
 
-  // Ensure word is visible and stays
+  // Keep the word visible until PASS is entered (no auto-fly-out)
+  els.origamiStage.style.background = document.body.classList.contains("hc") ? "#0f141b" : "#f7f4ef";
   els.origamiWord.style.left = "10%";
   els.origamiWord.style.opacity = "0.95";
 
-  // Focus hidden full-screen input anywhere
   const focusOrigami = () => els.origamiInput && els.origamiInput.focus();
   focusOrigami();
   document.addEventListener("click", focusOrigami, { capture: true });
 
   els.origamiInput.value = "";
-  els.origamiInput.removeEventListener("keydown", onOrigamiKeydown);
   els.origamiInput.addEventListener("keydown", onOrigamiKeydown);
 }
 
-/* ====== EVENTS ====== */
-els.btnHints?.addEventListener("click", () => {
-  showToast("Describe environment, objects, and what stands out.");
-});
+function onOrigamiKeydown(e) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    const v = normalizeSequence(els.origamiInput.value);
+    els.origamiInput.value = "";
+    if (v === PASS) {
+      els.origamiInput.removeEventListener("keydown", onOrigamiKeydown);
+      setVisible("stage-origami", false);
+      setVisible("stage-code2", true);
+      els.code2Input.value = "";
+      els.code2Input.focus();
+    } else {
+      // Nothing happens if wrong
+    }
+  }
+}
 
-els.btnContrast?.addEventListener("click", () => {
-  const on = document.body.classList.toggle("hc");
-  els.btnContrast.setAttribute("aria-pressed", on ? "true" : "false");
-});
+/* ====== Event Listeners ====== */
+function syncContrastButtons() {
+  const on = document.body.classList.contains("hc");
+  if (els.btnContrast) els.btnContrast.setAttribute("aria-pressed", on ? "true" : "false");
+  if (els.btnContrastThink) els.btnContrastThink.setAttribute("aria-pressed", on ? "true" : "false");
+  if (els.btnContrastOrigami) els.btnContrastOrigami.setAttribute("aria-pressed", on ? "true" : "false");
+}
 
-/* AI gate */
-els.aiValidate?.addEventListener("click", () => {
+function toggleContrast() {
+  document.body.classList.toggle("hc");
+  syncContrastButtons();
+}
+
+if (els.btnHints) {
+  els.btnHints.addEventListener("click", () => {
+    showToast("Describe environment, objects, and what stands out.");
+  });
+}
+
+if (els.btnContrast) els.btnContrast.addEventListener("click", toggleContrast);
+if (els.btnContrastThink) els.btnContrastThink.addEventListener("click", toggleContrast);
+if (els.btnContrastOrigami) els.btnContrastOrigami.addEventListener("click", toggleContrast);
+
+els.aiValidate.addEventListener("click", () => {
   const res = aiCheck(els.aiInput.value);
+  els.aiResult.textContent = res.reason;
 
-  // Only show the result box when there is content
-  els.aiResult.textContent = res.reason || "";
   if (res.ok) {
-    els.aiResult.classList.remove("result--bad");
-    els.aiResult.classList.add("result--good");
-    window.setTimeout(goToStageCode1, 450);
+    els.aiResult.style.borderStyle = "solid";
+    els.aiResult.style.borderColor = "rgba(45,108,223,.35)";
+    els.aiResult.style.background = "rgba(45,108,223,.08)";
+    window.setTimeout(goToStageCode1, 400);
   } else {
-    els.aiResult.classList.remove("result--good");
-    els.aiResult.classList.add("result--bad");
+    els.aiResult.style.borderStyle = "dashed";
+    els.aiResult.style.borderColor = "rgba(207,46,46,.35)";
+    els.aiResult.style.background = "rgba(207,46,46,.06)";
   }
 });
 
-els.aiClear?.addEventListener("click", () => {
+els.aiClear.addEventListener("click", () => {
   els.aiInput.value = "";
   els.aiResult.textContent = "";
-  els.aiResult.classList.remove("result--good", "result--bad");
+  els.aiResult.style.borderColor = "";
+  els.aiResult.style.background = "";
   els.aiInput.focus();
 });
 
-/* CODE1 */
 function validateCode1() {
   const guess = normalizeSequence(els.code1Input.value);
   const target = normalizeSequence(CODE1);
@@ -253,20 +225,19 @@ function validateCode1() {
     els.code1Feedback.textContent = "Accepted.";
     window.setTimeout(() => {
       els.code1Feedback.textContent = "";
-      startBlinking();
-    }, 300);
+      startThinkStage(); // now the mellow “time to think” screen
+    }, 350);
     return;
   }
 
   tryAgain(els.code1Feedback);
 }
 
-els.code1Btn?.addEventListener("click", validateCode1);
-els.code1Input?.addEventListener("keydown", (e) => {
+els.code1Btn.addEventListener("click", validateCode1);
+els.code1Input.addEventListener("keydown", (e) => {
   if (e.key === "Enter") validateCode1();
 });
 
-/* CODE2 */
 function validateCode2() {
   const guess = normalizeSequence(els.code2Input.value);
   const target = normalizeSequence(CODE2);
@@ -276,19 +247,20 @@ function validateCode2() {
     window.setTimeout(() => {
       setVisible("stage-code2", false);
       setVisible("stage-done", true);
-    }, 350);
+    }, 450);
     return;
   }
 
   tryAgain(els.code2Feedback);
 }
 
-els.code2Btn?.addEventListener("click", validateCode2);
-els.code2Input?.addEventListener("keydown", (e) => {
+els.code2Btn.addEventListener("click", validateCode2);
+els.code2Input.addEventListener("keydown", (e) => {
   if (e.key === "Enter") validateCode2();
 });
 
-/* On load */
+/* ====== On load ====== */
 window.addEventListener("load", () => {
-  els.aiInput?.focus();
+  syncContrastButtons();
+  if (els.aiInput) els.aiInput.focus();
 });

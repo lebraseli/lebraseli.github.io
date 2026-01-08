@@ -12,11 +12,15 @@
   --primary: #2d6cdf;
   --primary2: #1f4fb0;
   --danger: #cf2e2e;
-  --good: #2b7a3d;
+
+  --toastBg: rgba(255,255,255,.92);
+  --toastText: rgba(13,27,42,.92);
+  --overlayBg: #f5f1ea;
 }
 
 *{ box-sizing:border-box; }
 html,body{ height:100%; }
+
 body{
   margin:0;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
@@ -24,11 +28,10 @@ body{
   background: radial-gradient(1200px 700px at 30% 0%, #f8fbff 0%, var(--bg) 60%, #e9eff6 100%);
 }
 
-/* Top bar */
 .topbar{
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 50;
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -37,6 +40,7 @@ body{
   background: rgba(240,246,252,.75);
   backdrop-filter: blur(10px);
 }
+
 .brand{ display:flex; gap:12px; align-items:center; }
 .brand__icon{
   width:40px; height:40px;
@@ -44,7 +48,6 @@ body{
   border-radius: 12px;
   background: rgba(45,108,223,.10);
   border: 1px solid rgba(45,108,223,.20);
-  font-size: 18px;
 }
 .brand__title{ font-weight: 900; letter-spacing:.2px; }
 .brand__subtitle{ font-size: 12px; color: var(--muted); margin-top:2px; }
@@ -63,13 +66,17 @@ body{
   box-shadow: var(--shadow);
   overflow: hidden;
 }
+
 .card--hero{ padding: 22px; }
 
 .card__head{ padding: 18px 18px 8px; }
 
-h1,h2{ margin:0; letter-spacing: -.2px; }
-h1{ font-size: 28px; }
-h2{ font-size: 22px; }
+h1,h2{
+  margin:0;
+  letter-spacing: -.2px;
+}
+h1{ font-size: 28px; font-weight: 900; }
+h2{ font-size: 22px; font-weight: 900; }
 
 .muted{ color: var(--muted); }
 
@@ -107,24 +114,14 @@ h2{ font-size: 22px; }
   border: 1px solid var(--stroke2);
   background: rgba(255,255,255,.75);
   font-size: 12px;
-  color: rgba(13,27,42,.75);
+  color: rgba(13,27,42,.78);
 }
 .pill--soft{
   border-color: rgba(45,108,223,.25);
   background: rgba(45,108,223,.10);
 }
 
-/* Evidence */
-.evidence{
-  margin:0;
-  display:grid;
-  gap: 10px;
-}
-.evidence__link{
-  text-decoration: none;
-  color: inherit;
-  display: block;
-}
+.evidence{ margin:0; display:grid; gap: 10px; }
 .evidence img{
   width: 100%;
   border-radius: 14px;
@@ -132,12 +129,9 @@ h2{ font-size: 22px; }
   display:block;
   background: #fff;
 }
-.evidence figcaption{
-  font-size: 12px;
-}
 
-/* Inputs */
-.field{ display:grid; gap: 8px; }
+.field{ display:grid; gap: 10px; }
+
 .field__label{ font-weight: 800; font-size: 13px; }
 .field__hint{ font-size: 12px; color: var(--muted); }
 
@@ -155,10 +149,10 @@ h2{ font-size: 22px; }
   border-color: rgba(45,108,223,.55);
   box-shadow: 0 0 0 4px rgba(45,108,223,.12);
 }
-.textarea{ resize: vertical; min-height: 130px; }
 
-/* Buttons */
-.row{ display:flex; gap:10px; margin-top: 10px; }
+.textarea{ resize: vertical; min-height: 150px; }
+
+.row{ display:flex; gap:10px; margin-top: 2px; }
 
 .btn{
   border: 1px solid var(--stroke2);
@@ -180,79 +174,81 @@ h2{ font-size: 22px; }
 .btn--primary:hover{ background: rgba(45,108,223,1); }
 .btn--ghost:hover{ background: rgba(255,255,255,.92); }
 
-/* Result box: ONLY show when there is text */
 .result{
-  margin-top: 12px;
+  margin-top: 8px;
   padding: 12px;
   border-radius: 14px;
   border: 1px dashed var(--stroke2);
   background: rgba(255,255,255,.55);
   font-size: 13px;
 }
-.result:empty{ display:none; } /* removes the “random box” */
+/* removes the “random empty box” */
+.result:empty{ display:none; }
 
-.result--good{
-  border-style: solid;
-  border-color: rgba(45,108,223,.35);
-  background: rgba(45,108,223,.08);
-}
-.result--bad{
-  border-style: dashed;
-  border-color: rgba(207,46,46,.35);
-  background: rgba(207,46,46,.06);
+.divider{
+  height: 1px;
+  background: var(--stroke);
+  margin: 10px 0 6px;
 }
 
+.details{
+  margin-top: 6px;
+}
 .details summary{
   cursor:pointer;
-  font-weight:800;
+  font-weight:900;
   color: rgba(13,27,42,.82);
+  padding: 6px 0;
 }
 .details p{ margin: 10px 0 0; }
 
 .entry{
   display:flex;
   gap: 12px;
+  padding: 0 18px 18px;
   align-items:center;
 }
 .entry .input{ flex: 1; }
 
 .feedback{
-  margin-top: 10px;
+  padding: 0 18px 18px;
   min-height: 28px;
-  font-weight: 800;
+  font-weight: 900;
   color: rgba(13,27,42,.75);
 }
 
 .hidden{ display:none !important; }
 
-/* Toast */
 .toast{
   position: fixed;
-  right: 18px;
-  bottom: 18px;
-  max-width: min(520px, 88vw);
-  padding: 14px 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 88px;
+  z-index: 200;
+  max-width: min(720px, 92vw);
+  padding: 16px 18px;
   border-radius: 18px;
   border: 1px solid var(--stroke2);
-  background: rgba(255,255,255,.92);
+  background: var(--toastBg);
+  color: var(--toastText);
   box-shadow: var(--shadow2);
-  transform: translateY(10px);
   opacity: 0;
   pointer-events: none;
-  transition: opacity .2s ease, transform .2s ease;
+  transition: opacity .18s ease, transform .18s ease;
   font-weight: 900;
-  font-size: 20px;
-  line-height: 1.15;
+  font-size: 22px;
+  line-height: 1.2;
 }
 .toast.show{
   opacity: 1;
-  transform: translateY(0);
+  transform: translateX(-50%) translateY(0);
 }
 
 .footer{
   text-align:center;
   margin-top: 14px;
   font-size: 12px;
+  padding: 0 18px;
 }
 
 /* Smooth “TRY AGAIN” glide */
@@ -273,17 +269,34 @@ h2{ font-size: 22px; }
   animation: glideOut .18s ease both;
 }
 
-/* BLINK STAGE */
-.blink{
+/* TIME TO THINK STAGE (replaces blinking) */
+.think{
   position: fixed;
   inset: 0;
   z-index: 999;
+  background: var(--overlayBg);
 }
-.blink__overlay{
+.think__center{
   position:absolute;
   inset:0;
+  display:grid;
+  place-items:center;
+  padding: 24px;
 }
-.blink__input{
+.think__text{
+  font-weight: 900;
+  font-size: clamp(22px, 4vw, 44px);
+  letter-spacing: -0.3px;
+  color: rgba(13,27,42,.92);
+  text-shadow: 0 10px 40px rgba(0,0,0,.08);
+}
+.think__controls{
+  position:absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1000;
+}
+.think__input{
   position:absolute;
   inset:0;
   width:100%;
@@ -319,6 +332,12 @@ h2{ font-size: 22px; }
   opacity: .95;
   text-shadow: 0 12px 40px rgba(0,0,0,.10);
 }
+.origami__controls{
+  position:absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1000;
+}
 .origami__input{
   position:absolute;
   inset:0;
@@ -338,26 +357,50 @@ body.hc{
   --stroke: rgba(255,255,255,.12);
   --stroke2: rgba(255,255,255,.20);
   --text: #f2f6fb;
-  --muted: rgba(242,246,251,.72);
+  --muted: rgba(242,246,251,.76);
+
+  --toastBg: rgba(18,22,28,.96);
+  --toastText: rgba(242,246,251,.94);
+  --overlayBg: #0f141b;
+
   background: radial-gradient(1200px 700px at 30% 0%, #111825 0%, #0b0f14 60%, #070a0e 100%);
 }
+
 body.hc .topbar{
   background: rgba(10,14,18,.72);
 }
+
 body.hc .pane{
-  background: rgba(18,22,28,.72);
+  background: rgba(18,22,28,.62);
 }
-body.hc .input{
-  background: rgba(10,14,18,.65);
-  color: var(--text);
+
+/* Make “Local” readable in high-contrast */
+body.hc .pill{
+  background: rgba(255,255,255,.06);
+  color: rgba(242,246,251,.86);
+  border-color: rgba(255,255,255,.20);
 }
-body.hc .btn--ghost{
-  background: rgba(18,22,28,.65);
+body.hc .pill--soft{
+  background: rgba(45,108,223,.18);
+  border-color: rgba(45,108,223,.35);
 }
+
+/* Details summary readability in HC */
+body.hc .details summary{
+  color: rgba(242,246,251,.90);
+}
+
+/* Overlay text readability in HC */
+body.hc .think__text{
+  color: rgba(242,246,251,.92);
+  text-shadow: 0 12px 40px rgba(0,0,0,.35);
+}
+
+/* Origami in HC: keep off-white feel but readable */
 body.hc .origami{
-  background: #0b0f14;
+  background: #0f141b;
 }
 body.hc .origami__word{
-  color: #ffffff;
-  text-shadow: 0 14px 50px rgba(0,0,0,.45);
+  color: rgba(242,246,251,.92);
+  text-shadow: 0 12px 40px rgba(0,0,0,.45);
 }

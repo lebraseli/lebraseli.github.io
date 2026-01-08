@@ -5,9 +5,7 @@ const CODE2 = "2357";       // burnt marks code
 
 /* ====== HELPERS ====== */
 function normalizeSequence(s) {
-  return (s || "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "");
+  return (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
 function showToast(msg) {
@@ -25,80 +23,46 @@ function setVisible(id, visible) {
   el.classList.toggle("hidden", !visible);
 }
 
-/* ====== “AI CHECK” (DETERMINISTIC UX GATE, LESS STRICT) ======
-   Objective:
-   - Reject obvious junk (AAAAA, ultra-short, 1-2 words).
-   - Accept reasonable “this looks like a code with islands on the ocean” descriptions.
-   - No external calls.
-*/
+/* ====== “AI CHECK” (DETERMINISTIC UX GATE, FORGIVING) ====== */
 function aiCheck(inputRaw) {
   const raw = (inputRaw || "").trim();
   const text = raw.toLowerCase();
 
-  // 1) Minimal effort guardrails (keep it lightweight)
-  if (raw.length < 16) {
-    return { ok: false, reason: "Too short. Write one or two complete sentences." };
-  }
+  if (raw.length < 16) return { ok: false, reason: "Too short. Write one or two complete sentences." };
 
-  // Reject “AAAAAA”-style spam: single repeated character with little else
   const stripped = raw.replace(/[^a-zA-Z0-9]/g, "");
   if (stripped.length >= 10) {
     const first = stripped[0];
-    const allSame = stripped.split("").every(ch => ch === first);
-    if (allSame) {
+    if (stripped.split("").every(ch => ch === first)) {
       return { ok: false, reason: "Low-effort input. Write a real description." };
     }
   }
 
-  // 2) Tokenization + diversity (less aggressive than before)
-  const tokens = text
-    .replace(/[^a-z0-9\s]/g, " ")
-    .split(/\s+/)
-    .filter(Boolean);
-
+  const tokens = text.replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
   const uniqTokens = new Set(tokens);
-
-  // allow fairly short but non-trivial descriptions
   if (tokens.length < 5 || uniqTokens.size < 4) {
     return { ok: false, reason: "Add a bit more detail (environment + what you notice)." };
   }
 
-  // 3) Concept signals (require islands + water OR islands + “code-ish”)
-  const water = ["ocean", "sea", "water", "waves", "wave", "blue", "tide", "surf"];
-  const islands = ["island", "islands", "archipelago", "isle", "atoll", "cay", "shore", "beach", "sand"];
-  const aerial = ["aerial", "overhead", "top", "topdown", "top-down", "bird", "satellite", "map"];
-  const codecue = ["code", "cipher", "sequence", "letters", "numbers", "alphanumeric", "decode", "message", "hidden"];
+  const water   = ["ocean","sea","water","waves","wave","blue","tide","surf"];
+  const islands = ["island","islands","archipelago","isle","atoll","cay","shore","beach","sand"];
+  const aerial  = ["aerial","overhead","top","topdown","top-down","bird","satellite","map"];
+  const codecue = ["code","cipher","sequence","letters","numbers","alphanumeric","decode","message","hidden"];
+  const pattern = ["pattern","shapes","forming","arranged","spelled","layout","cluster","scattered","middle"];
 
   const hitWater  = water.some(w => text.includes(w));
   const hitIsles  = islands.some(w => text.includes(w));
   const hitAerial = aerial.some(w => text.includes(w));
   const hitCode   = codecue.some(w => text.includes(w));
+  const hitPat    = pattern.some(w => text.includes(w));
 
-  // Extra “looks like a pattern” accept path
-  const patternSignals = ["pattern", "shapes", "forming", "arranged", "spelled", "spell", "layout", "cluster", "scattered", "middle"];
-  const hitPattern = patternSignals.some(w => text.includes(w));
+  const ok = (hitIsles && hitWater) || (hitIsles && (hitCode || hitPat)) || (hitIsles && hitAerial);
 
-  // Gate logic (intentionally forgiving)
-  // Must mention islands, plus either:
-  //   - water, OR
-  //   - code/pattern, OR
-  //   - aerial + anything else
-  const ok =
-    (hitIsles && hitWater) ||
-    (hitIsles && (hitCode || hitPattern)) ||
-    (hitIsles && hitAerial);
-
-  if (!ok) {
-    return {
-      ok: false,
-      reason: "Not plausible. Mention what environment it is and what stands out."
-    };
-  }
-
+  if (!ok) return { ok: false, reason: "Not plausible. Mention what environment it is and what stands out." };
   return { ok: true, reason: "Check passed. Proceed." };
 }
 
-/* ====== UI WIRING ====== */
+/* ====== UI ====== */
 const els = {
   btnHints: document.getElementById("btnHints"),
   btnContrast: document.getElementById("btnContrast"),
@@ -132,7 +96,7 @@ function tryAgain(feedbackEl) {
   window.setTimeout(() => (feedbackEl.innerHTML = ""), 1200);
 }
 
-/* ====== Stage Transitions ====== */
+/* ====== STAGES ====== */
 function goToStageCode1() {
   setVisible("stage-ai", false);
   setVisible("stage-code1", true);
@@ -152,8 +116,7 @@ function onBlinkKeydown(e) {
     stopBlinking();
     goToOrigami();
   } else {
-    // Do nothing on wrong; clear field
-    els.blinkInput.value = "";
+    els.blinkInput.value = ""; // wrong = silent reset
   }
 }
 
@@ -161,10 +124,15 @@ function startBlinking() {
   setVisible("stage-code1", false);
   setVisible("stage-blink", true);
 
+  // Immediate focus and keep it sticky
   const focusBlink = () => els.blinkInput && els.blinkInput.focus();
   focusBlink();
-  document.addEventListener("click", focusBlink, { capture: true });
 
+  // Ensure any click refocuses, but don't stack listeners repeatedly
+  document.removeEventListener("pointerdown", focusBlink, true);
+  document.addEventListener("pointerdown", focusBlink, true);
+
+  // Start blinking immediately (no delay)
   blinkIsWhite = true;
   const apply = () => {
     els.blinkStage.style.background = blinkIsWhite ? "#FFFFFF" : "#000000";
@@ -177,6 +145,7 @@ function startBlinking() {
     apply();
   }, 1000);
 
+  // Capture Enter immediately
   els.blinkInput.value = "";
   els.blinkInput.removeEventListener("keydown", onBlinkKeydown);
   els.blinkInput.addEventListener("keydown", onBlinkKeydown);
@@ -190,23 +159,18 @@ function stopBlinking() {
 }
 
 let origamiTimer = null;
-let origamiReadyForSecondPass = false;
 
 function onOrigamiKeydown(e) {
   if (e.key !== "Enter") return;
   e.preventDefault();
   const v = normalizeSequence(els.origamiInput.value);
   els.origamiInput.value = "";
-  if (!origamiReadyForSecondPass) return;
-
   if (v === PASS) {
     els.origamiInput.removeEventListener("keydown", onOrigamiKeydown);
     setVisible("stage-origami", false);
     setVisible("stage-code2", true);
     els.code2Input.value = "";
     els.code2Input.focus();
-  } else {
-    // Do nothing on wrong
   }
 }
 
@@ -214,38 +178,31 @@ function goToOrigami() {
   setVisible("stage-origami", true);
   els.origamiStage.style.background = "#f7f4ef";
 
-  // Animate in
-  els.origamiWord.style.transition =
-    "left 900ms cubic-bezier(.2,.9,.2,1), opacity 500ms ease";
+  els.origamiWord.style.transition = "left 900ms cubic-bezier(.2,.9,.2,1), opacity 500ms ease";
   els.origamiWord.style.left = "-40%";
   els.origamiWord.style.opacity = "0.95";
   void els.origamiWord.offsetWidth;
   els.origamiWord.style.left = "10%";
 
-  // Full-screen input capture
   const focusOrigami = () => els.origamiInput && els.origamiInput.focus();
   focusOrigami();
-  document.addEventListener("click", focusOrigami, { capture: true });
+  document.removeEventListener("pointerdown", focusOrigami, true);
+  document.addEventListener("pointerdown", focusOrigami, true);
 
-  // Word stays 30s then exits right (screen stays)
   window.clearTimeout(origamiTimer);
   origamiTimer = window.setTimeout(() => {
     els.origamiWord.style.left = "120%";
   }, 30000);
 
-  origamiReadyForSecondPass = true;
   els.origamiInput.value = "";
   els.origamiInput.removeEventListener("keydown", onOrigamiKeydown);
   els.origamiInput.addEventListener("keydown", onOrigamiKeydown);
 }
 
-/* ====== Event Listeners ====== */
+/* ====== EVENTS ====== */
 if (els.btnHints) {
-  els.btnHints.addEventListener("click", () => {
-    showToast("Describe environment + objects + what stands out.");
-  });
+  els.btnHints.addEventListener("click", () => showToast("Describe environment + objects + what stands out."));
 }
-
 if (els.btnContrast) {
   els.btnContrast.addEventListener("click", () => {
     const on = document.body.classList.toggle("hc");
@@ -262,7 +219,7 @@ if (els.aiValidate) {
       els.aiResult.style.borderStyle = "solid";
       els.aiResult.style.borderColor = "rgba(45,108,223,.35)";
       els.aiResult.style.background = "rgba(45,108,223,.08)";
-      window.setTimeout(goToStageCode1, 450);
+      window.setTimeout(goToStageCode1, 350);
     } else {
       els.aiResult.style.borderStyle = "dashed";
       els.aiResult.style.borderColor = "rgba(207,46,46,.35)";
@@ -290,19 +247,14 @@ function validateCode1() {
     window.setTimeout(() => {
       els.code1Feedback.textContent = "";
       startBlinking();
-    }, 350);
+    }, 300);
     return;
   }
-
   tryAgain(els.code1Feedback);
 }
 
 if (els.code1Btn) els.code1Btn.addEventListener("click", validateCode1);
-if (els.code1Input) {
-  els.code1Input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") validateCode1();
-  });
-}
+if (els.code1Input) els.code1Input.addEventListener("keydown", (e) => { if (e.key === "Enter") validateCode1(); });
 
 function validateCode2() {
   const guess = normalizeSequence(els.code2Input.value);
@@ -316,18 +268,12 @@ function validateCode2() {
     }, 450);
     return;
   }
-
   tryAgain(els.code2Feedback);
 }
 
 if (els.code2Btn) els.code2Btn.addEventListener("click", validateCode2);
-if (els.code2Input) {
-  els.code2Input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") validateCode2();
-  });
-}
+if (els.code2Input) els.code2Input.addEventListener("keydown", (e) => { if (e.key === "Enter") validateCode2(); });
 
-/* ====== On load ====== */
 window.addEventListener("load", () => {
   if (els.aiInput) els.aiInput.focus();
 });

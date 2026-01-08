@@ -4,19 +4,21 @@
   <meta charset="UTF-8" />
   <title>The Archive</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Styles -->
   <link rel="stylesheet" href="styles.css" />
 
   <!-- Smooth fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800;900&display=swap" rel="stylesheet">
 </head>
 
 <body>
   <!-- HEADER -->
   <header class="topbar">
     <div class="brand">
-      <div class="brand__icon" aria-hidden="true">🧭</div>
+      <span class="brand__icon" aria-hidden="true">🧭</span>
       <div>
         <div class="brand__title">The Archive</div>
         <div class="brand__subtitle">One artifact. One way through.</div>
@@ -30,7 +32,8 @@
   </header>
 
   <div class="shell">
-    <!-- STAGE: AI / DESCRIPTION -->
+
+    <!-- STAGE 1: AI GATE -->
     <section id="stage-ai" class="card card--hero">
       <div class="card__head">
         <h1>Mission Brief</h1>
@@ -41,23 +44,20 @@
       </div>
 
       <div class="split">
-        <!-- Evidence -->
         <div class="pane">
           <div class="pane__title">
-            <span>Evidence</span>
+            <span>Reference</span>
+            <span class="pill">Local</span>
           </div>
 
           <figure class="evidence">
-            <a href="island-water.png" target="_blank" rel="noopener">
-              <img src="island-water.png" alt="Aerial ocean surface with many small islands" />
+            <a class="evidence__link" href="./island-water.png" target="_blank" rel="noopener">
+              <img src="./island-water.png" alt="Aerial ocean surface with many small islands">
             </a>
-            <figcaption class="muted">
-              Open and zoom.
-            </figcaption>
+            <figcaption class="muted">Open and zoom if needed.</figcaption>
           </figure>
         </div>
 
-        <!-- Verification -->
         <div class="pane">
           <div class="pane__title">
             <span>Verification</span>
@@ -66,29 +66,28 @@
 
           <div class="field">
             <div class="field__label">Describe the evidence</div>
-            <textarea id="aiInput" class="input textarea" placeholder="Describe what you see."></textarea>
-            <div class="field__hint muted">This is a UX gate. No external calls.</div>
-
-            <div class="row">
-              <button id="aiValidate" class="btn btn--primary" type="button">Run AI check</button>
-              <button id="aiClear" class="btn btn--ghost" type="button">Clear</button>
-            </div>
-
-            <!-- Feedback appears only when needed -->
-            <div id="aiResult" class="result hidden"></div>
-
-            <details class="details">
-              <summary>How the “AI check” works</summary>
-              <p class="muted">
-                This is a deterministic local gate. It checks for basic plausibility and avoids low-effort inputs.
-              </p>
-            </details>
+            <textarea id="aiInput" class="input textarea" placeholder="Describe the environment, objects, and what stands out."></textarea>
+            <div class="field__hint">This is a UX gate. No external calls.</div>
           </div>
+
+          <div class="row">
+            <button id="aiValidate" class="btn btn--primary" type="button">Run AI check</button>
+            <button id="aiClear" class="btn btn--ghost" type="button">Clear</button>
+          </div>
+
+          <div id="aiResult" class="result"></div>
+
+          <details class="details">
+            <summary>How the “AI check” works</summary>
+            <p class="muted">
+              Local plausibility check. It rewards specific, real descriptions and rejects low-effort spam.
+            </p>
+          </details>
         </div>
       </div>
     </section>
 
-    <!-- STAGE: CODE 1 (Sequence Entry) -->
+    <!-- STAGE 2: CODE1 ENTRY (shows SAME image) -->
     <section id="stage-code1" class="card card--hero hidden">
       <div class="card__head">
         <h1>Sequence Entry</h1>
@@ -96,25 +95,24 @@
       </div>
 
       <div class="split">
-        <!-- Evidence (same image again) -->
         <div class="pane">
           <div class="pane__title">
-            <span>Evidence</span>
+            <span>Reference</span>
+            <span class="pill">Local</span>
           </div>
+
           <figure class="evidence">
-            <a href="island-water.png" target="_blank" rel="noopener">
-              <img src="island-water.png" alt="Aerial ocean surface with many small islands" />
+            <a class="evidence__link" href="./island-water.png" target="_blank" rel="noopener">
+              <img src="./island-water.png" alt="Aerial ocean surface with many small islands">
             </a>
-            <figcaption class="muted">
-              Open and zoom.
-            </figcaption>
+            <figcaption class="muted">Open and zoom if needed.</figcaption>
           </figure>
         </div>
 
-        <!-- Entry -->
         <div class="pane">
           <div class="pane__title">
             <span>Submit</span>
+            <span class="pill">Local</span>
           </div>
 
           <div class="entry">
@@ -126,11 +124,11 @@
       </div>
     </section>
 
-    <!-- STAGE: CODE 2 -->
+    <!-- STAGE 5: CODE2 ENTRY -->
     <section id="stage-code2" class="card card--hero hidden">
       <div class="card__head">
         <h1>Final Entry</h1>
-        <p class="muted">Enter the required sequence.</p>
+        <p class="muted">Enter the next sequence.</p>
       </div>
 
       <div class="pane" style="margin: 0 18px 18px;">
@@ -145,25 +143,25 @@
     <!-- DONE -->
     <section id="stage-done" class="card card--hero hidden">
       <div class="card__head">
-        <h1>Accepted</h1>
-        <p class="muted">Complete.</p>
+        <h1>Complete</h1>
+        <p class="muted">Accepted.</p>
       </div>
     </section>
 
     <div class="footer muted">Static site. No tracking. No external calls.</div>
   </div>
 
-  <!-- BLINK STAGE -->
+  <!-- BLINK STAGE (full-screen) -->
   <div id="stage-blink" class="blink hidden" aria-hidden="true">
     <div class="blink__overlay"></div>
-    <input id="blinkInput" class="blink__input" type="password" autocomplete="off" />
+    <input id="blinkInput" class="blink__input" type="password" autocomplete="off" inputmode="numeric" />
   </div>
 
-  <!-- ORIGAMI STAGE -->
+  <!-- ORIGAMI STAGE (full-screen) -->
   <div id="stage-origami" class="origami hidden" aria-hidden="true">
     <div class="origami__canvas">
       <div id="origamiWord" class="origami__word">Origami</div>
-      <input id="origamiInput" class="origami__input" type="password" autocomplete="off" />
+      <input id="origamiInput" class="origami__input" type="password" autocomplete="off" inputmode="numeric" />
     </div>
   </div>
 

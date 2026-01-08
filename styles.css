@@ -387,3 +387,9 @@ body.hc .btn--ghost:hover{ background: rgba(255,255,255,.10); }
 #stage-think, #stage-origami{
   will-change: opacity, transform;
 }
+
+/* Hide the footer (and any centered footer text) during full-screen stages */
+body.fullscreen footer,
+body.fullscreen .footer {
+  display: none !important;
+}

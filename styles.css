@@ -357,3 +357,33 @@ body.hc .btn{
 }
 
 body.hc .btn--ghost:hover{ background: rgba(255,255,255,.10); }
+
+/* ===== Smooth glide helpers for Think + Origami text ===== */
+@keyframes slideInLeft {
+  from { transform: translateX(-40vw); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+@keyframes slideOutRight {
+  from { transform: translateX(0); opacity: 1; }
+  to   { transform: translateX(45vw); opacity: 0; }
+}
+
+.slide-in-left {
+  animation: slideInLeft 650ms cubic-bezier(.2,.9,.2,1) both;
+}
+.slide-out-right {
+  animation: slideOutRight 520ms cubic-bezier(.2,.9,.2,1) both;
+}
+
+/* Make “This is time to think.” big and centered reliably */
+#thinkText{
+  font-size: clamp(38px, 6.5vw, 84px);
+  font-weight: 900;
+  letter-spacing: -0.6px;
+  text-shadow: 0 10px 40px rgba(0,0,0,.08);
+}
+
+/* Ensure the full-screen stages transition cleanly */
+#stage-think, #stage-origami{
+  will-change: opacity, transform;
+}

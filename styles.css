@@ -1,3 +1,4 @@
+/* styles.css (FULL) */
 :root{
   --bg: #eef3f8;
   --card: rgba(255,255,255,.72);
@@ -10,12 +11,11 @@
   --radius: 18px;
   --radius2: 26px;
   --primary: #2d6cdf;
-  --primary2: #1f4fb0;
   --danger: #cf2e2e;
 
-  --toastBg: rgba(255,255,255,.92);
-  --toastText: rgba(13,27,42,.92);
-  --overlayBg: #f5f1ea;
+  --thinkBg: #ffffff;
+  --thinkText: #0c0f12;
+  --origamiBg: #f7f4ef;
 }
 
 *{ box-sizing:border-box; }
@@ -68,15 +68,11 @@ body{
 }
 
 .card--hero{ padding: 22px; }
+.card__head{ padding: 6px 6px 8px; }
 
-.card__head{ padding: 18px 18px 8px; }
-
-h1,h2{
-  margin:0;
-  letter-spacing: -.2px;
-}
-h1{ font-size: 28px; font-weight: 900; }
-h2{ font-size: 22px; font-weight: 900; }
+h1,h2{ margin:0; letter-spacing: -.2px; }
+h1{ font-size: 28px; }
+h2{ font-size: 22px; }
 
 .muted{ color: var(--muted); }
 
@@ -84,7 +80,7 @@ h2{ font-size: 22px; font-weight: 900; }
   display:grid;
   grid-template-columns: 1.25fr .95fr;
   gap: 18px;
-  padding: 0 18px 18px;
+  padding: 0 6px 6px;
 }
 @media (max-width: 900px){
   .split{ grid-template-columns: 1fr; }
@@ -114,14 +110,19 @@ h2{ font-size: 22px; font-weight: 900; }
   border: 1px solid var(--stroke2);
   background: rgba(255,255,255,.75);
   font-size: 12px;
-  color: rgba(13,27,42,.78);
+  color: rgba(13,27,42,.75);
 }
 .pill--soft{
   border-color: rgba(45,108,223,.25);
   background: rgba(45,108,223,.10);
 }
 
-.evidence{ margin:0; display:grid; gap: 10px; }
+.evidence{
+  margin:0;
+  display:grid;
+  gap: 10px;
+}
+.evidence__link{ text-decoration: none; }
 .evidence img{
   width: 100%;
   border-radius: 14px;
@@ -130,8 +131,7 @@ h2{ font-size: 22px; font-weight: 900; }
   background: #fff;
 }
 
-.field{ display:grid; gap: 10px; }
-
+.field{ display:grid; gap: 8px; }
 .field__label{ font-weight: 800; font-size: 13px; }
 .field__hint{ font-size: 12px; color: var(--muted); }
 
@@ -150,9 +150,9 @@ h2{ font-size: 22px; font-weight: 900; }
   box-shadow: 0 0 0 4px rgba(45,108,223,.12);
 }
 
-.textarea{ resize: vertical; min-height: 150px; }
+.textarea{ resize: vertical; min-height: 130px; }
 
-.row{ display:flex; gap:10px; margin-top: 2px; }
+.row{ display:flex; gap:10px; margin-top: 10px; }
 
 .btn{
   border: 1px solid var(--stroke2);
@@ -167,7 +167,7 @@ h2{ font-size: 22px; font-weight: 900; }
 }
 .btn:active{ transform: translateY(1px); }
 .btn--primary{
-  background: rgba(45,108,223,.90);
+  background: rgba(45,108,223,.92);
   border-color: rgba(45,108,223,.95);
   color: #fff;
 }
@@ -175,43 +175,33 @@ h2{ font-size: 22px; font-weight: 900; }
 .btn--ghost:hover{ background: rgba(255,255,255,.92); }
 
 .result{
-  margin-top: 8px;
+  margin-top: 10px;
   padding: 12px;
   border-radius: 14px;
   border: 1px dashed var(--stroke2);
   background: rgba(255,255,255,.55);
   font-size: 13px;
 }
-/* removes the “random empty box” */
-.result:empty{ display:none; }
+.result.hidden{ display:none; }
 
-.divider{
-  height: 1px;
-  background: var(--stroke);
-  margin: 10px 0 6px;
-}
-
-.details{
-  margin-top: 6px;
-}
+.details{ margin-top: 10px; }
 .details summary{
   cursor:pointer;
-  font-weight:900;
+  font-weight: 900;
   color: rgba(13,27,42,.82);
-  padding: 6px 0;
+  margin-top: 10px; /* fixes “glued” feeling */
 }
 .details p{ margin: 10px 0 0; }
 
 .entry{
   display:flex;
   gap: 12px;
-  padding: 0 18px 18px;
   align-items:center;
 }
 .entry .input{ flex: 1; }
 
 .feedback{
-  padding: 0 18px 18px;
+  margin-top: 10px;
   min-height: 28px;
   font-weight: 900;
   color: rgba(13,27,42,.75);
@@ -221,82 +211,64 @@ h2{ font-size: 22px; font-weight: 900; }
 
 .toast{
   position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  top: 88px;
-  z-index: 200;
-  max-width: min(720px, 92vw);
-  padding: 16px 18px;
+  right: 18px;
+  bottom: 18px;
+  max-width: min(520px, 92vw);
+  padding: 14px 16px;
   border-radius: 18px;
   border: 1px solid var(--stroke2);
-  background: var(--toastBg);
-  color: var(--toastText);
+  background: rgba(255,255,255,.92);
+  color: var(--text);
   box-shadow: var(--shadow2);
+  transform: translateY(10px);
   opacity: 0;
   pointer-events: none;
-  transition: opacity .18s ease, transform .18s ease;
+  transition: opacity .2s ease, transform .2s ease;
   font-weight: 900;
-  font-size: 22px;
-  line-height: 1.2;
 }
 .toast.show{
   opacity: 1;
-  transform: translateX(-50%) translateY(0);
+  transform: translateY(0);
 }
 
 .footer{
   text-align:center;
   margin-top: 14px;
   font-size: 12px;
-  padding: 0 18px;
 }
 
 /* Smooth “TRY AGAIN” glide */
-@keyframes glideIn {
-  from { transform: translateX(18px); opacity: 0; }
-  to   { transform: translateX(0); opacity: 1; }
-}
-@keyframes glideOut {
-  from { transform: translateX(0); opacity: 1; }
-  to   { transform: translateX(18px); opacity: 0; }
-}
+@keyframes glideIn { from { transform: translateX(18px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes glideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(18px); opacity: 0; } }
 .feedback .tryagain{
   display:inline-block;
   color: var(--danger);
   animation: glideIn .22s ease both;
 }
-.feedback .tryagain.out{
-  animation: glideOut .18s ease both;
-}
+.feedback .tryagain.out{ animation: glideOut .18s ease both; }
 
-/* TIME TO THINK STAGE (replaces blinking) */
-.think{
+/* FULL SCREEN STAGES */
+.stage-full{
   position: fixed;
   inset: 0;
-  z-index: 999;
-  background: var(--overlayBg);
+  z-index: 40; /* below header (50), above content */
+  background: var(--thinkBg);
 }
-.think__center{
+.stage-full__center{
   position:absolute;
   inset:0;
   display:grid;
   place-items:center;
-  padding: 24px;
 }
-.think__text{
+.stage-full__title{
+  font-size: clamp(34px, 6vw, 74px);
   font-weight: 900;
-  font-size: clamp(22px, 4vw, 44px);
-  letter-spacing: -0.3px;
-  color: rgba(13,27,42,.92);
-  text-shadow: 0 10px 40px rgba(0,0,0,.08);
+  color: var(--thinkText);
+  letter-spacing: -0.4px;
+  text-align:center;
+  padding: 0 18px;
 }
-.think__controls{
-  position:absolute;
-  top: 14px;
-  right: 14px;
-  z-index: 1000;
-}
-.think__input{
+.stage-full__input{
   position:absolute;
   inset:0;
   width:100%;
@@ -308,60 +280,28 @@ h2{ font-size: 22px; font-weight: 900; }
   caret-color: transparent;
 }
 
-/* ORIGAMI STAGE */
-.origami{
-  position: fixed;
-  inset: 0;
-  z-index: 998;
-  background: #f7f4ef;
-}
-.origami__canvas{
-  position:absolute;
-  inset:0;
-  overflow:hidden;
-}
+/* ORIGAMI */
+#stage-origami{ background: var(--origamiBg); }
 .origami__word{
-  position:absolute;
-  top: 42%;
-  left: 10%;
-  transform: translateY(-50%);
-  font-size: clamp(42px, 7vw, 86px);
+  font-size: clamp(56px, 10vw, 140px);
   font-weight: 900;
-  letter-spacing: .4px;
+  letter-spacing: -.6px;
   color: #0c0f12;
-  opacity: .95;
-  text-shadow: 0 12px 40px rgba(0,0,0,.10);
-}
-.origami__controls{
-  position:absolute;
-  top: 14px;
-  right: 14px;
-  z-index: 1000;
-}
-.origami__input{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  border:0;
-  outline:none;
-  background: transparent;
-  color: transparent;
-  caret-color: transparent;
+  text-shadow: 0 14px 55px rgba(0,0,0,.10);
 }
 
-/* High contrast mode */
+/* HIGH CONTRAST MODE */
 body.hc{
   --bg: #0b0f14;
   --card: rgba(18,22,28,.86);
   --stroke: rgba(255,255,255,.12);
   --stroke2: rgba(255,255,255,.20);
   --text: #f2f6fb;
-  --muted: rgba(242,246,251,.76);
+  --muted: rgba(242,246,251,.72);
 
-  --toastBg: rgba(18,22,28,.96);
-  --toastText: rgba(242,246,251,.94);
-  --overlayBg: #0f141b;
+  --thinkBg: #000000;
+  --thinkText: #ffffff;
+  --origamiBg: #111111;
 
   background: radial-gradient(1200px 700px at 30% 0%, #111825 0%, #0b0f14 60%, #070a0e 100%);
 }
@@ -371,36 +311,35 @@ body.hc .topbar{
 }
 
 body.hc .pane{
-  background: rgba(18,22,28,.62);
+  background: rgba(18,22,28,.60);
 }
 
-/* Make “Local” readable in high-contrast */
-body.hc .pill{
-  background: rgba(255,255,255,.06);
-  color: rgba(242,246,251,.86);
-  border-color: rgba(255,255,255,.20);
+body.hc .input{
+  background: rgba(10,14,18,.75);
+  color: var(--text);
 }
+
+body.hc .pill,
 body.hc .pill--soft{
-  background: rgba(45,108,223,.18);
-  border-color: rgba(45,108,223,.35);
+  color: #ffffff;               /* fixes “Local” unreadable */
+  border-color: rgba(255,255,255,.20);
+  background: rgba(255,255,255,.06);
 }
 
-/* Details summary readability in HC */
-body.hc .details summary{
-  color: rgba(242,246,251,.90);
+body.hc .details summary,
+body.hc .details p{
+  color: #ffffff;               /* fixes “How the AI check works” unreadable */
 }
 
-/* Overlay text readability in HC */
-body.hc .think__text{
-  color: rgba(242,246,251,.92);
-  text-shadow: 0 12px 40px rgba(0,0,0,.35);
+body.hc .toast{
+  background: #000000;          /* hint box black */
+  color: #f2f6fb;               /* text stays readable */
+  border-color: rgba(255,255,255,.18);
 }
 
-/* Origami in HC: keep off-white feel but readable */
-body.hc .origami{
-  background: #0f141b;
+body.hc .btn{
+  background: rgba(255,255,255,.06);
+  color: var(--text);
 }
-body.hc .origami__word{
-  color: rgba(242,246,251,.92);
-  text-shadow: 0 12px 40px rgba(0,0,0,.45);
-}
+
+body.hc .btn--ghost:hover{ background: rgba(255,255,255,.10); }

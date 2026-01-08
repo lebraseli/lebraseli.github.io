@@ -5,59 +5,55 @@
   <title>The Archive</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Styles -->
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 
 <body>
 
-  <!-- TOP BAR -->
   <header class="topbar">
     <div class="brand">
-      <div class="brand__icon">🧭</div>
+      <span class="brand__icon">🧭</span>
       <div>
         <div class="brand__title">The Archive</div>
         <div class="brand__subtitle">One artifact. One way through.</div>
       </div>
     </div>
+
     <div class="topbar__actions">
-      <button id="btnHints" class="btn btn--ghost">Hints</button>
-      <button id="btnContrast" class="btn btn--ghost" aria-pressed="false">High Contrast</button>
+      <button id="btnHints" class="btn btn--ghost" type="button">Hints</button>
+      <button id="btnContrast" class="btn btn--ghost" type="button" aria-pressed="false">High Contrast</button>
     </div>
   </header>
 
   <div class="shell">
 
-    <!-- AI DESCRIPTION STAGE -->
+    <!-- STAGE 1: AI DESCRIPTION GATE -->
     <section id="stage-ai" class="card card--hero">
       <div class="card__head">
         <h1>Mission Brief</h1>
         <p class="muted">
-          You do not have the physical copy.
-          Your first task is to <strong>describe what you see</strong>.
+          You do not have the physical copy. Your first task is to <strong>describe what you see</strong>.
           If your description is plausible, the archive will unlock the next prompt.
         </p>
       </div>
 
       <div class="split">
+        <div class="pane">
+          <div class="pane__title">
+            <span>Reference</span>
+            <span class="pill">Local</span>
+          </div>
 
-        <!-- IMAGE -->
-        <figure class="pane evidence">
-          <img
-            src="island-water.png"
-            alt="Aerial ocean surface with many small islands"
-          />
-          <figcaption class="muted">
-            Open and inspect.
-          </figcaption>
-        </figure>
+          <figure class="evidence">
+            <img src="island-water.png" alt="Aerial ocean surface with many small islands" />
+            <figcaption class="muted">Open, zoom, and inspect.</figcaption>
+          </figure>
+        </div>
 
-        <!-- AI CHECK -->
         <div class="pane">
           <div class="pane__title">
             <span>Verification</span>
@@ -65,60 +61,96 @@
           </div>
 
           <div class="field">
-            <label class="field__label" for="aiInput">Describe the evidence</label>
-            <textarea
-              id="aiInput"
-              class="input textarea"
-              placeholder="Describe the environment, what objects are present, and why it might be actionable."
-            ></textarea>
-            <div class="field__hint">
-              This is a UX gate. No external calls.
-            </div>
+            <div class="field__label">Describe the evidence</div>
+            <textarea id="aiInput" class="input textarea" placeholder="Describe what you see."></textarea>
+            <div class="field__hint">This is a UX gate. No external calls.</div>
           </div>
 
           <div class="row">
-            <button id="aiValidate" class="btn btn--primary">Run AI check</button>
-            <button id="aiClear" class="btn btn--ghost">Clear</button>
+            <button id="aiValidate" class="btn btn--primary" type="button">Run AI check</button>
+            <button id="aiClear" class="btn btn--ghost" type="button">Clear</button>
           </div>
 
           <div id="aiResult" class="result"></div>
 
+          <div class="divider"></div>
+
           <details class="details">
             <summary>How the “AI check” works</summary>
             <p class="muted">
-              Plausibility is determined by structure, specificity, and recognition of actionable patterns.
+              Local plausibility gate based on minimum effort, distinct words, and scene-consistency. No network calls.
             </p>
           </details>
         </div>
-
       </div>
     </section>
 
-    <!-- CODE 1 -->
-    <section id="stage-code1" class="card hidden">
+    <!-- STAGE 2: SEQUENCE ENTRY (SHOW SAME IMAGE AGAIN) -->
+    <section id="stage-code1" class="card card--hero hidden">
       <div class="card__head">
-        <h2>Sequence Entry</h2>
+        <h1>Sequence Entry</h1>
         <p class="muted">Submit the extracted alphanumeric sequence.</p>
       </div>
 
-      <div class="entry">
-        <input id="code1Input" class="input" placeholder="Enter sequence" autocomplete="off" />
-        <button id="code1Btn" class="btn btn--primary">Validate</button>
+      <div class="split">
+        <div class="pane">
+          <div class="pane__title">
+            <span>Reference</span>
+            <span class="pill">Local</span>
+          </div>
+
+          <figure class="evidence">
+            <img src="island-water.png" alt="Aerial ocean surface with many small islands" />
+            <figcaption class="muted">Use the same reference. You can zoom in your browser.</figcaption>
+          </figure>
+        </div>
+
+        <div class="pane">
+          <div class="pane__title">
+            <span>Submit</span>
+            <span class="pill">Local</span>
+          </div>
+
+          <div class="entry">
+            <input id="code1Input" class="input" type="text" placeholder="Enter sequence" autocomplete="off" />
+            <button id="code1Btn" class="btn btn--primary" type="button">Validate</button>
+          </div>
+
+          <div id="code1Feedback" class="feedback"></div>
+        </div>
       </div>
-      <div id="code1Feedback" class="feedback"></div>
     </section>
 
+    <!-- STAGE 4: FINAL CODE ENTRY -->
+    <section id="stage-code2" class="card card--hero hidden">
+      <div class="card__head">
+        <h1>Final Entry</h1>
+        <p class="muted">Enter the next code.</p>
+      </div>
+
+      <div class="entry">
+        <input id="code2Input" class="input" type="text" placeholder="Enter sequence" autocomplete="off" />
+        <button id="code2Btn" class="btn btn--primary" type="button">Validate</button>
+      </div>
+
+      <div id="code2Feedback" class="feedback"></div>
+    </section>
+
+    <!-- DONE -->
+    <section id="stage-done" class="card card--hero hidden">
+      <div class="card__head">
+        <h1>Accepted</h1>
+        <p class="muted">Complete.</p>
+      </div>
+    </section>
+
+    <div class="footer muted">Static site. No tracking. No external calls.</div>
   </div>
 
   <!-- BLINK STAGE -->
   <div id="stage-blink" class="blink hidden">
     <div class="blink__overlay"></div>
-    <input
-      id="blinkInput"
-      class="blink__input"
-      autocomplete="off"
-      spellcheck="false"
-    />
+    <input id="blinkInput" class="blink__input" type="password" autocomplete="off" />
   </div>
 
   <!-- ORIGAMI STAGE -->
@@ -126,39 +158,10 @@
     <div class="origami__canvas">
       <div id="origamiWord" class="origami__word">Origami</div>
     </div>
-    <input
-      id="origamiInput"
-      class="origami__input"
-      autocomplete="off"
-      spellcheck="false"
-    />
+    <input id="origamiInput" class="origami__input" type="password" autocomplete="off" />
   </div>
 
-  <!-- FINAL CODE -->
-  <section id="stage-code2" class="card hidden shell">
-    <div class="card__head">
-      <h2>Final Entry</h2>
-    </div>
-
-    <div class="entry">
-      <input id="code2Input" class="input" placeholder="Enter sequence" autocomplete="off" />
-      <button id="code2Btn" class="btn btn--primary">Validate</button>
-    </div>
-    <div id="code2Feedback" class="feedback"></div>
-  </section>
-
-  <!-- DONE -->
-  <section id="stage-done" class="card hidden shell">
-    <div class="card__head">
-      <h2>Accepted.</h2>
-    </div>
-  </section>
-
   <div id="toast" class="toast"></div>
-
-  <footer class="footer muted">
-    Static site. No tracking. No external calls.
-  </footer>
 
   <script src="app.js"></script>
 </body>

@@ -1,4 +1,3 @@
-<!-- index.html (FULL) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,7 +7,6 @@
 
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- Optional font (safe to keep) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
@@ -45,7 +43,7 @@
       <div class="split">
         <div class="pane">
           <div class="pane__title">
-            <span>File</span>
+            <span></span>
           </div>
 
           <figure class="evidence">
@@ -72,7 +70,6 @@
               <button id="aiClear" class="btn btn--ghost" type="button">Clear</button>
             </div>
 
-            <!-- This is the “random box” you wanted gone; it will only render content when there is feedback -->
             <div id="aiResult" class="result hidden" aria-live="polite"></div>
 
             <details class="details" id="aiDetails">
@@ -96,7 +93,7 @@
       <div class="split">
         <div class="pane">
           <div class="pane__title">
-            <span>File</span>
+            <span></span>
           </div>
 
           <figure class="evidence">
@@ -120,16 +117,15 @@
       </div>
     </section>
 
-    <!-- STAGE 3: TIME TO THINK (no visible textbox; type anywhere; ENTER submits) -->
+    <!-- STAGE 3: TIME TO THINK -->
     <section id="stage-think" class="stage-full hidden" aria-hidden="true">
       <div class="stage-full__center">
         <div id="thinkText" class="stage-full__title">This is time to think.</div>
-        <!-- hidden full-screen capture -->
         <input id="thinkInput" class="stage-full__input" type="password" autocomplete="off" />
       </div>
     </section>
 
-    <!-- STAGE 4: ORIGAMI (header still present; type anywhere; ENTER submits) -->
+    <!-- STAGE 4: ORIGAMI -->
     <section id="stage-origami" class="stage-full hidden" aria-hidden="true">
       <div class="stage-full__center">
         <div id="origamiWord" class="origami__word">Origami</div>

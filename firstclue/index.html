@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Clue</title>
+  <style>
+    :root{
+      color-scheme: dark light;
+      --bg0:#070A12; --bg1:#0B1020;
+      --text:rgba(255,255,255,.92);
+      --muted:rgba(255,255,255,.70);
+      --border:rgba(255,255,255,.14);
+      --card:rgba(255,255,255,.06);
+      --shadow:0 18px 60px rgba(0,0,0,.55);
+      --r:18px;
+    }
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      color:var(--text);
+      background:
+        radial-gradient(900px 600px at 20% 15%, rgba(120,90,255,.28), transparent 60%),
+        radial-gradient(800px 500px at 85% 35%, rgba(0,220,255,.18), transparent 60%),
+        radial-gradient(900px 700px at 55% 90%, rgba(255,120,160,.14), transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      display:flex; align-items:center; justify-content:center;
+      padding:32px 18px;
+    }
+    .wrap{width:min(900px,100%)}
+    .card{
+      border:1px solid var(--border);
+      background:linear-gradient(180deg, var(--card), rgba(255,255,255,.03));
+      border-radius:var(--r);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    .top{
+      padding:14px 16px;
+      border-bottom:1px solid rgba(255,255,255,.10);
+      display:flex; justify-content:space-between; gap:12px; align-items:center;
+      background:rgba(255,255,255,.02);
+    }
+    .top .meta{display:flex; flex-direction:column; gap:2px; min-width:0}
+    .top strong{font-size:14px; letter-spacing:.02em}
+    .top span{font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+    button{
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.05);
+      color:var(--text);
+      border-radius:12px;
+      padding:8px 10px;
+      font-size:12px;
+      cursor:pointer;
+    }
+    button:hover{background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.22)}
+    pre{
+      margin:0;
+      padding:22px 20px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:16px;
+      line-height:1.75;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+    .foot{
+      padding:14px 16px 16px;
+      border-top:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.02);
+      color:var(--muted);
+      font-size:12px;
+      display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;
+    }
+    .ok{color:rgba(170,255,210,.95)}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <div class="top">
+        <div class="meta">
+          <strong>Clue</strong>
+          <span>Clean display. Copyable. No impact to your existing homepage.</span>
+        </div>
+        <button id="copyBtn" type="button">Copy</button>
+      </div>
+
+      <pre id="clueText">Disguised in plain sight, the answers bide their time
+Known truths arrive wrapped softly in rhyme
+Hushed beginnings matter more than tone
+Kept slightly off, but not overthrown
+Distance hides in places you won’t see
+All lines bend but never truly break
+Quiet shifts are easier to make
+Zones return to where they last aligned
+Residue reveals what’s left behind</pre>
+
+      <div class="foot">
+        <div>Edit this text in <code>clue/index.html</code></div>
+        <div id="status" aria-live="polite"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const btn = document.getElementById('copyBtn');
+    const text = document.getElementById('clueText');
+    const status = document.getElementById('status');
+
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(text.innerText.trim());
+        status.textContent = 'Copied.';
+        status.className = 'ok';
+        setTimeout(() => (status.textContent = ''), 1200);
+      } catch {
+        status.textContent = 'Copy blocked by browser.';
+        status.className = '';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -375,7 +375,7 @@ body.hc .btn--ghost:hover{ background: rgba(255,255,255,.10); }
   animation: slideOutRight 520ms cubic-bezier(.2,.9,.2,1) both;
 }
 
-/* Make “This is time to think.” big and centered reliably */
+/* Make “It is time to think.” big and centered reliably */
 #thinkText{
   font-size: clamp(38px, 6.5vw, 84px);
   font-weight: 900;

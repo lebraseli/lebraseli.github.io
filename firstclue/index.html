@@ -42,9 +42,7 @@
       display:flex; justify-content:space-between; gap:12px; align-items:center;
       background:rgba(255,255,255,.02);
     }
-    .top .meta{display:flex; flex-direction:column; gap:2px; min-width:0}
     .top strong{font-size:14px; letter-spacing:.02em}
-    .top span{font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
     button{
       border:1px solid rgba(255,255,255,.14);
       background:rgba(255,255,255,.05);
@@ -53,8 +51,10 @@
       padding:8px 10px;
       font-size:12px;
       cursor:pointer;
+      transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
     }
-    button:hover{background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.22)}
+    button:hover{background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.22); transform: translateY(-1px)}
+    button:active{transform: translateY(0)}
     pre{
       margin:0;
       padding:22px 20px;
@@ -64,26 +64,24 @@
       white-space:pre-wrap;
       word-break:break-word;
     }
-    .foot{
-      padding:14px 16px 16px;
+    .hint{
+      padding:12px 16px 16px;
       border-top:1px solid rgba(255,255,255,.10);
       background:rgba(255,255,255,.02);
-      color:var(--muted);
       font-size:12px;
-      display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;
+      color:var(--muted);
+      min-height: 18px;
     }
     .ok{color:rgba(170,255,210,.95)}
+    .bad{color:rgba(255,170,170,.95)}
   </style>
 </head>
 <body>
   <main class="wrap">
-    <section class="card">
+    <section class="card" aria-label="Clue card">
       <div class="top">
-        <div class="meta">
-          <strong>Clue</strong>
-          <span>Clean display. Copyable. No impact to your existing homepage.</span>
-        </div>
-        <button id="copyBtn" type="button">Copy</button>
+        <strong>Clue</strong>
+        <button id="hintBtn" type="button">Hint</button>
       </div>
 
       <pre id="clueText">Disguised in plain sight, the answers bide their time
@@ -96,27 +94,31 @@ Quiet shifts are easier to make
 Zones return to where they last aligned
 Residue reveals what’s left behind</pre>
 
-      <div class="foot">
-        <div>Edit this text in <code>clue/index.html</code></div>
-        <div id="status" aria-live="polite"></div>
-      </div>
+      <div class="hint" id="hintArea" aria-live="polite"></div>
     </section>
   </main>
 
   <script>
-    const btn = document.getElementById('copyBtn');
-    const text = document.getElementById('clueText');
-    const status = document.getElementById('status');
+    const hintBtn = document.getElementById('hintBtn');
+    const hintArea = document.getElementById('hintArea');
 
-    btn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(text.innerText.trim());
-        status.textContent = 'Copied.';
-        status.className = 'ok';
-        setTimeout(() => (status.textContent = ''), 1200);
-      } catch {
-        status.textContent = 'Copy blocked by browser.';
-        status.className = '';
+    const HINT_TEXT = "Don’t look at the text; look instead at the first column.";
+    const CODE = "1324";
+
+    hintBtn.addEventListener('click', () => {
+      const entered = prompt("Enter code to reveal hint:");
+      if (entered === null) return;
+
+      if (String(entered).trim() === CODE) {
+        hintArea.textContent = HINT_TEXT;
+        hintArea.className = "hint ok";
+      } else {
+        hintArea.textContent = "Incorrect code.";
+        hintArea.className = "hint bad";
+        setTimeout(() => {
+          hintArea.textContent = "";
+          hintArea.className = "hint";
+        }, 1200);
       }
     });
   </script>

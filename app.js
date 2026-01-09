@@ -1,3 +1,5 @@
+/* app.js (FULL) */
+
 /* ====== CONFIG ====== */
 const CODE1 = "X47Y1ACGNJ"; // island/water code
 const PASS  = "1324";       // operator pass
@@ -33,19 +35,16 @@ function setVisibleAnimated(id, visible, opts = {}) {
     easing = "cubic-bezier(.2,.9,.2,1)"
   } = opts;
 
-  // If already correct state, no-op
   const isHidden = el.classList.contains("hidden");
   if (visible && !isHidden && el.style.opacity === "1") return;
   if (!visible && isHidden) return;
 
-  // Ensure transitions are consistent
   el.style.transition = `opacity ${duration}ms ${easing}, transform ${duration}ms ${easing}`;
 
   if (visible) {
     el.classList.remove("hidden");
     el.style.opacity = "0";
     el.style.transform = inTransform;
-    // force layout
     void el.offsetWidth;
     requestAnimationFrame(() => {
       el.style.opacity = "1";
@@ -61,7 +60,6 @@ function setVisibleAnimated(id, visible, opts = {}) {
 }
 
 function swapStages(fromId, toId, opts = {}) {
-  // hide first (smooth), then show second (smooth)
   if (fromId) setVisibleAnimated(fromId, false, opts.from || {});
   if (toId) {
     const delay = (opts.from && opts.from.duration) ? opts.from.duration : 420;
@@ -78,6 +76,11 @@ function setHintsEnabled(on) {
   btn.classList.toggle("hidden", !on);
 }
 
+/* Hide footer during full-screen stages */
+function setFullscreenMode(on) {
+  document.body.classList.toggle("fullscreen", !!on);
+}
+
 /* ====== “AI CHECK” (RELAXED RULE) ======
    Requirement: MUST pass if it includes the words "island" AND "code"
    (case-insensitive, anywhere in text).
@@ -90,7 +93,6 @@ function aiCheck(inputRaw) {
     return { ok: true, reason: "AI check passed. Continue." };
   }
 
-  // Otherwise keep a light plausibility gate (not overly strict)
   if (raw.length < 14) {
     return { ok: false, reason: "Add a little more detail." };
   }
@@ -135,18 +137,13 @@ function tryAgain(feedbackEl) {
 /* ====== TOPBAR / HINTS BEHAVIOR ====== */
 function updateTopbarForStage(stageId) {
   // Only allow Hints on first 2 pages:
-  // stage-ai (describe) and stage-code1 (sequence entry)
   const allowHints = (stageId === "stage-ai" || stageId === "stage-code1");
   setHintsEnabled(allowHints);
 }
 
 function showStageHint() {
-  // Hint text changes by current stage
   const stageAIVisible = !document.getElementById("stage-ai")?.classList.contains("hidden");
   const stageC1Visible = !document.getElementById("stage-code1")?.classList.contains("hidden");
-  const stageThinkVisible = !document.getElementById("stage-think")?.classList.contains("hidden");
-  const stageOrigamiVisible = !document.getElementById("stage-origami")?.classList.contains("hidden");
-  const stageC2Visible = !document.getElementById("stage-code2")?.classList.contains("hidden");
 
   if (stageAIVisible) {
     showToast("Describe environment, objects, and what stands out.");
@@ -156,10 +153,6 @@ function showStageHint() {
     showToast("Look again. Don’t assume it’s random.");
     return;
   }
-  // Hints are hidden beyond this point, but keep a safe fallback:
-  if (stageThinkVisible) showToast("…");
-  else if (stageOrigamiVisible) showToast("…");
-  else if (stageC2Visible) showToast("…");
 }
 
 /* ====== STAGE TRANSITIONS ====== */
@@ -173,18 +166,18 @@ function goToStageCode1() {
 }
 
 function goToThink() {
-  // Show think stage full-screen
   setVisibleAnimated("stage-code1", false, { duration: 360, outTransform: "translateY(6px)" });
 
   window.setTimeout(() => {
+    setFullscreenMode(true);
     setVisibleAnimated("stage-think", true, { duration: 520, inTransform: "translateY(0px)" });
     updateTopbarForStage("stage-think");
 
-    // Background behavior: white normally, black in high contrast
     syncThinkTheme();
-
-    // Ensure you can type without clicking
     focusThink();
+
+    // Reset animation classes (re-enter safe)
+    els.thinkText.classList.remove("slide-in-left", "slide-out-right");
   }, 380);
 }
 
@@ -207,23 +200,20 @@ function goToOrigamiWithGlide() {
   void els.thinkText.offsetWidth;
   els.thinkText.classList.add("slide-out-right");
 
-  // After glide out, swap stages and glide Origami in
   window.setTimeout(() => {
     setVisibleAnimated("stage-think", false, { duration: 220, outTransform: "translateY(0)" });
 
     window.setTimeout(() => {
       setVisibleAnimated("stage-origami", true, { duration: 420, inTransform: "translateY(0)" });
-      updateTopbarForStage("stage-origami"); // Hints hidden here; High Contrast remains
+      updateTopbarForStage("stage-origami");
 
-      // Ensure consistent background for origami stage
       syncOrigamiTheme();
 
-      // Origami glides in from left (and stays)
-      els.origamiWord.classList.remove("slide-out-right");
+      // Origami glides in from left and stays
+      els.origamiWord.classList.remove("slide-out-right", "slide-in-left");
+      void els.origamiWord.offsetWidth;
       els.origamiWord.classList.add("slide-in-left");
-      // Keep it present; do NOT auto-exit
 
-      // Capture typing without clicking
       focusOrigami();
     }, 260);
   }, 520);
@@ -242,11 +232,16 @@ function syncOrigamiTheme() {
 }
 
 function goToStageCode2() {
+  // Keep fullscreen ON while transitioning so footer never flashes
   swapStages("stage-origami", "stage-code2", {
     from: { duration: 380, outTransform: "translateY(0)" },
     to:   { duration: 520, inTransform: "translateY(10px)" }
   });
+
   window.setTimeout(() => {
+    // Return to normal layout (footer can be visible again here)
+    setFullscreenMode(false);
+
     els.code2Input.value = "";
     els.code2Input.focus();
   }, 560);
@@ -327,7 +322,6 @@ els.origamiInput?.addEventListener("keydown", (e) => {
   const v = normalizeSequence(els.origamiInput.value);
   els.origamiInput.value = "";
   if (v === PASS) {
-    // Smooth glide out right (optional) then next screen
     els.origamiWord.classList.remove("slide-in-left");
     els.origamiWord.classList.add("slide-out-right");
     window.setTimeout(goToStageCode2, 360);
@@ -358,7 +352,6 @@ els.code2Input?.addEventListener("keydown", (e) => {
 
 /* ====== ON LOAD ====== */
 window.addEventListener("load", () => {
-  // Initial stage: AI visible, hints enabled
   updateTopbarForStage("stage-ai");
   els.aiInput?.focus();
 });

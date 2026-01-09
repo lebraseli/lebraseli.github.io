@@ -98,6 +98,7 @@ Residue reveals what’s left behind</pre>
       if (e.key === "Escape") closePanel();
     });
 
+    // Click outside closes
     document.addEventListener('click', (e) => {
       if (!panel.classList.contains('open')) return;
       const clickedInside = panel.contains(e.target) || hintBtn.contains(e.target);

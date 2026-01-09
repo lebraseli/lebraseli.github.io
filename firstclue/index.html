@@ -12,13 +12,31 @@
 
 <body>
   <main class="wrap">
-    <section class="card" aria-label="Clue card">
-      <div class="topbar">
-        <div class="brand">Clue</div>
-        <button id="hintBtn" class="btn" type="button">Hint</button>
-      </div>
+    <div class="layout" id="layout">
+      <!-- Hint dock (slides in on the left, cannot be closed) -->
+      <aside class="hint-dock" id="hintDock" aria-label="Hint panel">
+        <div class="hint-head">
+          <div class="hint-title">Hint</div>
+        </div>
 
-      <pre class="clue" id="clueText">Disguised in plain sight, the answers bide their time
+        <label class="hint-label" for="hintCode">Enter code</label>
+
+        <div class="hint-row">
+          <input id="hintCode" type="password" inputmode="numeric" autocomplete="off" />
+          <button class="btn btn-primary" id="hintSubmit" type="button">Unlock</button>
+        </div>
+
+        <div class="hint-msg" id="hintMsg" aria-live="polite"></div>
+      </aside>
+
+      <!-- Main clue card (compresses when hint slides in) -->
+      <section class="card" aria-label="Clue card">
+        <div class="topbar">
+          <div class="brand">Clue</div>
+          <button id="hintBtn" class="btn" type="button">Hint</button>
+        </div>
+
+        <pre class="clue" id="clueText">Disguised in plain sight, the answers bide their time
 Known truths arrive wrapped softly in rhyme
 Hushed beginnings matter more than tone
 Kept slightly off, but not overthrown
@@ -27,82 +45,45 @@ All lines bend but never truly break
 Quiet shifts are easier to make
 Zones return to where they last aligned
 Residue reveals what’s left behind</pre>
-    </section>
+      </section>
+    </div>
   </main>
-
-  <!-- Slide-in hint panel -->
-  <aside class="hint-panel" id="hintPanel" aria-label="Hint panel">
-    <div class="hint-head">
-      <div class="hint-title">Hint</div>
-      <button class="btn icon-btn" id="hintClose" type="button" aria-label="Close">✕</button>
-    </div>
-
-    <label class="hint-label" for="hintCode">Enter code</label>
-    <div class="hint-row">
-      <input id="hintCode" type="password" inputmode="numeric" autocomplete="off" />
-      <button class="btn btn-primary" id="hintSubmit" type="button">Unlock</button>
-    </div>
-
-    <div class="hint-msg" id="hintMsg" aria-live="polite"></div>
-  </aside>
 
   <script>
     const hintBtn = document.getElementById('hintBtn');
-    const panel = document.getElementById('hintPanel');
-    const closeBtn = document.getElementById('hintClose');
-    const submitBtn = document.getElementById('hintSubmit');
-    const codeInput = document.getElementById('hintCode');
-    const msg = document.getElementById('hintMsg');
+    const hintDock = document.getElementById('hintDock');
+    const hintSubmit = document.getElementById('hintSubmit');
+    const hintCode = document.getElementById('hintCode');
+    const hintMsg = document.getElementById('hintMsg');
 
     const CODE = "1324";
     const HINT_TEXT = "Don’t look at the text; look instead at the first column.";
 
-    function openPanel() {
-      panel.classList.add('open');
-      msg.textContent = "";
-      msg.className = "hint-msg";
-      codeInput.value = "";
-      setTimeout(() => codeInput.focus(), 60);
+    function openHintDock() {
+      document.body.classList.add('hint-open');
+      hintBtn.disabled = true;
+      hintBtn.textContent = "Hint Open";
+      setTimeout(() => hintCode.focus(), 80);
     }
 
-    function closePanel() {
-      panel.classList.remove('open');
-      msg.textContent = "";
-      msg.className = "hint-msg";
-      codeInput.value = "";
-    }
-
-    function unlock() {
-      const entered = (codeInput.value || "").trim();
+    function unlockHint() {
+      const entered = (hintCode.value || "").trim();
       if (entered === CODE) {
-        msg.textContent = HINT_TEXT;
-        msg.className = "hint-msg ok";
+        hintMsg.textContent = HINT_TEXT;
+        hintMsg.className = "hint-msg ok";
       } else {
-        msg.textContent = "Incorrect code.";
-        msg.className = "hint-msg bad";
-        codeInput.value = "";
-        codeInput.focus();
+        hintMsg.textContent = "Incorrect code.";
+        hintMsg.className = "hint-msg bad";
+        hintCode.value = "";
+        hintCode.focus();
       }
     }
 
-    hintBtn.addEventListener('click', () => {
-      if (panel.classList.contains('open')) closePanel();
-      else openPanel();
-    });
+    hintBtn.addEventListener('click', openHintDock);
+    hintSubmit.addEventListener('click', unlockHint);
 
-    closeBtn.addEventListener('click', closePanel);
-    submitBtn.addEventListener('click', unlock);
-
-    codeInput.addEventListener('keydown', (e) => {
-      if (e.key === "Enter") unlock();
-      if (e.key === "Escape") closePanel();
-    });
-
-    // Click outside closes
-    document.addEventListener('click', (e) => {
-      if (!panel.classList.contains('open')) return;
-      const clickedInside = panel.contains(e.target) || hintBtn.contains(e.target);
-      if (!clickedInside) closePanel();
+    hintCode.addEventListener('keydown', (e) => {
+      if (e.key === "Enter") unlockHint();
     });
   </script>
 </body>

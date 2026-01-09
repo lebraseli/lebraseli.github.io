@@ -55,34 +55,39 @@
           </figure>
         </div>
 
-        <div class="pane">
-          <div class="pane__title">
-            <span>Verification</span>
-            <span class="pill pill--soft" id="localPill">Local</span>
-          </div>
+<div class="pane">
+  <div class="pane__title">
+    <span>Verification</span>
+    <span class="pill pill--soft" id="localPill">Local</span>
+  </div>
 
-          <div class="field">
-            <div class="field__label">Describe the evidence</div>
-            <textarea id="aiInput" class="input textarea" placeholder="Describe the environment, objects, and what stands out."></textarea>
-            <div class="field__hint">This is a UX gate. No external calls.</div>
+  <div class="field">
+    <div class="field__label">Describe the evidence</div>
+    <textarea
+      id="aiInput"
+      class="input textarea"
+      placeholder="Describe the environment, objects, and what stands out."
+    ></textarea>
+    <div class="field__hint">
+      This check runs entirely in your browser. Nothing is sent or stored.
+    </div>
 
-            <div class="row">
-              <button id="aiValidate" class="btn btn--primary" type="button">Run AI check</button>
-              <button id="aiClear" class="btn btn--ghost" type="button">Clear</button>
-            </div>
+    <div class="row">
+      <button id="aiValidate" class="btn btn--primary" type="button">Run AI check</button>
+      <button id="aiClear" class="btn btn--ghost" type="button">Clear</button>
+    </div>
 
-            <div id="aiResult" class="result hidden" aria-live="polite"></div>
+    <div id="aiResult" class="result hidden" aria-live="polite"></div>
 
-            <details class="details" id="aiDetails">
-              <summary>How the “AI check” works</summary>
-              <p class="muted">
-                This is a local UX gate. No external calls are made.
-              </p>
-            </details>
-          </div>
-        </div>
-      </div>
-    </section>
+    <details class="details" id="aiDetails">
+      <summary>How the “AI check” works</summary>
+      <p class="muted">
+This “AI check” is a local, rule-based validator that runs entirely in your browser. It does not call any APIs, send network requests, or store anything on a server—your input stays on your device. The check simply looks for specific keywords (it must include “island” and “code”) and applies a lightweight length/clarity threshold to discourage one-word submissions. If the conditions are met, the page advances; otherwise it returns a brief prompt to add detail. The goal is UX gating (signal > noise), not real AI classification or model inference.
+      </p>
+    </details>
+  </div>
+</div>
+
 
     <!-- STAGE 2: CODE 1 (show SAME image again) -->
     <section id="stage-code1" class="card card--hero hidden">

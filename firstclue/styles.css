@@ -231,3 +231,12 @@ body.hint-open .hint-dock{
   /* ensure content fits */
   .hint-row input{ min-width: 0; }
 }
+
+/* Tiny footer text inside the clue */
+.tiny-footer{
+  display:block;
+  margin-top:10px;
+  font-size:10px;
+  line-height:1;
+  opacity:.35;
+}

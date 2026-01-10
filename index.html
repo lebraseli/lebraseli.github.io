@@ -31,64 +31,65 @@
   </header>
 
   <main class="shell">
-    <!-- STAGE 1: AI / DESCRIPTION -->
-    <section id="stage-ai" class="card card--hero">
-      <div class="card__head">
-        <h1>Mission Brief</h1>
-        <p class="muted">
-          You do not have the physical copy. Your first task is to <strong>describe what you see</strong>.
-          If your description is plausible, the archive will unlock the next prompt.
-        </p>
+<!-- STAGE 1: AI / DESCRIPTION -->
+<section id="stage-ai" class="card card--hero">
+  <div class="card__head">
+    <h1>Mission Brief</h1>
+    <p class="muted">
+      You do not have the physical copy. Your first task is to <strong>describe what you see</strong>.
+      If your description is plausible, the archive will unlock the next prompt.
+    </p>
+  </div>
+
+  <div class="split">
+    <div class="pane">
+      <div class="pane__title">
+        <span></span>
       </div>
 
-      <div class="split">
-        <div class="pane">
-          <div class="pane__title">
-            <span></span>
-          </div>
+      <figure class="evidence">
+        <a class="evidence__link" href="island-water.png" target="_blank" rel="noopener">
+          <img src="island-water.png" alt="Aerial ocean surface with many small islands" />
+        </a>
+        <figcaption class="muted">Open and inspect.</figcaption>
+      </figure>
+    </div>
 
-          <figure class="evidence">
-            <a class="evidence__link" href="island-water.png" target="_blank" rel="noopener">
-              <img src="island-water.png" alt="Aerial ocean surface with many small islands" />
-            </a>
-            <figcaption class="muted">Open and inspect.</figcaption>
-          </figure>
+    <div class="pane">
+      <div class="pane__title">
+        <span>Verification</span>
+        <span class="pill pill--soft" id="localPill">Local</span>
+      </div>
+
+      <div class="field">
+        <div class="field__label">Describe the evidence</div>
+        <textarea
+          id="aiInput"
+          class="input textarea"
+          placeholder="Describe the environment, objects, and what stands out."
+        ></textarea>
+        <div class="field__hint">
+          This check runs entirely in your browser. Nothing is sent or stored.
         </div>
 
-<div class="pane">
-  <div class="pane__title">
-    <span>Verification</span>
-    <span class="pill pill--soft" id="localPill">Local</span>
-  </div>
+        <div class="row">
+          <button id="aiValidate" class="btn btn--primary" type="button">Run AI check</button>
+          <button id="aiClear" class="btn btn--ghost" type="button">Clear</button>
+        </div>
 
-  <div class="field">
-    <div class="field__label">Describe the evidence</div>
-    <textarea
-      id="aiInput"
-      class="input textarea"
-      placeholder="Describe the environment, objects, and what stands out."
-    ></textarea>
-    <div class="field__hint">
-      This check runs entirely in your browser. Nothing is sent or stored.
-    </div>
+        <div id="aiResult" class="result hidden" aria-live="polite"></div>
 
-    <div class="row">
-      <button id="aiValidate" class="btn btn--primary" type="button">Run AI check</button>
-      <button id="aiClear" class="btn btn--ghost" type="button">Clear</button>
-    </div>
-
-    <div id="aiResult" class="result hidden" aria-live="polite"></div>
-
-    <details class="details" id="aiDetails">
-      <summary>How the “AI check” works</summary>
-      <p class="muted">
+        <details class="details" id="aiDetails">
+          <summary>How the “AI check” works</summary>
+          <p class="muted">
 This “AI check” is a local, rule-based validator that runs entirely in your browser. It does not call any APIs, send network requests, or store anything on a server—your input stays on your device. The check simply looks for specific keywords and applies a lightweight length/clarity threshold to discourage one-word submissions. If the conditions are met, the page advances; otherwise it returns a brief prompt to add detail. The goal is UX gating (signal > noise), not real AI classification or model inference.
-      </p>
-    </details>
+          </p>
+        </details>
+      </div>
+    </div>
   </div>
-</div>
-
-
+</section>
+    
     <!-- STAGE 2: CODE 1 (show SAME image again) -->
     <section id="stage-code1" class="card card--hero hidden">
       <div class="card__head">

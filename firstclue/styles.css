@@ -232,11 +232,14 @@ body.hint-open .hint-dock{
   .hint-row input{ min-width: 0; }
 }
 
-/* Tiny footer text inside the clue */
+/* Tiny footer text inside the clue (extra subtle) */
 .tiny-footer{
   display:block;
-  margin-top:10px;
-  font-size:10px;
+  margin-top:12px;
+  font-size:7px;
   line-height:1;
-  opacity:.35;
+  opacity:.12;
+  letter-spacing:.06em;
+  user-select:none;
 }
+

@@ -5,1155 +5,175 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="dark" />
   <title>Your Next Clue</title>
-  <meta name="description" content="A small, smooth puzzle gate. The poem is encrypted; you have to earn it." />
-
+  <meta name="description" content="Two locks. One decrypt. The poem stays encrypted until you earn it." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-  <style>
-    :root{
-      --bg0:#070A10;
-      --bg1:#0B1020;
-      --glass: rgba(255,255,255,.06);
-      --glass2: rgba(255,255,255,.10);
-      --stroke: rgba(255,255,255,.12);
-      --text: rgba(255,255,255,.92);
-      --muted: rgba(255,255,255,.70);
-      --dim: rgba(255,255,255,.55);
-      --good: rgba(78, 255, 170, .92);
-      --bad: rgba(255, 105, 140, .92);
-      --warn: rgba(255, 210, 120, .92);
-      --shadow: 0 18px 60px rgba(0,0,0,.55);
-      --radius: 22px;
-    }
-
-    * { box-sizing: border-box; }
-    html,body{ height:100%; }
-    body{
-      margin:0;
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      color: var(--text);
-      background:
-        radial-gradient(1200px 800px at 15% 10%, rgba(110,140,255,.18), transparent 55%),
-        radial-gradient(900px 700px at 85% 20%, rgba(120,255,195,.10), transparent 60%),
-        radial-gradient(900px 900px at 55% 85%, rgba(255,165,210,.12), transparent 60%),
-        linear-gradient(180deg, var(--bg0), var(--bg1));
-      overflow-x: hidden;
-    }
-
-    .noise{
-      pointer-events:none;
-      position:fixed; inset:0;
-      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.18'/%3E%3C/svg%3E");
-      mix-blend-mode: overlay;
-      opacity:.16;
-    }
-
-    .wrap{
-      min-height: 100%;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: 28px 16px;
-    }
-
-    .card{
-      width:min(980px, 100%);
-      border: 1px solid var(--stroke);
-      background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.04));
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(12px);
-      overflow:hidden;
-      position:relative;
-    }
-
-    .topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:16px;
-      padding: 18px 20px;
-      border-bottom: 1px solid rgba(255,255,255,.08);
-    }
-
-    .brand{
-      display:flex; flex-direction:column; gap:2px;
-    }
-    .brand .title{
-      font-weight: 700;
-      letter-spacing: .2px;
-      font-size: 16px;
-      line-height: 1.1;
-    }
-    .brand .sub{
-      font-size: 12.5px;
-      color: var(--dim);
-      line-height: 1.2;
-    }
-
-    .steps{
-      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-    .step{
-      display:flex; align-items:center; gap:10px;
-      padding: 8px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(0,0,0,.14);
-      color: var(--muted);
-      font-size: 12.5px;
-      user-select:none;
-    }
-    .dot{
-      width: 9px; height:9px; border-radius: 99px;
-      background: rgba(255,255,255,.22);
-      box-shadow: 0 0 0 4px rgba(255,255,255,.06);
-    }
-    .step.active{
-      border-color: rgba(255,255,255,.18);
-      background: rgba(0,0,0,.18);
-      color: rgba(255,255,255,.90);
-    }
-    .step.active .dot{
-      background: rgba(110,140,255,.85);
-      box-shadow: 0 0 0 4px rgba(110,140,255,.15);
-    }
-    .step.done .dot{
-      background: rgba(78,255,170,.85);
-      box-shadow: 0 0 0 4px rgba(78,255,170,.15);
-    }
-
-    .body{
-      padding: 20px;
-      display:grid;
-      grid-template-columns: 1.2fr .8fr;
-      gap: 18px;
-    }
-
-    @media (max-width: 880px){
-      .body{ grid-template-columns: 1fr; }
-      .steps{ justify-content:flex-start; }
-    }
-
-    .panel{
-      border: 1px solid rgba(255,255,255,.10);
-      border-radius: 18px;
-      background: rgba(0,0,0,.16);
-      overflow:hidden;
-      position:relative;
-    }
-
-    .panelHead{
-      padding: 14px 14px 12px;
-      border-bottom: 1px solid rgba(255,255,255,.08);
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap: 12px;
-    }
-
-    .panelHead h2{
-      margin:0;
-      font-size: 14.5px;
-      font-weight: 650;
-      letter-spacing: .1px;
-    }
-
-    .panelHead p{
-      margin: 6px 0 0;
-      font-size: 12.5px;
-      color: var(--dim);
-      line-height: 1.35;
-      max-width: 68ch;
-    }
-
-    .panelMain{
-      padding: 14px;
-      position:relative;
-    }
-
-    .aside{
-      display:flex;
-      flex-direction:column;
-      gap: 14px;
-    }
-
-    .kpi{
-      padding: 14px;
-      border-radius: 18px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(0,0,0,.16);
-    }
-    .kpi .label{
-      font-size: 12px;
-      color: var(--dim);
-      margin-bottom: 6px;
-    }
-    .kpi .value{
-      font-size: 18px;
-      font-weight: 700;
-      letter-spacing: .2px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-    }
-    .pill{
-      font-size: 11.5px;
-      color: rgba(255,255,255,.82);
-      border: 1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      padding: 6px 10px;
-      border-radius: 999px;
-      white-space: nowrap;
-    }
-
-    .btnRow{ display:flex; gap:10px; flex-wrap:wrap; }
-    button, .btn{
-      border: 1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      color: rgba(255,255,255,.92);
-      border-radius: 12px;
-      padding: 10px 12px;
-      font-weight: 600;
-      font-size: 13px;
-      cursor:pointer;
-      transition: transform .12s ease, background .12s ease, border-color .12s ease;
-      user-select:none;
-    }
-    button:hover{ transform: translateY(-1px); border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.08); }
-    button:active{ transform: translateY(0px) scale(.99); }
-    button.primary{
-      border-color: rgba(110,140,255,.45);
-      background: rgba(110,140,255,.18);
-    }
-    button.primary:hover{
-      border-color: rgba(110,140,255,.60);
-      background: rgba(110,140,255,.22);
-    }
-    button.ghost{
-      background: transparent;
-      border-color: rgba(255,255,255,.10);
-      color: rgba(255,255,255,.82);
-    }
-    button.danger{
-      border-color: rgba(255,105,140,.42);
-      background: rgba(255,105,140,.14);
-    }
-
-    .msg{
-      margin-top: 10px;
-      font-size: 12.5px;
-      line-height: 1.35;
-      color: var(--muted);
-      min-height: 18px;
-    }
-    .msg.good{ color: var(--good); }
-    .msg.bad{ color: var(--bad); }
-    .msg.warn{ color: var(--warn); }
-
-    .divider{
-      height:1px;
-      background: rgba(255,255,255,.08);
-      margin: 12px 0;
-    }
-
-    /* Stage transitions */
-    .stage{ display:none; opacity:0; transform: translateY(8px); }
-    .stage.show{
-      display:block;
-      animation: in .35s ease forwards;
-    }
-    @keyframes in{
-      to { opacity:1; transform: translateY(0px); }
-    }
-
-    /* Leaves */
-    .canopy{
-      position:relative;
-      height: 340px;
-      border-radius: 16px;
-      overflow:hidden;
-      background:
-        radial-gradient(900px 480px at 20% 5%, rgba(120,255,195,.10), transparent 65%),
-        radial-gradient(700px 420px at 70% 15%, rgba(110,140,255,.14), transparent 62%),
-        radial-gradient(600px 420px at 50% 110%, rgba(255,255,255,.06), transparent 55%),
-        linear-gradient(180deg, rgba(0,0,0,.28), rgba(0,0,0,.06));
-      border: 1px solid rgba(255,255,255,.08);
-    }
-
-    .treeHint{
-      position:absolute;
-      left: 14px; bottom: 14px;
-      font-size: 12px;
-      color: rgba(255,255,255,.66);
-      letter-spacing: .12px;
-      background: rgba(0,0,0,.25);
-      border: 1px solid rgba(255,255,255,.08);
-      padding: 8px 10px;
-      border-radius: 12px;
-      backdrop-filter: blur(8px);
-      max-width: 46ch;
-    }
-
-    .leaf{
-      position:absolute;
-      width: 84px;
-      height: 56px;
-      transform-style: preserve-3d;
-      cursor:pointer;
-      filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
-      transition: transform .15s ease;
-    }
-    .leaf:hover{ transform: translateY(-2px) rotate(var(--r)); }
-
-    .leafInner{
-      position:absolute; inset:0;
-      border-radius: 999px;
-      transform-style: preserve-3d;
-      transition: transform .55s cubic-bezier(.2,.8,.2,1);
-    }
-    .leaf.flipped .leafInner{ transform: rotateY(180deg); }
-
-    .leafFace{
-      position:absolute; inset:0;
-      border-radius: 999px;
-      backface-visibility: hidden;
-      border: 1px solid rgba(255,255,255,.12);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-weight: 800;
-      letter-spacing: .8px;
-      color: rgba(255,255,255,.88);
-      background:
-        radial-gradient(120px 60px at 30% 30%, rgba(255,255,255,.12), transparent 58%),
-        linear-gradient(135deg, rgba(120,255,195,.25), rgba(110,140,255,.18));
-    }
-    .leafFace.front{
-      transform: rotateY(0deg);
-      color: rgba(255,255,255,.70);
-      font-weight: 700;
-      letter-spacing: 0;
-      font-size: 12.5px;
-    }
-    .leafFace.back{
-      transform: rotateY(180deg);
-      background:
-        radial-gradient(120px 60px at 30% 30%, rgba(255,255,255,.16), transparent 58%),
-        linear-gradient(135deg, rgba(78,255,170,.22), rgba(110,140,255,.18));
-      font-size: 18px;
-    }
-
-    .leaf.decoy .leafFace{
-      background:
-        radial-gradient(120px 60px at 30% 30%, rgba(255,255,255,.10), transparent 58%),
-        linear-gradient(135deg, rgba(255,105,140,.14), rgba(110,140,255,.14));
-    }
-    .leaf.decoy .leafFace.back{ color: rgba(255,255,255,.92); }
-
-    @keyframes drift{
-      0%{ transform: translate(0,0) rotate(var(--r)); }
-      100%{ transform: translate(10px,-8px) rotate(calc(var(--r) + 6deg)); }
-    }
-    .leaf.decoy{ animation: drift 4.5s ease-in-out infinite alternate; }
-
-    .seq{
-      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-      margin-top: 10px;
-    }
-    .chip{
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      font-size: 12px;
-      color: rgba(255,255,255,.86);
-    }
-
-    .shake{
-      animation: shake .35s ease;
-    }
-    @keyframes shake{
-      10%,90%{ transform: translateX(-1px); }
-      20%,80%{ transform: translateX(2px); }
-      30%,50%,70%{ transform: translateX(-4px); }
-      40%,60%{ transform: translateX(4px); }
-    }
-
-    /* Knight grid */
-    .boardWrap{
-      display:flex;
-      flex-direction:column;
-      gap: 10px;
-    }
-    .board{
-      display:grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 8px;
-      padding: 10px;
-      border-radius: 16px;
-      background: rgba(0,0,0,.18);
-      border: 1px solid rgba(255,255,255,.10);
-    }
-    .sq{
-      aspect-ratio: 1 / 1;
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.05);
-      display:flex; align-items:center; justify-content:center;
-      font-weight: 800;
-      letter-spacing: .6px;
-      color: rgba(255,255,255,.88);
-      cursor:pointer;
-      position:relative;
-      transition: transform .12s ease, background .12s ease, border-color .12s ease;
-      user-select:none;
-    }
-    .sq:hover{ transform: translateY(-1px); border-color: rgba(255,255,255,.20); background: rgba(255,255,255,.07); }
-    .sq.selected{
-      border-color: rgba(78,255,170,.40);
-      background: rgba(78,255,170,.10);
-    }
-    .sq.start::after{
-      content:"•";
-      position:absolute;
-      top: 7px; left: 9px;
-      color: rgba(110,140,255,.85);
-      font-size: 18px;
-      line-height: 1;
-      text-shadow: 0 0 14px rgba(110,140,255,.40);
-    }
-    .sq.start{
-      box-shadow: 0 0 0 1px rgba(110,140,255,.15), 0 0 18px rgba(110,140,255,.12) inset;
-    }
-
-    /* Passphrase & Poem */
-    .fieldRow{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    input[type="text"]{
-      width: min(540px, 100%);
-      padding: 11px 12px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,.14);
-      background: rgba(0,0,0,.22);
-      color: rgba(255,255,255,.92);
-      font-weight: 600;
-      letter-spacing: .2px;
-      outline:none;
-    }
-    input[type="text"]:focus{
-      border-color: rgba(110,140,255,.45);
-      box-shadow: 0 0 0 4px rgba(110,140,255,.12);
-    }
-
-    .poemBox{
-      margin-top: 12px;
-      padding: 16px 14px;
-      border-radius: 16px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(0,0,0,.18);
-    }
-    .poemLine{
-      font-size: 15px;
-      line-height: 1.55;
-      color: rgba(255,255,255,.90);
-      white-space: pre-wrap;
-    }
-    .poemMeta{
-      margin-top: 10px;
-      font-size: 12.5px;
-      color: rgba(255,255,255,.66);
-      line-height: 1.4;
-    }
-
-    .footer{
-      padding: 14px 20px;
-      border-top: 1px solid rgba(255,255,255,.08);
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap: 14px;
-      flex-wrap:wrap;
-      color: rgba(255,255,255,.60);
-      font-size: 12px;
-    }
-
-    .kbd{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Monooslav", monospace;
-      font-size: 11px;
-      padding: 2px 7px;
-      border-radius: 8px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(0,0,0,.18);
-      color: rgba(255,255,255,.75);
-    }
-
-    @media (prefers-reduced-motion: reduce){
-      .leaf.decoy{ animation: none; }
-      .stage.show{ animation:none; opacity:1; transform:none; }
-      button, .sq, .leaf, .leafInner{ transition:none !important; }
-      .noise{ display:none; }
-    }
-  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650;750&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css" />
 </head>
+
 <body>
-  <div class="noise"></div>
+  <div class="noise" aria-hidden="true"></div>
+  <div class="bg" aria-hidden="true"></div>
 
-  <div class="wrap">
-    <div class="card" id="root">
-      <div class="topbar">
+  <main class="wrap">
+    <section class="card" id="app">
+      <header class="topbar">
         <div class="brand">
-          <div class="title">Your Next Clue</div>
-          <div class="sub">Three locks. The poem is encrypted. Earn the plaintext.</div>
+          <div class="brandTitle">Your Next Clue</div>
+          <div class="brandSub">Two locks. One decrypt. No freebies.</div>
         </div>
-        <div class="steps" aria-label="progress">
-          <div class="step active" id="s1"><span class="dot"></span>Canopy</div>
-          <div class="step" id="s2"><span class="dot"></span>Stairwell</div>
-          <div class="step" id="s3"><span class="dot"></span>Quiet Room</div>
-        </div>
-      </div>
 
-      <div class="body">
-        <div class="panel">
+        <nav class="steps" aria-label="progress">
+          <div class="step active" id="step1"><span class="dot"></span>Canopy</div>
+          <div class="step" id="step2"><span class="dot"></span>Stairwell</div>
+          <div class="step" id="step3"><span class="dot"></span>Quiet Room</div>
+        </nav>
+      </header>
+
+      <div class="layout">
+        <section class="panel">
           <div class="panelHead">
             <div>
-              <h2 id="stageTitle">Lock 1 — The Canopy</h2>
-              <p id="stageDesc">
-                Not everything that moves is useful. Trust what stays still, and read from the top down.
+              <h1 class="panelTitle" id="panelTitle">Lock 1 — The Canopy</h1>
+              <p class="panelDesc" id="panelDesc">
+                Not everything that moves is useful. Trust what stays still. Read the canopy from high to low.
               </p>
             </div>
-            <div class="pill" id="antiCheat">Poem status: encrypted</div>
+
+            <div class="statusPill" id="poemStatus">Poem: encrypted</div>
           </div>
 
-          <div class="panelMain">
+          <div class="panelBody">
             <!-- STAGE 1 -->
-            <div class="stage show" id="stage1">
-              <div class="canopy" id="canopy">
-                <div class="treeHint">
-                  Operational constraint: You only get credit for the <b>still</b> leaves.
-                  Sequence matters: go <b>highest</b> to <b>lowest</b>.
+            <section class="stage show" id="stage1" aria-label="Lock 1">
+              <div class="scene canopy" id="canopyScene" role="application" aria-label="Canopy scene">
+                <div class="sceneHint">
+                  Constraint set: <b>still</b> only. Ordering: <b>high → low</b>.
+                  <span class="muted">If you think you saw a letter, you didn’t.</span>
+                </div>
+                <div class="sceneHUD">
+                  <div class="hudChip">Signal: <span id="l1Signal">0</span>/<span id="l1Target">0</span></div>
+                  <div class="hudChip">Strikes: <span id="l1Strikes">0</span></div>
+                </div>
+                <div class="scatter" id="canopy"></div>
+              </div>
+
+              <div class="resultRow">
+                <div class="resultBox">
+                  <div class="resultLabel">Outcome</div>
+                  <div class="resultValue" id="l1Outcome">No fragment acquired.</div>
+                </div>
+                <div class="btnRow">
+                  <button class="btn ghost" id="l1Reset">Reset</button>
                 </div>
               </div>
 
-              <div class="seq" id="seq1" aria-label="selection sequence"></div>
-
-              <div class="divider"></div>
-
-              <div class="btnRow">
-                <button class="ghost" id="reset1">Reset Lock 1</button>
-                <button class="primary" id="hint1">Need a nudge</button>
-              </div>
-
-              <div class="msg" id="msg1"></div>
-            </div>
+              <div class="msg" id="l1Msg" aria-live="polite"></div>
+            </section>
 
             <!-- STAGE 2 -->
-            <div class="stage" id="stage2">
-              <div class="boardWrap">
-                <div class="board" id="board" aria-label="knight board"></div>
-                <div class="seq" id="seq2"></div>
+            <section class="stage" id="stage2" aria-label="Lock 2">
+              <div class="scene stairwell" id="stairsScene" role="application" aria-label="Stairwell scene">
+                <div class="sceneHint">
+                  In a <b>new kind of height</b>, the path is obvious. Don’t measure it like a mountain.
+                </div>
+                <div class="sceneHUD">
+                  <div class="hudChip">Steps: <span id="l2Steps">0</span>/<span id="l2Target">0</span></div>
+                  <div class="hudChip">Strikes: <span id="l2Strikes">0</span></div>
+                </div>
+                <div class="stairs" id="stairs"></div>
               </div>
 
-              <div class="divider"></div>
-
-              <div class="btnRow">
-                <button class="ghost" id="undo2">Undo</button>
-                <button class="ghost" id="reset2">Reset Lock 2</button>
-                <button class="primary" id="hint2">Need a nudge</button>
+              <div class="resultRow">
+                <div class="resultBox">
+                  <div class="resultLabel">Outcome</div>
+                  <div class="resultValue" id="l2Outcome">No fragment acquired.</div>
+                </div>
+                <div class="btnRow">
+                  <button class="btn ghost" id="l2Reset">Reset</button>
+                </div>
               </div>
 
-              <div class="msg" id="msg2"></div>
-            </div>
+              <div class="msg" id="l2Msg" aria-live="polite"></div>
+            </section>
 
             <!-- STAGE 3 -->
-            <div class="stage" id="stage3">
-              <div class="fieldRow">
-                <input type="text" id="pass" placeholder="enter the passphrase (lowercase, no spaces)" autocomplete="off" spellcheck="false" />
-                <button class="primary" id="open">Open</button>
-                <button class="ghost" id="reset3">Reset</button>
-              </div>
-
-              <div class="msg" id="msg3"></div>
-
-              <div class="poemBox" id="poemBox" style="display:none;">
-                <div class="poemLine" id="poemText"></div>
-                <div class="poemMeta">
-                  Read it once at speed. Then read it again with intent. If you’re looking for a “next clue,” don’t assume the obvious reading is the only reading.
+            <section class="stage" id="stage3" aria-label="Quiet Room">
+              <div class="quiet">
+                <div class="quietTop">
+                  <div>
+                    <div class="quietTitle">Quiet Room</div>
+                    <div class="quietSub">
+                      Provide the passphrase derived from your fragments. The poem will decrypt locally in your browser.
+                    </div>
+                  </div>
+                  <div class="statusPill" id="unlockStatus">Locked</div>
                 </div>
-                <div class="btnRow" style="margin-top:12px;">
-                  <button class="ghost" id="copyPoem">Copy poem</button>
+
+                <div class="fieldRow">
+                  <input id="pass" type="text" autocomplete="off" spellcheck="false"
+                    placeholder="passphrase (lowercase, no spaces)" />
+                  <button class="btn primary" id="open">Decrypt</button>
+                  <button class="btn ghost" id="qReset">Reset</button>
+                </div>
+
+                <div class="msg" id="qMsg" aria-live="polite"></div>
+
+                <div class="poemWrap" id="poemWrap" hidden>
+                  <div class="poemHead">
+                    <div class="poemTitle">Decrypted Poem</div>
+                    <div class="btnRow">
+                      <button class="btn ghost" id="copyPoem">Copy</button>
+                    </div>
+                  </div>
+                  <pre class="poem" id="poem"></pre>
                 </div>
               </div>
-            </div>
+            </section>
 
           </div>
-        </div>
+        </section>
 
-        <div class="aside">
-          <div class="kpi">
-            <div class="label">Current objective</div>
-            <div class="value">
-              <span id="objective">Extract Fragment A</span>
-              <span class="pill" id="fragPill">Fragments: 0 / 2</span>
-            </div>
+        <aside class="side">
+          <div class="sideCard">
+            <div class="sideLabel">Current objective</div>
+            <div class="sideValue" id="objective">Extract Fragment A</div>
             <div class="divider"></div>
-            <div style="display:flex; flex-direction:column; gap:8px;">
-              <div style="font-size:12.5px; color: rgba(255,255,255,.72); line-height:1.45;">
-                This page is designed for a small group of capable solvers. It’s not a “guess the password” screen.
-              </div>
-              <div style="font-size:12.5px; color: rgba(255,255,255,.62); line-height:1.45;">
-                If you’re stuck, use the built-in nudges. They escalate gradually.
-              </div>
+            <div class="sideText">
+              This experience is calibrated for competent solvers. It’s intentionally adversarial, but fair.
+              The “wow” comes from realizing you were measuring the wrong thing.
             </div>
           </div>
 
-          <div class="kpi">
-            <div class="label">Fragments acquired</div>
-            <div style="display:flex; flex-direction:column; gap:10px;">
-              <div class="pill" id="fragA">Fragment A: —</div>
-              <div class="pill" id="fragB">Fragment B: —</div>
-            </div>
+          <div class="sideCard">
+            <div class="sideLabel">Fragments acquired</div>
+            <div class="fragLine"><span class="fragKey">Fragment A</span><span class="fragVal" id="fragA">—</span></div>
+            <div class="fragLine"><span class="fragKey">Fragment B</span><span class="fragVal" id="fragB">—</span></div>
             <div class="divider"></div>
-            <div class="btnRow">
-              <button class="danger" id="hardReset">Hard reset (all locks)</button>
+            <div class="sideFoot">
+              <span class="muted">No hints. No training wheels.</span>
+              <button class="btn danger" id="hardReset">Hard reset</button>
             </div>
           </div>
-        </div>
+
+          <div class="sideCard">
+            <div class="sideLabel">Design note</div>
+            <div class="sideText">
+              Lock 1 tests <b>signal vs motion</b>. Lock 2 tests <b>stacking vs altitude</b>.
+              The poem stays encrypted until both fragments are earned.
+            </div>
+          </div>
+        </aside>
       </div>
 
-      <div class="footer">
-        <div>Tip: “hard” does not mean “opaque.” Work the constraints.</div>
-        <div><span class="kbd">Lock 2</span> uses a “new kind of height.”</div>
-      </div>
-    </div>
-  </div>
+      <footer class="footer">
+        <span>Operational posture: frustration is expected. The system is deterministic.</span>
+        <span class="muted">If Lock 2 feels “impossible,” you’re using the wrong definition of height.</span>
+      </footer>
+    </section>
+  </main>
 
-  <script>
-    /* =========================
-       Encrypted payload (AES-GCM)
-       Passphrase is NOT stored.
-    ========================= */
-    const ENCRYPTED = {
-      saltB64: "RYbzCZCkMw/6Yi2+80/eaA==",
-      ivB64:   "rhBXjzzztgzuk1xO",
-      ctB64: [
-        "3xcKcVjRR1wluUesDkKgZs3hCHTl5pmKZRosg/BecEkIUKb7EXildNgIKYRzojdJ7G3zySn5Bp2GahCz",
-        "YJo5dBmBb9QUW/fUUzmY8Maou3hOkCF4/i0XRUnTwsQbW+JRqkr/wUanrxptekA7w8LtNsaGmcyfA1Op",
-        "AMqKHpyi08K/ygSuVDA48CgjuQNzgfZooFTqD07q6tTi4Yyor1ueyMyLwlQlZs4g3omwq3xQU0kbLDkG",
-        "VvdoD301vXIonQ/V4+1dJ8lcbVgMkGsuda9QtBL8y/n2k+k4OxOBbzB5AtKDn2JLYV2OYJvvAkNqvHDE",
-        "kcKclN8RdA8fjnqNXyE7cOimISCurE6JIe4FIkyj4VZaveFW3SWD79Q9Dojpoj7b134xdoJEl721Qkxh",
-        "DBoXN9qxlpQ/WsCiL6WgBYka9bcYU+aHrmutUcQltMFrPq815Rc+a4cjZm5GbcI67tkSPPcXnJiOXXiY",
-        "kVXvq//QmfH2b/JLXDRjYUOoMumZKX+YPWNr9OaRjFM206s6Qbuj9QAlWVKaf89H3rjbUqYxwhvT6FH9",
-        "6vEKTHgrlfzWJKVLgcOE4qrN5ZY6"
-      ].join(""),
-      iterations: 200000
-    };
-
-    const $ = (id) => document.getElementById(id);
-
-    const ui = {
-      root: $("root"),
-      antiCheat: $("antiCheat"),
-      stageTitle: $("stageTitle"),
-      stageDesc: $("stageDesc"),
-      s1: $("s1"), s2: $("s2"), s3: $("s3"),
-      stage1: $("stage1"), stage2: $("stage2"), stage3: $("stage3"),
-      msg1: $("msg1"), msg2: $("msg2"), msg3: $("msg3"),
-      canopy: $("canopy"),
-      seq1: $("seq1"),
-      board: $("board"),
-      seq2: $("seq2"),
-      objective: $("objective"),
-      fragPill: $("fragPill"),
-      fragA: $("fragA"),
-      fragB: $("fragB"),
-      pass: $("pass"),
-      poemBox: $("poemBox"),
-      poemText: $("poemText"),
-      copyPoem: $("copyPoem"),
-    };
-
-    const state = {
-      stage: 1,
-      fragA: null,
-      fragB: null,
-
-      // Stage 1
-      leafClicks: [],
-      leafSolved: false,
-
-      // Stage 2
-      path: [],
-      pathSolved: false,
-
-      hint1Level: 0,
-      hint2Level: 0,
-    };
-
-    function setMsg(el, text, kind){
-      el.textContent = text || "";
-      el.className = "msg" + (kind ? (" " + kind) : "");
-    }
-    function pulseShake(el){
-      el.classList.remove("shake");
-      // force reflow
-      void el.offsetWidth;
-      el.classList.add("shake");
-    }
-
-    function setStage(n){
-      state.stage = n;
-
-      // Steps UI
-      ui.s1.className = "step" + (n===1 ? " active" : (n>1 ? " done" : ""));
-      ui.s2.className = "step" + (n===2 ? " active" : (n>2 ? " done" : ""));
-      ui.s3.className = "step" + (n===3 ? " active" : "");
-
-      ui.stage1.classList.remove("show");
-      ui.stage2.classList.remove("show");
-      ui.stage3.classList.remove("show");
-      if(n===1) ui.stage1.classList.add("show");
-      if(n===2) ui.stage2.classList.add("show");
-      if(n===3) ui.stage3.classList.add("show");
-
-      // Copy
-      if(n===1){
-        ui.stageTitle.textContent = "Lock 1 — The Canopy";
-        ui.stageDesc.textContent = "Not everything that moves is useful. Trust what stays still, and read from the top down.";
-        ui.objective.textContent = "Extract Fragment A";
-      } else if(n===2){
-        ui.stageTitle.textContent = "Lock 2 — The Stairwell";
-        ui.stageDesc.textContent = "A new kind of height. Start at the marked square, then move correctly.";
-        ui.objective.textContent = "Extract Fragment B";
-      } else if(n===3){
-        ui.stageTitle.textContent = "Lock 3 — The Quiet Room";
-        ui.stageDesc.textContent = "Combine your fragments (no spaces). Use it to decrypt the poem.";
-        ui.objective.textContent = "Decrypt the poem";
-      }
-
-      const count = (state.fragA ? 1 : 0) + (state.fragB ? 1 : 0);
-      ui.fragPill.textContent = `Fragments: ${count} / 2`;
-      ui.antiCheat.textContent = (n<3 ? "Poem status: encrypted" : "Poem status: unlockable");
-    }
-
-    /* =========================
-       Stage 1 — Leaves
-    ========================= */
-    const LEAVES = [
-      // Still leaves (correct set) — click from highest to lowest to spell SILENT
-      { id:"L0", letter:"S", still:true,  top: 10, left: 14, rot:-18, scale:1.00 },
-      { id:"L1", letter:"I", still:true,  top: 16, left: 62, rot:  9, scale:0.96 },
-      { id:"L2", letter:"L", still:true,  top: 22, left: 34, rot:-6, scale:1.02 },
-      { id:"L3", letter:"E", still:true,  top: 28, left: 74, rot: 14, scale:0.98 },
-      { id:"L4", letter:"N", still:true,  top: 34, left: 20, rot:  7, scale:0.95 },
-      { id:"L5", letter:"T", still:true,  top: 40, left: 50, rot:-11, scale:1.03 },
-
-      // Decoys (moving)
-      { id:"D0", letter:"?", still:false, top: 13, left: 82, rot: 22, scale:0.92 },
-      { id:"D1", letter:"?", still:false, top: 26, left:  8, rot:-24, scale:0.90 },
-      { id:"D2", letter:"?", still:false, top: 38, left: 86, rot: 18, scale:0.94 },
-      { id:"D3", letter:"?", still:false, top: 44, left: 30, rot:-20, scale:0.88 }
-    ];
-
-    const CORRECT_ORDER = LEAVES
-      .filter(l => l.still)
-      .slice()
-      .sort((a,b) => a.top - b.top)
-      .map(l => l.id);
-
-    function renderLeaves(){
-      ui.canopy.querySelectorAll(".leaf").forEach(n => n.remove());
-      state.leafClicks = [];
-      state.leafSolved = false;
-      ui.seq1.innerHTML = "";
-      setMsg(ui.msg1, "", "");
-
-      for(const leaf of LEAVES){
-        const el = document.createElement("div");
-        el.className = "leaf" + (leaf.still ? "" : " decoy");
-        el.dataset.id = leaf.id;
-        el.dataset.still = leaf.still ? "1" : "0";
-        el.style.top = leaf.top + "%";
-        el.style.left = leaf.left + "%";
-        el.style.setProperty("--r", leaf.rot + "deg");
-        el.style.transform = `rotate(${leaf.rot}deg) scale(${leaf.scale})`;
-
-        el.innerHTML = `
-          <div class="leafInner">
-            <div class="leafFace front">${leaf.still ? "still" : "drift"}</div>
-            <div class="leafFace back">${leaf.letter}</div>
-          </div>
-        `;
-
-        el.addEventListener("click", () => onLeafClick(el, leaf));
-        ui.canopy.appendChild(el);
-      }
-    }
-
-    function resetLeafUI(){
-      ui.canopy.querySelectorAll(".leaf").forEach(el => el.classList.remove("flipped"));
-      ui.seq1.innerHTML = "";
-      state.leafClicks = [];
-    }
-
-    function onLeafClick(el, leaf){
-      if(state.leafSolved) return;
-
-      // Decoy leaf: immediate fail
-      if(!leaf.still){
-        setMsg(ui.msg1, "That leaf won’t hold a signal. Resetting.", "bad");
-        pulseShake(ui.canopy);
-        resetLeafUI();
-        return;
-      }
-
-      // Already selected?
-      if(state.leafClicks.includes(leaf.id)) return;
-
-      // Flip for feedback
-      el.classList.add("flipped");
-      state.leafClicks.push(leaf.id);
-
-      // Render sequence chips
-      ui.seq1.innerHTML = state.leafClicks.map(id => {
-        const L = LEAVES.find(x => x.id === id);
-        return `<span class="chip">${L.letter}</span>`;
-      }).join("");
-
-      // Validate prefix
-      for(let i=0; i<state.leafClicks.length; i++){
-        if(state.leafClicks[i] !== CORRECT_ORDER[i]){
-          setMsg(ui.msg1, "Order violation. The canopy only reads top-down. Resetting.", "bad");
-          pulseShake(ui.canopy);
-          setTimeout(resetLeafUI, 180);
-          return;
-        }
-      }
-
-      // Completed?
-      if(state.leafClicks.length === CORRECT_ORDER.length){
-        state.leafSolved = true;
-        const frag = CORRECT_ORDER.map(id => LEAVES.find(x => x.id === id).letter).join("");
-        state.fragA = frag;
-        ui.fragA.textContent = `Fragment A: ${frag}`;
-        setMsg(ui.msg1, `Lock 1 cleared. Fragment A acquired: ${frag}`, "good");
-        ui.objective.textContent = "Proceed to Lock 2";
-        ui.fragPill.textContent = "Fragments: 1 / 2";
-        setTimeout(() => setStage(2), 550);
-      } else {
-        setMsg(ui.msg1, "Signal acquired. Continue.", "warn");
-      }
-    }
-
-    /* =========================
-       Stage 2 — Knight path
-    ========================= */
-    const WORD2 = "STAIRWAY";
-    const START = { r: 0, c: 1 };
-    const SOLUTION = [
-      { r:0, c:1, ch:"S" },
-      { r:2, c:2, ch:"T" },
-      { r:4, c:3, ch:"A" },
-      { r:5, c:5, ch:"I" },
-      { r:3, c:4, ch:"R" },
-      { r:1, c:5, ch:"W" },
-      { r:0, c:3, ch:"A" },
-      { r:2, c:4, ch:"Y" }
-    ];
-
-    function isKnightMove(a,b){
-      const dr = Math.abs(a.r - b.r);
-      const dc = Math.abs(a.c - b.c);
-      return (dr===1 && dc===2) || (dr===2 && dc===1);
-    }
-
-    function randomLetter(){
-      const letters = "ABCDEFGHJKMNPQRSTUVWXYZ"; // skip I, L, O for less ambiguity
-      return letters[Math.floor(Math.random()*letters.length)];
-    }
-
-    function buildBoard(){
-      ui.board.innerHTML = "";
-      ui.seq2.innerHTML = "";
-      state.path = [];
-      state.pathSolved = false;
-      setMsg(ui.msg2, "", "");
-
-      // Create 6x6 map
-      const grid = Array.from({length:6}, () => Array.from({length:6}, () => randomLetter()));
-
-      // Place solution letters
-      for(const step of SOLUTION){
-        grid[step.r][step.c] = step.ch;
-      }
-
-      // Render squares
-      for(let r=0; r<6; r++){
-        for(let c=0; c<6; c++){
-          const sq = document.createElement("div");
-          sq.className = "sq" + (r===START.r && c===START.c ? " start" : "");
-          sq.dataset.r = String(r);
-          sq.dataset.c = String(c);
-          sq.dataset.ch = grid[r][c];
-          sq.textContent = grid[r][c];
-          sq.addEventListener("click", () => onSquareClick(sq));
-          ui.board.appendChild(sq);
-        }
-      }
-    }
-
-    function clearBoardSelection(){
-      ui.board.querySelectorAll(".sq").forEach(sq => sq.classList.remove("selected"));
-      ui.seq2.innerHTML = "";
-      state.path = [];
-    }
-
-    function onSquareClick(sq){
-      if(state.pathSolved) return;
-
-      const r = Number(sq.dataset.r);
-      const c = Number(sq.dataset.c);
-      const ch = sq.dataset.ch;
-
-      // First click must be the start square
-      if(state.path.length === 0){
-        if(!(r===START.r && c===START.c)){
-          setMsg(ui.msg2, "Start at the marked square (•).", "bad");
-          pulseShake(ui.board);
-          return;
-        }
-        sq.classList.add("selected");
-        state.path.push({r,c,ch});
-        ui.seq2.innerHTML = `<span class="chip">${ch}</span>`;
-        setMsg(ui.msg2, "Good. Now climb using the correct move.", "warn");
-        return;
-      }
-
-      // Prevent re-select
-      if(state.path.some(p => p.r===r && p.c===c)){
-        return;
-      }
-
-      const last = state.path[state.path.length-1];
-      if(!isKnightMove(last, {r,c})){
-        setMsg(ui.msg2, "Invalid move. Think: a new kind of height.", "bad");
-        pulseShake(ui.board);
-        return;
-      }
-
-      sq.classList.add("selected");
-      state.path.push({r,c,ch});
-      ui.seq2.innerHTML = state.path.map(p => `<span class="chip">${p.ch}</span>`).join("");
-
-      if(state.path.length === WORD2.length){
-        const got = state.path.map(p => p.ch).join("");
-        if(got === WORD2){
-          state.pathSolved = true;
-          state.fragB = WORD2;
-          ui.fragB.textContent = `Fragment B: ${WORD2}`;
-          ui.fragPill.textContent = "Fragments: 2 / 2";
-          setMsg(ui.msg2, `Lock 2 cleared. Fragment B acquired: ${WORD2}`, "good");
-          ui.objective.textContent = "Proceed to Lock 3";
-          setTimeout(() => setStage(3), 600);
-        } else {
-          setMsg(ui.msg2, `Path complete, but the signal is wrong (${got}). Resetting.`, "bad");
-          pulseShake(ui.board);
-          setTimeout(clearBoardSelection, 250);
-        }
-      } else {
-        setMsg(ui.msg2, "Valid move. Continue.", "warn");
-      }
-    }
-
-    /* =========================
-       Stage 3 — Decrypt poem
-    ========================= */
-    function b64ToBytes(b64){
-      const bin = atob(b64);
-      const bytes = new Uint8Array(bin.length);
-      for(let i=0; i<bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return bytes;
-    }
-
-    async function deriveAesKey(passphrase, saltBytes){
-      const enc = new TextEncoder();
-      const keyMaterial = await crypto.subtle.importKey(
-        "raw",
-        enc.encode(passphrase),
-        { name: "PBKDF2" },
-        false,
-        ["deriveKey"]
-      );
-      return crypto.subtle.deriveKey(
-        {
-          name: "PBKDF2",
-          salt: saltBytes,
-          iterations: ENCRYPTED.iterations,
-          hash: "SHA-256"
-        },
-        keyMaterial,
-        { name: "AES-GCM", length: 256 },
-        false,
-        ["decrypt"]
-      );
-    }
-
-    function normalize(s){
-      return (s || "").toLowerCase().replace(/\s+/g, "");
-    }
-
-    async function decryptPoem(passphrase){
-      const salt = b64ToBytes(ENCRYPTED.saltB64);
-      const iv = b64ToBytes(ENCRYPTED.ivB64);
-      const ct = b64ToBytes(ENCRYPTED.ctB64);
-      const key = await deriveAesKey(passphrase, salt);
-      const ptBuf = await crypto.subtle.decrypt({ name:"AES-GCM", iv }, key, ct);
-      return new TextDecoder().decode(ptBuf);
-    }
-
-    async function onOpen(){
-      if(!state.fragA || !state.fragB){
-        setMsg(ui.msg3, "You’re missing fragments. Clear Locks 1 and 2 first.", "bad");
-        pulseShake(ui.root);
-        return;
-      }
-      const expected = normalize(state.fragA + state.fragB); // silent + stairway
-      const got = normalize(ui.pass.value);
-
-      if(!got){
-        setMsg(ui.msg3, "Enter the passphrase.", "bad");
-        return;
-      }
-
-      if(got !== expected){
-        setMsg(ui.msg3, "Incorrect. Combine Fragment A + Fragment B with no spaces.", "bad");
-        pulseShake(ui.root);
-        return;
-      }
-
-      try{
-        setMsg(ui.msg3, "Decrypting…", "warn");
-        const poem = await decryptPoem(got);
-        ui.poemText.textContent = poem;
-        ui.poemBox.style.display = "block";
-        setMsg(ui.msg3, "Unlocked.", "good");
-        ui.antiCheat.textContent = "Poem status: decrypted";
-      } catch (e){
-        setMsg(ui.msg3, "Decryption failed. (This should not happen if the phrase is correct.)", "bad");
-        console.error(e);
-      }
-    }
-
-    /* =========================
-       Hints (escalating)
-    ========================= */
-    function hintStage1(){
-      state.hint1Level++;
-      const lv = state.hint1Level;
-      if(lv===1) setMsg(ui.msg1, "Constraint: decoys move. Ignore them.", "warn");
-      else if(lv===2) setMsg(ui.msg1, "Constraint: click the still leaves from highest to lowest.", "warn");
-      else setMsg(ui.msg1, "Outcome: the still leaves will spell a six-letter word meaning ‘quiet’.", "warn");
-    }
-
-    function hintStage2(){
-      state.hint2Level++;
-      const lv = state.hint2Level;
-      if(lv===1) setMsg(ui.msg2, "Move rule: think chess, but not a rook/bishop.", "warn");
-      else if(lv===2) setMsg(ui.msg2, "Move rule: the knight (L-shape). Start at (•).", "warn");
-      else setMsg(ui.msg2, "Target: you’re spelling an 8-letter word related to stairs.", "warn");
-    }
-
-    /* =========================
-       Wire controls
-    ========================= */
-    $("reset1").addEventListener("click", () => {
-      renderLeaves();
-      setMsg(ui.msg1, "Lock 1 reset.", "warn");
-    });
-    $("hint1").addEventListener("click", hintStage1);
-
-    $("undo2").addEventListener("click", () => {
-      if(state.pathSolved) return;
-      if(state.path.length === 0) return;
-      const last = state.path.pop();
-      // unselect that square
-      const sq = [...ui.board.querySelectorAll(".sq")].find(x => Number(x.dataset.r)===last.r && Number(x.dataset.c)===last.c);
-      if(sq) sq.classList.remove("selected");
-      ui.seq2.innerHTML = state.path.map(p => `<span class="chip">${p.ch}</span>`).join("");
-      setMsg(ui.msg2, "Undone.", "warn");
-    });
-
-    $("reset2").addEventListener("click", () => {
-      buildBoard();
-      setMsg(ui.msg2, "Lock 2 reset.", "warn");
-    });
-    $("hint2").addEventListener("click", hintStage2);
-
-    $("open").addEventListener("click", onOpen);
-    ui.pass.addEventListener("keydown", (e) => {
-      if(e.key === "Enter") onOpen();
-    });
-
-    $("reset3").addEventListener("click", () => {
-      ui.pass.value = "";
-      ui.poemBox.style.display = "none";
-      ui.poemText.textContent = "";
-      setMsg(ui.msg3, "Reset.", "warn");
-      ui.antiCheat.textContent = "Poem status: unlockable";
-    });
-
-    ui.copyPoem.addEventListener("click", async () => {
-      const text = ui.poemText.textContent || "";
-      try{
-        await navigator.clipboard.writeText(text);
-        setMsg(ui.msg3, "Copied to clipboard.", "good");
-      } catch {
-        setMsg(ui.msg3, "Copy failed (browser permissions). Select and copy manually.", "bad");
-      }
-    });
-
-    $("hardReset").addEventListener("click", () => {
-      // Reset everything
-      state.fragA = null;
-      state.fragB = null;
-      ui.fragA.textContent = "Fragment A: —";
-      ui.fragB.textContent = "Fragment B: —";
-      ui.fragPill.textContent = "Fragments: 0 / 2";
-      ui.pass.value = "";
-      ui.poemBox.style.display = "none";
-      ui.poemText.textContent = "";
-      state.hint1Level = 0;
-      state.hint2Level = 0;
-      renderLeaves();
-      buildBoard();
-      setStage(1);
-      setMsg(ui.msg1, "Hard reset complete.", "warn");
-      setMsg(ui.msg2, "", "");
-      setMsg(ui.msg3, "", "");
-    });
-
-    /* =========================
-       Init
-    ========================= */
-    (function init(){
-      if(!window.crypto?.subtle){
-        ui.root.innerHTML = `
-          <div style="padding:24px">
-            <div style="font-weight:800; font-size:18px; margin-bottom:6px;">Unsupported browser</div>
-            <div style="color: rgba(255,255,255,.72); line-height:1.5;">
-              This puzzle requires WebCrypto (crypto.subtle). Use a modern browser.
-            </div>
-          </div>
-        `;
-        return;
-      }
-      renderLeaves();
-      buildBoard();
-      setStage(1);
-    })();
-  </script>
+  <script src="./game.js"></script>
 </body>
 </html>

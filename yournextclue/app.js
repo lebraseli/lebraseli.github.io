@@ -3,18 +3,26 @@
 const $ = (id) => document.getElementById(id);
 
 const ui = {
+  // steps
   stepTrivia: $("stepTrivia"),
-  stepZoom: $("stepZoom"),
+  stepNote: $("stepNote"),
+  stepRepair: $("stepRepair"),
+  stepGrid: $("stepGrid"),
   stepReveal: $("stepReveal"),
 
+  // panel
   panelTitle: $("panelTitle"),
   panelDesc: $("panelDesc"),
   statusPill: $("statusPill"),
 
+  // stages
   stageTrivia: $("stageTrivia"),
-  stageZoom: $("stageZoom"),
+  stageNote: $("stageNote"),
+  stageRepair: $("stageRepair"),
+  stageGrid: $("stageGrid"),
   stageReveal: $("stageReveal"),
 
+  // trivia
   streak: $("streak"),
   remaining: $("remaining"),
   category: $("category"),
@@ -24,38 +32,52 @@ const ui = {
   triviaMsg: $("triviaMsg"),
   resetProgress: $("resetProgress"),
 
-  zoomStreak: $("zoomStreak"),
-  zoomTarget: $("zoomTarget"),
-  imgPool: $("imgPool"),
-  refillImages: $("refillImages"),
-  zoomFrame: $("zoomFrame"),
-  zoomImg: $("zoomImg"),
-  zoomPill: $("zoomPill"),
-  imgGuess: $("imgGuess"),
-  submitGuess: $("submitGuess"),
-  zoomOut: $("zoomOut"),
-  zoomMsg: $("zoomMsg"),
-  imgMeta: $("imgMeta"),
-  imgAnswer: $("imgAnswer"),
-  imgTitle: $("imgTitle"),
+  // note
+  noteStreak: $("noteStreak"),
+  noteTarget: $("noteTarget"),
+  noteStatus: $("noteStatus"),
+  notePlay: $("notePlay"),
+  noteReplay: $("noteReplay"),
+  noteAnswer: $("noteAnswer"),
+  noteSubmit: $("noteSubmit"),
+  noteKeys: $("noteKeys"),
+  noteMsg: $("noteMsg"),
 
+  // repair
+  repairStreak: $("repairStreak"),
+  repairTarget: $("repairTarget"),
+  repairTime: $("repairTime"),
+  repairPrompt: $("repairPrompt"),
+  repairInput: $("repairInput"),
+  repairSubmit: $("repairSubmit"),
+  repairNew: $("repairNew"),
+  repairMsg: $("repairMsg"),
+
+  // grid
+  gridSize: $("gridSize"),
+  gridBoard: $("gridBoard"),
+  gridSteps: $("gridSteps"),
+  gridStepsRaw: $("gridStepsRaw"),
+  gridSubmit: $("gridSubmit"),
+  gridNew: $("gridNew"),
+  gridMsg: $("gridMsg"),
+
+  // reveal
   poemText: $("poemText"),
   copyPoem: $("copyPoem"),
 
+  // side
   objective: $("objective"),
   pTrivia: $("pTrivia"),
-  pZoom: $("pZoom"),
+  pNote: $("pNote"),
+  pRepair: $("pRepair"),
+  pGrid: $("pGrid"),
 };
 
 const triviaCard = document.querySelector("#stageTrivia .qCard");
-const zoomWrap = document.querySelector("#stageZoom .zoomWrap");
 
 const STORAGE = {
-  triviaRetired: "yn_trivia_retired_v6",
-  triviaStreak: "yn_trivia_streak_v6",
-  zoomSolved: "yn_zoom_solved_v4",
-  zoomStreak: "yn_zoom_streak_v4",
-  imgCache: "yn_img_cache_v4"
+  triviaRetired: "yn_trivia_retired_v7",
 };
 
 const OVERRIDE_CODE = "1324";
@@ -76,8 +98,26 @@ const POEM = [
 
 const state = {
   stage: "trivia",
+
   trivia: { target: 15, streak: 0, retired: new Set(), current: null },
-  zoom: { target: 6, streak: 0, solved: new Set(), pool: [], current: null, zoomed: true }
+
+  note: { target: 5, streak: 0, current: null, played: false },
+
+  repair: {
+    target: 3,
+    streak: 0,
+    goodText: "",
+    badText: "",
+    deadlineMs: 0,
+    timer: null
+  },
+
+  grid: {
+    size: 11,
+    steps: 20,
+    round: null,
+    selected: null
+  }
 };
 
 function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
@@ -95,24 +135,9 @@ async function fadeSwap(el, updateFn, ms=220){
   });
 }
 
-function loadSet(key){
-  try{
-    const raw = localStorage.getItem(key);
-    if(!raw) return new Set();
-    const arr = JSON.parse(raw);
-    return new Set(Array.isArray(arr) ? arr : []);
-  } catch { return new Set(); }
-}
-function saveSet(key, set){
-  localStorage.setItem(key, JSON.stringify([...set]));
-}
-function loadInt(key, fallback=0){
-  const v = Number(localStorage.getItem(key));
-  return Number.isFinite(v) ? v : fallback;
-}
-function saveInt(key, v){
-  localStorage.setItem(key, String(v));
-}
+/* =========================
+   NORMALIZATION
+========================= */
 
 function norm(s){
   return (s || "")
@@ -126,73 +151,29 @@ function norm(s){
     .trim();
 }
 
+function normRepair(s){
+  // preserve punctuation/case, tolerate whitespace differences
+  return (s || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function isOverride(input){
   return norm(input) === OVERRIDE_CODE;
 }
 
 function setMsg(el, text, kind){
+  if(!el) return;
   el.textContent = text || "";
   el.className = "msg" + (kind ? (" " + kind) : "");
 }
 
 /* =========================
-   REMOVE UNWANTED STATIC COPY (SAFE: NO HIDING)
-========================= */
-
-const UNWANTED_PHRASES = [
-  "Policy: misses reset streaks. That’s the contract.",
-  "Policy: misses reset streaks. That's the contract.",
-  "If you want “AI evaluation,” you need a backend or a paid API key exposed to the client (not recommended).",
-  "If you want \"AI evaluation,\" you need a backend or a paid API key exposed to the client (not recommended).",
-  "No hand-holding.",
-  "No hand-holding",
-  "This system intentionally enforces pressure. Your team should feel friction, then have a clean “ohhhh” moment on the zoom gate.",
-  "This system intentionally enforces pressure. Your team should feel friction, then have a clean \"ohhhh\" moment on the zoom gate.",
-  "“Remove solved items” is enforced per browser via local storage. Different devices = fresh pool.",
-  "\"Remove solved items\" is enforced per browser via local storage. Different devices = fresh pool.",
-  "Images are fetched from Wikimedia Commons Featured pictures in real time (no assets needed). Judging uses fuzzy matching against title/metadata. It’s deterministic and good enough for humans.",
-  "Images are fetched from Wikimedia Commons Featured pictures in real time (no assets needed). Judging uses fuzzy matching against title/metadata. It's deterministic and good enough for humans."
-];
-
-function stripUnwantedTextNodes(){
-  try{
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    const nodes = [];
-    let n;
-    while((n = walker.nextNode())) nodes.push(n);
-
-    for(const node of nodes){
-      let t = node.nodeValue || "";
-      let changed = false;
-      for(const phrase of UNWANTED_PHRASES){
-        if(t.includes(phrase)){
-          t = t.split(phrase).join("");
-          changed = true;
-        }
-      }
-      if(changed){
-        t = t.replace(/\n{3,}/g, "\n\n").replace(/[ \t]{2,}/g, " ");
-        node.nodeValue = t;
-      }
-    }
-  } catch {}
-}
-
-function setStageSubtitle(stage){
-  const el =
-    document.getElementById("subtitle") ||
-    document.getElementById("tagline") ||
-    document.querySelector(".subtitle") ||
-    document.querySelector("[data-role='subtitle']");
-  if(!el) return;
-
-  if(stage === "trivia") el.textContent = "Get 15 correct in a row.";
-  else if(stage === "zoom") el.textContent = "Get 6 correct in a row.";
-  else el.textContent = "";
-}
-
-/* =========================
-   TYPO TOLERANCE (TRIVIA)
+   TRIVIA TYPO TOLERANCE
 ========================= */
 
 function levenshtein(a,b){
@@ -239,7 +220,6 @@ function matchesAny(guess, truths){
     const tn = norm(t);
     if(g === tn) return true;
 
-    // prevent 1-2 char hacks (e.g., "a")
     if(g.length >= 3 && tn.length >= 3 && (tn.includes(g) || g.includes(tn))) return true;
 
     if(typoOk(g, tn)) return true;
@@ -251,16 +231,41 @@ function matchesAny(guess, truths){
    STAGE CONTROL
 ========================= */
 
+const STAGE_ORDER = ["trivia","note","repair","grid","reveal"];
+
+function stageIndex(stage){ return STAGE_ORDER.indexOf(stage); }
+
 function setStage(stage){
+  // cleanup timers if leaving repair
+  if(state.stage === "repair" && stage !== "repair"){
+    stopRepairTimer();
+  }
+
   state.stage = stage;
   document.body.dataset.stage = stage;
 
-  ui.stepTrivia.className = "step" + (stage === "trivia" ? " active" : (stage !== "trivia" ? " done" : ""));
-  ui.stepZoom.className = "step" + (stage === "zoom" ? " active" : (stage === "reveal" ? " done" : ""));
-  ui.stepReveal.className = "step" + (stage === "reveal" ? " active" : "");
+  const idx = stageIndex(stage);
+
+  const stepMap = [
+    ["trivia", ui.stepTrivia],
+    ["note", ui.stepNote],
+    ["repair", ui.stepRepair],
+    ["grid", ui.stepGrid],
+    ["reveal", ui.stepReveal],
+  ];
+
+  for(const [name, el] of stepMap){
+    if(!el) continue;
+    const i = stageIndex(name);
+    const isActive = i === idx;
+    const isDone = i < idx;
+    el.className = "step" + (isActive ? " active" : (isDone ? " done" : ""));
+  }
 
   ui.stageTrivia.classList.toggle("show", stage === "trivia");
-  ui.stageZoom.classList.toggle("show", stage === "zoom");
+  ui.stageNote.classList.toggle("show", stage === "note");
+  ui.stageRepair.classList.toggle("show", stage === "repair");
+  ui.stageGrid.classList.toggle("show", stage === "grid");
   ui.stageReveal.classList.toggle("show", stage === "reveal");
 
   if(stage === "trivia"){
@@ -268,38 +273,47 @@ function setStage(stage){
     ui.panelDesc.innerHTML = "Get <b>15 correct in a row</b>.";
     ui.statusPill.textContent = "Locked";
     ui.objective.textContent = "15 correct in a row";
-  } else if(stage === "zoom"){
-    ui.panelTitle.textContent = "Stage 2 — Zoom Gate";
-    ui.panelDesc.innerHTML = "Identify a <b>small everyday object</b> from an extreme zoom. Get <b>6 correct in a row</b>.";
+  } else if(stage === "note"){
+    ui.panelTitle.textContent = "Stage 2 — Note Identification";
+    ui.panelDesc.innerHTML = "Press Play, then identify the note (A–G). Get <b>5 correct in a row</b>.";
     ui.statusPill.textContent = "Partially unlocked";
-    ui.objective.textContent = "6 correct in a row";
-    if(ui.imgGuess) ui.imgGuess.placeholder = "e.g., key, coin, pen, mug, apple…";
+    ui.objective.textContent = "5 correct in a row (notes)";
+  } else if(stage === "repair"){
+    ui.panelTitle.textContent = "Stage 3 — Sentence Repair";
+    ui.panelDesc.innerHTML = "Fix 4 sentences containing <b>20 total errors</b>. <b>2:00</b> time limit. Get <b>3 passes in a row</b>.";
+    ui.statusPill.textContent = "Partially unlocked";
+    ui.objective.textContent = "3 passes in a row (sentence repair)";
+  } else if(stage === "grid"){
+    ui.panelTitle.textContent = "Stage 4 — Grid Navigation";
+    ui.panelDesc.innerHTML = "Follow 20 random steps from the blue dot. Select the final intersection. Target is not marked.";
+    ui.statusPill.textContent = "Partially unlocked";
+    ui.objective.textContent = "Solve the grid navigation";
   } else {
-    ui.panelTitle.textContent = "Stage 3 — Reveal";
+    ui.panelTitle.textContent = "Stage 5 — Reveal";
     ui.panelDesc.textContent = "";
     ui.statusPill.textContent = "Unlocked";
     ui.objective.textContent = "";
   }
 
-  setStageSubtitle(stage);
   renderSide();
-  stripUnwantedTextNodes();
 
-  if(stage === "zoom"){
-    setTimeout(async () => {
-      if(state.zoom.pool.length === 0){
-        const ok = await ensureImagePool(true);
-        if(ok && !state.zoom.current) await nextImage();
-      } else if(!state.zoom.current){
-        await nextImage();
-      }
-    }, 0);
+  // enter-stage actions
+  if(stage === "note"){
+    initNoteStage();
+  } else if(stage === "repair"){
+    startRepairRound();
+  } else if(stage === "grid"){
+    newGridRound();
+  } else if(stage === "reveal"){
+    ui.poemText.textContent = POEM;
   }
 }
 
 function renderSide(){
   ui.pTrivia.textContent = `${state.trivia.streak} / ${state.trivia.target}`;
-  ui.pZoom.textContent = `${state.zoom.streak} / ${state.zoom.target}`;
+  ui.pNote.textContent = `${state.note.streak} / ${state.note.target}`;
+  ui.pRepair.textContent = `${state.repair.streak} / ${state.repair.target}`;
+  ui.pGrid.textContent = state.stage === "reveal" ? "Complete" : "—";
 }
 
 /* =========================
@@ -332,23 +346,16 @@ function pickTrivia(){
   setTimeout(() => ui.answer.focus(), 0);
 }
 
-function bypassToZoom(){
-  state.trivia.streak = state.trivia.target;
-  ui.streak.textContent = String(state.trivia.streak);
-  renderSide();
-  setMsg(ui.triviaMsg, "Override accepted.", "good");
-
-  setTimeout(async () => {
-    setStage("zoom");
-    const ok = await ensureImagePool(true);
-    if(ok) await nextImage();
-  }, 200);
+function bypassToReveal(){
+  setStage("reveal");
+  ui.poemText.textContent = POEM;
+  ui.statusPill.textContent = "Unlocked";
 }
 
 function checkTriviaAnswer(){
   const rawGuess = ui.answer.value || "";
   if(isOverride(rawGuess)){
-    bypassToZoom();
+    bypassToReveal();
     return;
   }
 
@@ -376,10 +383,8 @@ function checkTriviaAnswer(){
 
     if(state.trivia.streak >= state.trivia.target){
       setMsg(ui.triviaMsg, "Gate cleared.", "good");
-      setTimeout(async () => {
-        setStage("zoom");
-        const ok2 = await ensureImagePool(true);
-        if(ok2) await nextImage();
+      setTimeout(() => {
+        setStage("note");
       }, 280);
       return;
     }
@@ -398,471 +403,536 @@ function checkTriviaAnswer(){
 }
 
 /* =========================
-   ZOOM — SMALL OBJECT POOL (NO “IMAGE” ANSWERS)
+   NOTE IDENTIFICATION (WebAudio)
 ========================= */
 
-function getCachedImages(){
-  try{
-    const raw = localStorage.getItem(STORAGE.imgCache);
-    if(!raw) return null;
-    const obj = JSON.parse(raw);
-    if(!obj || !Array.isArray(obj.items)) return null;
-    if(Date.now() - (obj.ts || 0) > 7*24*3600*1000) return null;
-    return obj.items;
-  } catch { return null; }
-}
-function setCachedImages(items){
-  localStorage.setItem(STORAGE.imgCache, JSON.stringify({ ts: Date.now(), items }));
-}
+const NOTES = ["A","B","C","D","E","F","G"];
+const NOTE_FREQ = {
+  C: 261.63,
+  D: 293.66,
+  E: 329.63,
+  F: 349.23,
+  G: 392.00,
+  A: 440.00,
+  B: 493.88
+};
 
-function stripHtml(s){
-  return (s || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-}
+let audioCtx = null;
 
-function deriveAnswerFromTitle(title){
-  let t = title || "";
-  t = t.replace(/^file:/i, "");
-  try { t = decodeURIComponent(t); } catch {}
-  t = t.replace(/_/g, " ");
-  t = t.replace(/\.[a-z0-9]{2,5}$/i, "");
-  t = t.replace(/\s*\([^)]*\)\s*/g, " ");
-  t = t.replace(/\s{2,}/g, " ").trim();
-  return t;
+function ensureAudioContext(){
+  if(audioCtx) return audioCtx;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
 }
 
-/**
- * We only accept images that can be classified as “small everyday objects”.
- * If we can’t classify them → they never enter the pool.
- */
-const SMALL_OBJECT_LABELS = new Set([
-  "key","coin","pen","pencil","marker","eraser","book","notebook",
-  "mug","cup","bottle","spoon","fork","knife","plate",
-  "apple","banana","orange","strawberry",
-  "watch","ring","bracelet",
-  "phone","calculator","remote",
-  "scissors","tape","glue",
-  "screw","bolt","nut","nail",
-  "toy","dice","card",
-  "flower"
-]);
-
-const LABEL_RULES = [
-  { label:"key", keys:["key","keys","keyring"] },
-  { label:"coin", keys:["coin","coins","penny","nickel","dime","quarter","euro"] },
-  { label:"pen", keys:["pen","ballpoint","fountain pen"] },
-  { label:"pencil", keys:["pencil","graphite pencil"] },
-  { label:"marker", keys:["marker","felt tip","sharpie"] },
-  { label:"eraser", keys:["eraser","rubber eraser"] },
-  { label:"book", keys:["book","hardcover","paperback","book cover"] },
-  { label:"notebook", keys:["notebook","journal","notepad"] },
-
-  { label:"mug", keys:["mug"] },
-  { label:"cup", keys:["cup","teacup","glass"] },
-  { label:"bottle", keys:["bottle","water bottle"] },
-  { label:"spoon", keys:["spoon","tablespoon","teaspoon"] },
-  { label:"fork", keys:["fork"] },
-  { label:"knife", keys:["knife","kitchen knife"] },
-  { label:"plate", keys:["plate","dish","saucer"] },
-
-  { label:"apple", keys:["apple"] },
-  { label:"banana", keys:["banana"] },
-  { label:"orange", keys:["orange","citrus"] },
-  { label:"strawberry", keys:["strawberry","strawberries"] },
-
-  { label:"watch", keys:["watch","wristwatch"] },
-  { label:"ring", keys:["ring"] },
-  { label:"bracelet", keys:["bracelet"] },
-
-  { label:"phone", keys:["phone","smartphone","iphone","android phone"] },
-  { label:"calculator", keys:["calculator"] },
-  { label:"remote", keys:["remote","remote control"] },
-
-  { label:"scissors", keys:["scissors"] },
-  { label:"tape", keys:["tape","masking tape","duct tape"] },
-  { label:"glue", keys:["glue","glue stick"] },
-
-  { label:"screw", keys:["screw"] },
-  { label:"bolt", keys:["bolt"] },
-  { label:"nut", keys:["nut","hex nut"] },
-  { label:"nail", keys:["nail","nails"] },
-
-  { label:"toy", keys:["toy","lego","doll","action figure"] },
-  { label:"dice", keys:["dice","die"] },
-  { label:"card", keys:["playing card","cards"] },
-
-  { label:"flower", keys:["flower","blossom"] },
-];
-
-function labelAliases(label){
-  const map = {
-    pen: ["ballpoint","fountain pen"],
-    marker: ["felt tip","sharpie"],
-    eraser: ["rubber"],
-    phone: ["smartphone","cell phone","cellphone"],
-    mug: ["cup"], // accept “cup” for mug
-    cup: ["mug","glass"],
-    bottle: ["water bottle"],
-    scissors: ["shears"],
-    card: ["playing card"],
-    dice: ["die"],
-  };
-  return map[label] || [];
+async function resumeAudioIfNeeded(){
+  const ctx = ensureAudioContext();
+  if(ctx.state === "suspended") await ctx.resume();
 }
 
-function classifySmallObject(item){
-  const title = stripHtml(deriveAnswerFromTitle(item.title || ""));
-  const obj = stripHtml(item.meta?.objectName || "");
-  const desc = stripHtml(item.meta?.imageDescription || "");
-  const blob = norm([title, obj, desc].join(" "));
+function playNote(letter, durationSec = 0.9){
+  const ctx = ensureAudioContext();
 
-  for(const r of LABEL_RULES){
-    for(const k of r.keys){
-      if(blob.includes(norm(k))) return r.label;
-    }
-  }
-  return null;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  const filter = ctx.createBiquadFilter();
+
+  osc.type = "sine";
+  osc.frequency.value = NOTE_FREQ[letter] || 440;
+
+  filter.type = "lowpass";
+  filter.frequency.value = 1800;
+
+  const now = ctx.currentTime;
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.linearRampToValueAtTime(0.22, now + 0.02);
+  gain.gain.linearRampToValueAtTime(0.13, now + 0.14);
+  gain.gain.setValueAtTime(0.13, now + durationSec - 0.06);
+  gain.gain.linearRampToValueAtTime(0.0001, now + durationSec);
+
+  osc.connect(gain).connect(filter).connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + durationSec);
 }
 
-function guessMatchesSmall(guess, item){
-  const g = norm(guess);
-  if(g.length < 3) return { ok:false, label:item._label || "object" };
-
-  const label = item._label || "object";
-  const truths = [label, ...labelAliases(label)];
-
-  // Don’t accept substring hacks for short guesses.
-  if(g.length < 3) return { ok:false, label };
-
-  // strict-ish match: exact / typo / synonym (no “a”)
-  if(matchesAny(guess, truths)) return { ok:true, label };
-
-  // mild typo tolerance against the core label only
-  if(typoOk(g, label)) return { ok:true, label };
-
-  return { ok:false, label };
+function newNoteRound(){
+  state.note.current = NOTES[Math.floor(Math.random() * NOTES.length)];
+  state.note.played = false;
+  ui.noteStatus.textContent = "Ready";
+  ui.noteReplay.disabled = true;
+  ui.noteAnswer.value = "";
+  setMsg(ui.noteMsg, "", "");
+  setTimeout(() => ui.noteAnswer.focus(), 0);
 }
 
-/* Wikimedia Commons category titles that skew toward small objects */
-const OBJECT_CATEGORY_TITLES = [
-  "Category:Keys",
-  "Category:Coins",
-  "Category:Pens",
-  "Category:Pencils",
-  "Category:Markers",
-  "Category:Erasers",
-  "Category:Books",
-  "Category:Notebooks",
-
-  "Category:Mugs",
-  "Category:Cups",
-  "Category:Bottles",
-  "Category:Spoons",
-  "Category:Forks",
-  "Category:Knives",
-  "Category:Plates",
-
-  "Category:Apples",
-  "Category:Bananas",
-  "Category:Oranges",
-  "Category:Strawberries",
-
-  "Category:Watches",
-  "Category:Rings",
-  "Category:Bracelets",
-
-  "Category:Mobile phones",
-  "Category:Calculators",
-  "Category:Remote controls",
-
-  "Category:Scissors",
-  "Category:Adhesive tape",
-  "Category:Glue",
-
-  "Category:Screws",
-  "Category:Bolts",
-  "Category:Nuts",
-  "Category:Nails",
-
-  "Category:Toys",
-  "Category:Dice",
-  "Category:Playing cards",
-
-  "Category:Flowers"
-];
-
-async function fetchCategoryFileTitles(categoryTitle, limit=80){
-  const base = "https://commons.wikimedia.org/w/api.php";
-  const titles = [];
-  let cmcontinue = null;
-
-  while(titles.length < limit){
-    const params = new URLSearchParams({
-      action: "query",
-      list: "categorymembers",
-      cmtitle: categoryTitle,
-      cmtype: "file",
-      cmlimit: "50",
-      format: "json",
-      origin: "*"
-    });
-    if(cmcontinue) params.set("cmcontinue", cmcontinue);
-
-    const res = await fetch(`${base}?${params.toString()}`, { cache: "no-store" });
-    if(!res.ok) break;
-
-    const data = await res.json();
-    const cms = data?.query?.categorymembers || [];
-    for(const it of cms){
-      if(it?.title) titles.push(it.title);
-    }
-    cmcontinue = data?.continue?.cmcontinue;
-    if(!cmcontinue || cms.length === 0) break;
-  }
-
-  return titles.slice(0, limit);
+function initNoteStage(){
+  ui.noteTarget.textContent = String(state.note.target);
+  ui.noteStreak.textContent = String(state.note.streak);
+  ui.noteStatus.textContent = "Ready";
+  ui.noteReplay.disabled = true;
+  newNoteRound();
 }
 
-async function fetchImageInfoForTitles(titles){
-  const base = "https://commons.wikimedia.org/w/api.php";
-  const items = [];
-
-  for(let i=0; i<titles.length; i+=40){
-    const chunk = titles.slice(i, i+40);
-    const params = new URLSearchParams({
-      action: "query",
-      prop: "imageinfo",
-      titles: chunk.join("|"),
-      iiprop: "url|extmetadata",
-      iiurlwidth: "2400",
-      format: "json",
-      origin: "*"
-    });
-
-    const res = await fetch(`${base}?${params.toString()}`, { cache: "no-store" });
-    if(!res.ok) continue;
-
-    const data = await res.json();
-    const pages = data?.query?.pages ? Object.values(data.query.pages) : [];
-    for(const p of pages){
-      const ii = p.imageinfo?.[0];
-      if(!ii?.thumburl) continue;
-
-      const it = {
-        pageid: p.pageid,
-        title: p.title,
-        url: ii.thumburl,
-        meta: {
-          objectName: ii.extmetadata?.ObjectName?.value || "",
-          imageDescription: ii.extmetadata?.ImageDescription?.value || ""
-        }
-      };
-      items.push(it);
-    }
-  }
-
-  const uniq = new Map();
-  for(const it of items){
-    if(!uniq.has(String(it.pageid))) uniq.set(String(it.pageid), it);
-  }
-  return [...uniq.values()];
+async function onNotePlay(isReplay=false){
+  await resumeAudioIfNeeded();
+  if(!state.note.current) newNoteRound();
+  playNote(state.note.current);
+  state.note.played = true;
+  ui.noteStatus.textContent = isReplay ? "Replayed" : "Played";
+  ui.noteReplay.disabled = false;
 }
 
-async function buildSmallObjectPool(target=220){
-  // pull from multiple object categories; dedupe titles; fetch imageinfo; classify; keep only classifiable
-  const titleSet = new Set();
-  for(const cat of OBJECT_CATEGORY_TITLES){
-    try{
-      const t = await fetchCategoryFileTitles(cat, 80);
-      for(const x of t) titleSet.add(x);
-      if(titleSet.size >= target * 2) break;
-      await sleep(60);
-    } catch {}
-  }
-
-  const titles = [...titleSet].slice(0, target * 2);
-  if(titles.length === 0) return [];
-
-  const items = await fetchImageInfoForTitles(titles);
-
-  const filtered = [];
-  for(const it of items){
-    const label = classifySmallObject(it);
-    if(!label) continue;
-    if(!SMALL_OBJECT_LABELS.has(label)) continue;
-    it._label = label; // persist label so we never “answer: image”
-    filtered.push(it);
-  }
-
-  // If we’re short, that’s OK: better small & solvable than huge & random.
-  return filtered.slice(0, target);
-}
-
-async function ensureImagePool(allowUIMessage=false){
-  if(allowUIMessage) setMsg(ui.zoomMsg, "Loading objects…", "warn");
-  ui.imgMeta.hidden = true;
-
-  const cached = getCachedImages();
-  if(cached && cached.length >= 80){
-    state.zoom.pool = cached;
-    ui.imgPool.textContent = String(state.zoom.pool.length);
-    if(allowUIMessage) setMsg(ui.zoomMsg, "", "");
-    return true;
-  }
-
-  try{
-    const items = await buildSmallObjectPool(240);
-    if(!items || items.length < 40){
-      state.zoom.pool = items || [];
-      ui.imgPool.textContent = String(state.zoom.pool.length);
-      if(allowUIMessage) setMsg(ui.zoomMsg, "Couldn’t load enough object images. Try Refresh image pool.", "bad");
-      return state.zoom.pool.length > 0;
-    }
-
-    state.zoom.pool = items;
-    setCachedImages(items);
-    ui.imgPool.textContent = String(items.length);
-    if(allowUIMessage) setMsg(ui.zoomMsg, "", "");
-    return true;
-  } catch (e){
-    console.error(e);
-    if(allowUIMessage) setMsg(ui.zoomMsg, "Failed to load objects (likely a blocker). Try Refresh with blockers off.", "bad");
-    return false;
-  }
-}
-
-function setZoom(scale, ox, oy){
-  ui.zoomFrame.style.setProperty("--scale", String(scale));
-  ui.zoomFrame.style.setProperty("--ox", `${ox}%`);
-  ui.zoomFrame.style.setProperty("--oy", `${oy}%`);
-}
-
-async function nextImage(){
-  ui.imgMeta.hidden = true;
-  ui.imgGuess.value = "";
-  setMsg(ui.zoomMsg, "", "");
-  ui.zoomImg.classList.remove("broken");
-
-  if(state.zoom.pool.length === 0){
-    setMsg(ui.zoomMsg, "Object pool is empty. Click refresh image pool.", "bad");
-    ui.imgPool.textContent = "0";
+function submitNoteAnswer(letter){
+  if(!state.note.current){
+    newNoteRound();
     return;
   }
 
-  const available = state.zoom.pool.filter(x => !state.zoom.solved.has(String(x.pageid)));
-  ui.imgPool.textContent = String(available.length);
-
-  if(available.length === 0){
-    setMsg(ui.zoomMsg, "No objects left. Refresh the pool.", "bad");
+  if(!state.note.played){
+    setMsg(ui.noteMsg, "Play the note first.", "warn");
     return;
   }
 
-  const item = available[Math.floor(Math.random() * available.length)];
-  state.zoom.current = item;
-  state.zoom.zoomed = true;
+  const ok = letter === state.note.current;
 
-  // Extreme zoom, but "focused": bias toward center (object photos are usually centered)
-  const ox = Math.floor(45 + (Math.random()*20 - 10));
-  const oy = Math.floor(45 + (Math.random()*20 - 10));
-  const scale = 7.0 + Math.random()*2.2; // MUCH more zoomed
-  setZoom(scale, ox, oy);
+  if(ok){
+    state.note.streak += 1;
+    ui.noteStreak.textContent = String(state.note.streak);
+    setMsg(ui.noteMsg, "Correct.", "good");
+    renderSide();
 
-  ui.zoomPill.textContent = "Zoomed";
+    if(state.note.streak >= state.note.target){
+      setMsg(ui.noteMsg, "Gate cleared.", "good");
+      setTimeout(() => setStage("repair"), 300);
+      return;
+    }
 
-  await fadeSwap(zoomWrap, () => {
-    ui.zoomImg.src = item.url;
-    ui.imgAnswer.textContent = "—";
-    ui.imgTitle.textContent = "—";
-  }, 180);
+    newNoteRound();
+    return;
+  }
 
-  ui.zoomImg.onload = () => ui.imgGuess.focus();
-  ui.zoomImg.onerror = () => {
-    ui.zoomImg.classList.add("broken");
-    setMsg(ui.zoomMsg, "Image failed to load. Skipping.", "warn");
-    state.zoom.solved.add(String(item.pageid));
-    saveSet(STORAGE.zoomSolved, state.zoom.solved);
-    setTimeout(nextImage, 650);
-  };
-}
-
-function zoomOutNow(){
-  if(!state.zoom.current) return;
-  state.zoom.zoomed = false;
-  setZoom(1.0, 50, 50);
-  ui.zoomPill.textContent = "Zoomed out";
-}
-
-function bypassToReveal(){
-  state.zoom.streak = state.zoom.target;
-  ui.zoomStreak.textContent = String(state.zoom.streak);
+  state.note.streak = 0;
+  ui.noteStreak.textContent = "0";
+  setMsg(ui.noteMsg, "Incorrect. Streak reset.", "bad");
   renderSide();
-
-  setStage("reveal");
-  ui.poemText.textContent = POEM;
-  ui.statusPill.textContent = "Unlocked";
+  newNoteRound();
 }
 
-async function checkImageGuess(){
-  const raw = ui.imgGuess.value || "";
+function submitNoteFromInput(){
+  const raw = ui.noteAnswer.value || "";
   if(isOverride(raw)){
     bypassToReveal();
     return;
   }
 
-  const item = state.zoom.current;
-  if(!item){
-    setMsg(ui.zoomMsg, "No image loaded yet.", "bad");
+  const t = raw.trim().toUpperCase();
+  const letter = t[0] || "";
+  if(!NOTES.includes(letter)){
+    setMsg(ui.noteMsg, "Enter A–G.", "bad");
+    return;
+  }
+  submitNoteAnswer(letter);
+}
+
+/* =========================
+   SENTENCE REPAIR (20 errors total)
+========================= */
+
+const CLEAN_SENTENCES = [
+  "The team reviewed the proposal and approved the final timeline.",
+  "Please submit the updated report before the end of the day.",
+  "We will prioritize reliability and reduce operational risk.",
+  "The customer requested a detailed breakdown of the pricing model.",
+  "After the incident, we published a postmortem and action items.",
+  "Our approach improves accuracy without increasing latency.",
+  "The product roadmap aligns with the quarterly objectives.",
+  "She explained the results clearly and answered every question.",
+  "The system logs indicated a transient network failure.",
+  "They agreed to iterate quickly and validate assumptions with data.",
+  "The meeting ended early because all decisions were finalized.",
+  "We should confirm the requirements with stakeholders this week.",
+  "The analyst documented the methodology and the key limitations.",
+  "A consistent process prevents avoidable defects and rework.",
+  "The vendor provided a replacement and extended the warranty.",
+  "He reviewed the contract carefully and flagged the risky clauses.",
+  "We can mitigate the issue by adding a safety check in the pipeline.",
+  "The model performed well on the benchmark and generalization tests.",
+  "The committee recommended a phased rollout to control risk.",
+  "They updated the documentation to reflect the latest changes."
+];
+
+const TYPO_MAP = [
+  ["the", "teh"],
+  ["and", "adn"],
+  ["with", "wiht"],
+  ["before", "befor"],
+  ["because", "becuase"],
+  ["should", "shoudl"],
+  ["their", "thier"],
+  ["consistent", "consistant"],
+  ["performance", "perfomance"],
+  ["reliability", "reliablity"],
+  ["documentation", "documantation"],
+  ["requirements", "requrements"],
+];
+
+function randInt(min, max){
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+function pick(arr){
+  return arr[randInt(0, arr.length - 1)];
+}
+function escapeRegExp(s){
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function findWordMatches(sentence, word){
+  const re = new RegExp(`\\b${escapeRegExp(word)}\\b`, "gi");
+  const matches = [];
+  let m;
+  while((m = re.exec(sentence)) !== null){
+    matches.push({ index: m.index, length: m[0].length });
+  }
+  return matches;
+}
+function removeOnePunctuationCandidates(s){
+  const punct = [",", ".", ";", ":", "!", "?"];
+  const out = [];
+  for(let i=0; i<s.length; i++){
+    if(punct.includes(s[i])) out.push(i);
+  }
+  return out;
+}
+function flipCaseAt(s, i){
+  const ch = s[i];
+  const flipped = ch === ch.toUpperCase() ? ch.toLowerCase() : ch.toUpperCase();
+  return s.slice(0,i) + flipped + s.slice(i+1);
+}
+function insertDoubleSpaceAt(s, i){
+  if(s[i] !== " ") return null;
+  if(s[i+1] === " ") return null;
+  return s.slice(0,i) + "  " + s.slice(i+1);
+}
+function removeSpaceAfterPunct(s, i){
+  if(!s[i]) return null;
+  if(s[i+1] !== " ") return null;
+  return s.slice(0, i+1) + s.slice(i+2);
+}
+function swapTwoAdjacentLetters(s, i){
+  if(i < 0 || i >= s.length - 1) return null;
+  const a = s[i], b = s[i+1];
+  if(!/[a-zA-Z]/.test(a) || !/[a-zA-Z]/.test(b)) return null;
+  return s.slice(0,i) + b + a + s.slice(i+2);
+}
+
+function generateBadSentence(good, targetErrors=5){
+  let bad = good;
+  let applied = 0;
+  let guard = 0;
+
+  while(applied < targetErrors && guard++ < 500){
+    const op = pick(["typo","punct","caps","space2","nospace","swap"]);
+    const before = bad;
+
+    if(op === "typo"){
+      const [correct, wrong] = pick(TYPO_MAP);
+      const matches = findWordMatches(bad, correct);
+      if(matches.length){
+        const m = pick(matches);
+        bad = bad.slice(0, m.index) + wrong + bad.slice(m.index + m.length);
+      }
+    } else if(op === "punct"){
+      const candidates = removeOnePunctuationCandidates(bad);
+      if(candidates.length){
+        const idx = pick(candidates);
+        bad = bad.slice(0, idx) + bad.slice(idx + 1);
+      }
+    } else if(op === "caps"){
+      const letters = [];
+      for(let i=0; i<bad.length; i++) if(/[a-zA-Z]/.test(bad[i])) letters.push(i);
+      if(letters.length){
+        const idx = pick(letters);
+        bad = flipCaseAt(bad, idx);
+      }
+    } else if(op === "space2"){
+      const spaces = [];
+      for(let i=0; i<bad.length; i++) if(bad[i] === " ") spaces.push(i);
+      if(spaces.length){
+        const idx = pick(spaces);
+        const maybe = insertDoubleSpaceAt(bad, idx);
+        if(maybe) bad = maybe;
+      }
+    } else if(op === "nospace"){
+      const candidates = [];
+      for(let i=0; i<bad.length - 1; i++){
+        if(/[.,;:!?]/.test(bad[i]) && bad[i+1] === " ") candidates.push(i);
+      }
+      if(candidates.length){
+        const idx = pick(candidates);
+        const maybe = removeSpaceAfterPunct(bad, idx);
+        if(maybe) bad = maybe;
+      }
+    } else if(op === "swap"){
+      const idx = randInt(0, Math.max(0, bad.length - 2));
+      const maybe = swapTwoAdjacentLetters(bad, idx);
+      if(maybe) bad = maybe;
+    }
+
+    if(bad !== before) applied++;
+  }
+
+  if(applied !== targetErrors){
+    throw new Error("Failed to generate required errors.");
+  }
+
+  return { good, bad };
+}
+
+function buildSentenceRepairRound(){
+  const picked = [];
+  let guard = 0;
+
+  while(picked.length < 4 && guard++ < 400){
+    const s = pick(CLEAN_SENTENCES);
+    if(picked.some(x => x.good === s)) continue;
+    try{
+      picked.push(generateBadSentence(s, 5));
+    } catch {}
+  }
+
+  if(picked.length < 4){
+    // fallback: if bank too small/unstable
+    throw new Error("Could not assemble 4 sentences. Expand CLEAN_SENTENCES.");
+  }
+
+  const goodText = picked.map(x => x.good).join("\n");
+  const badText = picked.map(x => x.bad).join("\n");
+
+  return { goodText, badText };
+}
+
+function formatMMSS(totalSeconds){
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const mm = String(Math.floor(s/60)).padStart(2,"0");
+  const ss = String(s%60).padStart(2,"0");
+  return `${mm}:${ss}`;
+}
+
+function startRepairRound(){
+  stopRepairTimer();
+
+  const round = buildSentenceRepairRound();
+  state.repair.goodText = round.goodText;
+  state.repair.badText = round.badText;
+
+  fadeSwap(ui.repairPrompt, () => {
+    ui.repairPrompt.textContent = state.repair.badText;
+  }, 160);
+
+  ui.repairInput.value = "";
+  setMsg(ui.repairMsg, "Timer started. Submit before it expires.", "warn");
+
+  state.repair.deadlineMs = Date.now() + 120_000;
+  ui.repairTime.textContent = "02:00";
+
+  state.repair.timer = setInterval(tickRepair, 200);
+  tickRepair();
+
+  setTimeout(() => ui.repairInput.focus(), 0);
+}
+
+function tickRepair(){
+  const leftMs = state.repair.deadlineMs - Date.now();
+  const leftSec = Math.ceil(leftMs / 1000);
+  ui.repairTime.textContent = formatMMSS(leftSec);
+  if(leftMs <= 0){
+    submitRepair(true);
+  }
+}
+
+function stopRepairTimer(){
+  if(state.repair.timer){
+    clearInterval(state.repair.timer);
+    state.repair.timer = null;
+  }
+}
+
+function submitRepair(isTimeout=false){
+  if(!state.repair.timer) return;
+  stopRepairTimer();
+
+  const raw = ui.repairInput.value || "";
+  if(isOverride(raw)){
+    bypassToReveal();
     return;
   }
 
-  const g = norm(raw);
-  if(g.length < 3){
-    setMsg(ui.zoomMsg, "Too short. Use 3+ characters (e.g., “key”, “coin”, “pen”).", "bad");
-    return;
-  }
+  const user = normRepair(raw);
+  const good = normRepair(state.repair.goodText);
 
-  const result = guessMatchesSmall(raw, item);
+  const pass = !isTimeout && user === good;
 
-  // Always reveal full image so there's an “oh” moment either way
-  zoomOutNow();
+  if(pass){
+    state.repair.streak += 1;
+    ui.repairStreak.textContent = String(state.repair.streak);
+    setMsg(ui.repairMsg, "Pass.", "good");
+    renderSide();
 
-  ui.imgMeta.hidden = false;
-  ui.imgAnswer.textContent = item._label || result.label || "object";
-  ui.imgTitle.textContent = item.title.replace(/^File:/i,"");
-
-  if(result.ok){
-    state.zoom.streak += 1;
-    ui.zoomStreak.textContent = String(state.zoom.streak);
-
-    state.zoom.solved.add(String(item.pageid));
-    saveSet(STORAGE.zoomSolved, state.zoom.solved);
-
-    setMsg(ui.zoomMsg, `Correct — ${item._label}.`, "good");
-
-    if(state.zoom.streak >= state.zoom.target){
-      setTimeout(() => {
-        setStage("reveal");
-        ui.poemText.textContent = POEM;
-        ui.statusPill.textContent = "Unlocked";
-      }, 320);
+    if(state.repair.streak >= state.repair.target){
+      setMsg(ui.repairMsg, "Gate cleared.", "good");
+      setTimeout(() => setStage("grid"), 350);
       return;
     }
 
-    await sleep(650);
-    await nextImage();
-    renderSide();
+    setTimeout(startRepairRound, 600);
     return;
   }
 
-  // Wrong: show a meaningful object label (never “image”)
-  state.zoom.streak = 0;
-  ui.zoomStreak.textContent = "0";
-
-  const lab = item._label || result.label || "object";
-  setMsg(ui.zoomMsg, `Incorrect. It was a ${lab}.`, "bad");
+  state.repair.streak = 0;
+  ui.repairStreak.textContent = "0";
   renderSide();
 
-  await sleep(950);
-  await nextImage();
+  if(isTimeout){
+    setMsg(ui.repairMsg, "Time expired. Streak reset.", "bad");
+  } else {
+    setMsg(ui.repairMsg, "Incorrect. Streak reset.", "bad");
+  }
+
+  setTimeout(startRepairRound, 850);
+}
+
+/* =========================
+   GRID NAV
+========================= */
+
+function genGridRound(size=11, steps=20){
+  const dirs = ["U","D","L","R"];
+
+  let startX = randInt(0, size-1);
+  let startY = randInt(0, size-1);
+
+  for(let attempt=0; attempt<200; attempt++){
+    let x = startX;
+    let y = startY;
+    const seq = [];
+
+    for(let i=0; i<steps; i++){
+      // choose direction that stays in bounds
+      let chosen = null;
+      for(let g=0; g<20 && !chosen; g++){
+        const d = pick(dirs);
+        const nx = x + (d === "R") - (d === "L");
+        const ny = y + (d === "D") - (d === "U");
+        if(nx >= 0 && nx < size && ny >= 0 && ny < size){
+          chosen = d;
+          x = nx; y = ny;
+          seq.push(d);
+        }
+      }
+      if(!chosen){
+        // restart attempt
+        break;
+      }
+    }
+
+    const target = { x, y };
+    const start = { x: startX, y: startY };
+
+    // enforce "target intersection doesn't have anything on it" => not the start dot
+    if(target.x === start.x && target.y === start.y){
+      startX = randInt(0, size-1);
+      startY = randInt(0, size-1);
+      continue;
+    }
+
+    if(seq.length === steps){
+      return { size, steps, start, seq, target };
+    }
+  }
+
+  // fallback (should never happen)
+  return { size, steps, start: {x:0,y:0}, seq: Array(steps).fill("R"), target: {x:steps % size, y:0} };
+}
+
+function dirArrow(d){
+  if(d === "U") return "↑";
+  if(d === "D") return "↓";
+  if(d === "L") return "←";
+  return "→";
+}
+
+function renderGrid(){
+  const r = state.grid.round;
+  if(!r) return;
+
+  ui.gridSize.textContent = `${r.size} × ${r.size}`;
+  ui.gridBoard.style.setProperty("--gridN", String(r.size));
+
+  ui.gridSteps.textContent = r.seq.map(dirArrow).join(" ");
+  ui.gridStepsRaw.textContent = r.seq.join(" ");
+
+  ui.gridBoard.innerHTML = "";
+  state.grid.selected = null;
+
+  for(let y=0; y<r.size; y++){
+    for(let x=0; x<r.size; x++){
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "cell";
+      cell.dataset.x = String(x);
+      cell.dataset.y = String(y);
+
+      if(x === r.start.x && y === r.start.y){
+        cell.classList.add("start");
+        const dot = document.createElement("div");
+        dot.className = "dotStart";
+        cell.appendChild(dot);
+      }
+
+      cell.addEventListener("click", () => selectGridCell(x,y));
+      ui.gridBoard.appendChild(cell);
+    }
+  }
+
+  setMsg(ui.gridMsg, "Select a cell, then submit.", "warn");
+}
+
+function selectGridCell(x,y){
+  state.grid.selected = { x, y };
+
+  const cells = ui.gridBoard.querySelectorAll(".cell");
+  cells.forEach(c => c.classList.remove("selected"));
+
+  const r = state.grid.round;
+  const idx = y * r.size + x;
+  const el = ui.gridBoard.children[idx];
+  if(el) el.classList.add("selected");
+}
+
+function newGridRound(){
+  state.grid.round = genGridRound(state.grid.size, state.grid.steps);
+  renderGrid();
+}
+
+function submitGrid(){
+  const r = state.grid.round;
+  if(!r) return;
+
+  if(!state.grid.selected){
+    setMsg(ui.gridMsg, "Pick a cell first.", "bad");
+    return;
+  }
+
+  const ok = state.grid.selected.x === r.target.x && state.grid.selected.y === r.target.y;
+
+  if(ok){
+    setMsg(ui.gridMsg, "Correct. Gate cleared.", "good");
+    ui.pGrid.textContent = "Complete";
+    setTimeout(() => setStage("reveal"), 450);
+    return;
+  }
+
+  setMsg(ui.gridMsg, "Incorrect. New grid generated.", "bad");
+  setTimeout(newGridRound, 650);
 }
 
 /* =========================
@@ -873,25 +943,31 @@ function resetAllProgress(){
   if(!confirm("This will reset progress for this browser. Continue?")) return;
 
   localStorage.removeItem(STORAGE.triviaRetired);
-  localStorage.removeItem(STORAGE.triviaStreak);
-  localStorage.removeItem(STORAGE.zoomSolved);
-  localStorage.removeItem(STORAGE.zoomStreak);
-  localStorage.removeItem(STORAGE.imgCache);
 
   state.trivia.retired = new Set();
   state.trivia.streak = 0;
+  state.trivia.current = null;
 
-  state.zoom.solved = new Set();
-  state.zoom.streak = 0;
-  state.zoom.pool = [];
-  state.zoom.current = null;
+  state.note.streak = 0;
+  state.note.current = null;
+  state.note.played = false;
+
+  state.repair.streak = 0;
+  state.repair.goodText = "";
+  state.repair.badText = "";
+  stopRepairTimer();
+
+  state.grid.round = null;
+  state.grid.selected = null;
 
   ui.streak.textContent = "0";
-  ui.zoomStreak.textContent = "0";
-  ui.imgPool.textContent = "0";
+  ui.noteStreak.textContent = "0";
+  ui.repairStreak.textContent = "0";
 
   setMsg(ui.triviaMsg, "Progress reset.", "warn");
-  setMsg(ui.zoomMsg, "", "");
+  setMsg(ui.noteMsg, "", "");
+  setMsg(ui.repairMsg, "", "");
+  setMsg(ui.gridMsg, "", "");
 
   setStage("trivia");
   pickTrivia();
@@ -906,38 +982,29 @@ function init(){
       return;
     }
 
-    // ✅ Every reload: reset “remaining” and both streaks
+    // Reset session progress on reload (matches your current behavior)
     localStorage.removeItem(STORAGE.triviaRetired);
-    localStorage.removeItem(STORAGE.triviaStreak);
-    localStorage.removeItem(STORAGE.zoomStreak);
 
     state.trivia.retired = new Set();
     state.trivia.streak = 0;
     ui.streak.textContent = "0";
 
-    // keep solved list (optional). delete this line if you want solved objects to reset on reload too.
-    state.zoom.solved = loadSet(STORAGE.zoomSolved);
+    state.note.streak = 0;
+    ui.noteStreak.textContent = "0";
+    ui.noteTarget.textContent = String(state.note.target);
 
-    state.zoom.streak = 0;
-    ui.zoomStreak.textContent = "0";
+    state.repair.streak = 0;
+    ui.repairStreak.textContent = "0";
+    ui.repairTarget.textContent = String(state.repair.target);
+    ui.repairTime.textContent = "02:00";
 
     ui.remaining.textContent = String(triviaRemaining());
-    ui.zoomTarget.textContent = String(state.zoom.target);
 
     triviaCard?.classList.add("swapFade","isIn");
-    zoomWrap?.classList.add("swapFade","isIn");
 
     setStage("trivia");
     pickTrivia();
     renderSide();
-
-    ensureImagePool(false).then(() => {
-      ui.imgPool.textContent = String(state.zoom.pool.length || 0);
-    });
-
-    stripUnwantedTextNodes();
-    setTimeout(stripUnwantedTextNodes, 250);
-    setTimeout(stripUnwantedTextNodes, 900);
   } catch (e){
     console.error(e);
     const banner = document.createElement("div");
@@ -961,21 +1028,60 @@ function init(){
    EVENTS
 ========================= */
 
+// Trivia
 ui.submitAnswer.addEventListener("click", checkTriviaAnswer);
 ui.answer.addEventListener("keydown", (e) => { if(e.key === "Enter") checkTriviaAnswer(); });
 ui.resetProgress.addEventListener("click", resetAllProgress);
 
-ui.refillImages.addEventListener("click", async () => {
-  localStorage.removeItem(STORAGE.imgCache);
-  setMsg(ui.zoomMsg, "Refreshing objects…", "warn");
-  const ok = await ensureImagePool(true);
-  if(ok) await nextImage();
+// Note
+ui.notePlay.addEventListener("click", () => onNotePlay(false));
+ui.noteReplay.addEventListener("click", () => onNotePlay(true));
+ui.noteSubmit.addEventListener("click", submitNoteFromInput);
+ui.noteAnswer.addEventListener("keydown", (e) => { if(e.key === "Enter") submitNoteFromInput(); });
+
+ui.noteKeys.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-note]");
+  if(!btn) return;
+  const n = String(btn.dataset.note || "").toUpperCase();
+  if(NOTES.includes(n)) submitNoteAnswer(n);
 });
 
-ui.submitGuess.addEventListener("click", checkImageGuess);
-ui.imgGuess.addEventListener("keydown", (e) => { if(e.key === "Enter") checkImageGuess(); });
-ui.zoomOut.addEventListener("click", zoomOutNow);
+// Keyboard shortcuts (Note stage only)
+window.addEventListener("keydown", (e) => {
+  if(state.stage !== "note") return;
 
+  // don't hijack when user is typing in an input/textarea unless it's the note input
+  const tag = (document.activeElement && document.activeElement.tagName) ? document.activeElement.tagName.toLowerCase() : "";
+  const activeIsNoteInput = document.activeElement === ui.noteAnswer;
+  if((tag === "textarea" || tag === "input") && !activeIsNoteInput) return;
+
+  const k = String(e.key || "").toUpperCase();
+  if(NOTES.includes(k)){
+    submitNoteAnswer(k);
+  }
+});
+
+// Repair
+ui.repairSubmit.addEventListener("click", () => submitRepair(false));
+ui.repairInput.addEventListener("keydown", (e) => {
+  // Ctrl/Cmd+Enter submits
+  if((e.ctrlKey || e.metaKey) && e.key === "Enter"){
+    submitRepair(false);
+  }
+});
+ui.repairNew.addEventListener("click", () => {
+  state.repair.streak = 0;
+  ui.repairStreak.textContent = "0";
+  renderSide();
+  setMsg(ui.repairMsg, "New round generated. Streak reset.", "warn");
+  startRepairRound();
+});
+
+// Grid
+ui.gridSubmit.addEventListener("click", submitGrid);
+ui.gridNew.addEventListener("click", newGridRound);
+
+// Reveal
 ui.copyPoem.addEventListener("click", async () => {
   try{ await navigator.clipboard.writeText(POEM); } catch {}
 });

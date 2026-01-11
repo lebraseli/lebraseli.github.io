@@ -51,12 +51,14 @@ const triviaCard = document.querySelector("#stageTrivia .qCard");
 const zoomWrap = document.querySelector("#stageZoom .zoomWrap");
 
 const STORAGE = {
-  triviaRetired: "yn_trivia_retired_v3",
-  triviaStreak: "yn_trivia_streak_v3",
-  zoomSolved: "yn_zoom_solved_v1",
-  zoomStreak: "yn_zoom_streak_v1",
+  triviaRetired: "yn_trivia_retired_v4",
+  triviaStreak: "yn_trivia_streak_v4",
+  zoomSolved: "yn_zoom_solved_v2",
+  zoomStreak: "yn_zoom_streak_v2",
   imgCache: "yn_img_cache_v3"
 };
+
+const OVERRIDE_CODE = "1324";
 
 const POEM = [
   "Echoes of leaves still drift in your mind,",
@@ -112,7 +114,6 @@ function saveInt(key, v){
   localStorage.setItem(key, String(v));
 }
 
-/* Normalization (for typo tolerance, punctuation/case differences) */
 function norm(s){
   return (s || "")
     .toLowerCase()
@@ -125,9 +126,46 @@ function norm(s){
     .trim();
 }
 
+function isOverride(input){
+  return norm(input) === OVERRIDE_CODE;
+}
+
 function setMsg(el, text, kind){
   el.textContent = text || "";
   el.className = "msg" + (kind ? (" " + kind) : "");
+}
+
+/* =========================
+   REMOVE UNWANTED TEXT (DOM scrub)
+========================= */
+
+function scrubUnwantedCopy(){
+  const kill = [
+    "Policy: misses reset streaks. That’s the contract.",
+    "Policy: misses reset streaks. That's the contract.",
+    "If you want “AI evaluation,” you need a backend or a paid API key exposed to the client (not recommended).",
+    "If you want \"AI evaluation,\" you need a backend or a paid API key exposed to the client (not recommended).",
+    "15 in a row. Then the zoom test. No hand-holding.",
+    "No hand-holding",
+    "This system intentionally enforces pressure. Your team should feel friction, then have a clean “ohhhh” moment on the zoom gate.",
+    "This system intentionally enforces pressure. Your team should feel friction, then have a clean \"ohhhh\" moment on the zoom gate.",
+    "“Remove solved items” is enforced per browser via local storage. Different devices = fresh pool.",
+    "\"Remove solved items\" is enforced per browser via local storage. Different devices = fresh pool.",
+    "Images are fetched from Wikimedia Commons Featured pictures in real time (no assets needed). Judging uses fuzzy matching against title/metadata. It’s deterministic and good enough for humans.",
+    "Images are fetched from Wikimedia Commons Featured pictures in real time (no assets needed). Judging uses fuzzy matching against title/metadata. It's deterministic and good enough for humans."
+  ].map(s => s.toLowerCase());
+
+  const candidates = document.querySelectorAll("p, small, div, span, footer, li");
+  for(const el of candidates){
+    const txt = (el.textContent || "").trim().toLowerCase();
+    if(!txt) continue;
+    for(const k of kill){
+      if(txt.includes(k)){
+        el.style.display = "none";
+        break;
+      }
+    }
+  }
 }
 
 /* =========================
@@ -179,7 +217,7 @@ function matchesAny(guess, truths){
 
     if(g === tn) return true;
 
-    // IMPORTANT: do NOT allow 1–2 char substring hacks like "a"
+    // prevent 1–2 char substring hacks like "a"
     if(g.length >= 3 && tn.length >= 3 && (tn.includes(g) || g.includes(tn))) return true;
 
     if(typoOk(g, tn)) return true;
@@ -202,7 +240,7 @@ function similarity(a,b){
 
 function setStage(stage){
   state.stage = stage;
-  document.body.dataset.stage = stage; // for stage-specific styling
+  document.body.dataset.stage = stage;
 
   ui.stepTrivia.className = "step" + (stage === "trivia" ? " active" : (stage !== "trivia" ? " done" : ""));
   ui.stepZoom.className = "step" + (stage === "zoom" ? " active" : (stage === "reveal" ? " done" : ""));
@@ -214,23 +252,22 @@ function setStage(stage){
 
   if(stage === "trivia"){
     ui.panelTitle.textContent = "Stage 1 — Trivia Gate";
-    ui.panelDesc.innerHTML = "Get <b>15 correct in a row</b>. Any miss resets streak to 0. Any attempted question is removed on this device (but remaining resets on page reload).";
+    ui.panelDesc.innerHTML = "Get <b>15 correct in a row</b>.";
     ui.statusPill.textContent = "Locked";
-    ui.objective.textContent = "15 correct trivia answers in a row";
+    ui.objective.textContent = "15 correct in a row";
   } else if(stage === "zoom"){
     ui.panelTitle.textContent = "Stage 2 — Zoom Gate";
-    ui.panelDesc.innerHTML = "Name what you see in <b>plain terms</b> (e.g., <i>book</i>, <i>bridge</i>, <i>bird</i>, <i>painting</i>). Get <b>6 in a row</b>.";
+    ui.panelDesc.innerHTML = "Get <b>6 correct in a row</b>.";
     ui.statusPill.textContent = "Partially unlocked";
-    ui.objective.textContent = "6 correct zoom identifications in a row";
-    if(ui.imgGuess) ui.imgGuess.placeholder = "e.g., book, bridge, bird, painting, mountain…";
+    ui.objective.textContent = "6 correct in a row";
+    if(ui.imgGuess) ui.imgGuess.placeholder = "e.g., book, bridge, bird, painting…";
   } else {
     ui.panelTitle.textContent = "Stage 3 — Reveal";
-    ui.panelDesc.textContent = "You cleared both gates.";
+    ui.panelDesc.textContent = "";
     ui.statusPill.textContent = "Unlocked";
-    ui.objective.textContent = "Read the payload";
+    ui.objective.textContent = "";
   }
 
-  // Auto-load zoom pool when entering zoom stage
   if(stage === "zoom"){
     setTimeout(async () => {
       if(state.zoom.pool.length === 0){
@@ -255,7 +292,6 @@ function renderSide(){
 ========================= */
 
 function triviaRemaining(){
-  // Remaining should be based on this-session retired set
   return window.TRIVIA_BANK.filter(q => !state.trivia.retired.has(q.id)).length;
 }
 
@@ -266,6 +302,7 @@ function pickTrivia(){
     setMsg(ui.triviaMsg, "Reload the page to reset remaining.", "warn");
     return;
   }
+
   const q = pool[Math.floor(Math.random() * pool.length)];
   state.trivia.current = q;
 
@@ -280,11 +317,30 @@ function pickTrivia(){
   setTimeout(() => ui.answer.focus(), 0);
 }
 
+function bypassToZoom(){
+  state.trivia.streak = state.trivia.target;
+  ui.streak.textContent = String(state.trivia.streak);
+  renderSide();
+  setMsg(ui.triviaMsg, "Override accepted. Proceeding.", "good");
+
+  setTimeout(async () => {
+    setStage("zoom");
+    const ok = await ensureImagePool(true);
+    if(ok) await nextImage();
+  }, 350);
+}
+
 function checkTriviaAnswer(){
   const q = state.trivia.current;
+
+  const rawGuess = ui.answer.value || "";
+  if(isOverride(rawGuess)){
+    bypassToZoom();
+    return;
+  }
+
   if(!q) return;
 
-  const rawGuess = ui.answer.value;
   const guess = norm(rawGuess);
   if(!guess){
     setMsg(ui.triviaMsg, "Enter an answer.", "bad");
@@ -299,7 +355,6 @@ function checkTriviaAnswer(){
 
   if(ok){
     state.trivia.streak += 1;
-    saveInt(STORAGE.triviaStreak, state.trivia.streak);
     ui.streak.textContent = String(state.trivia.streak);
     ui.remaining.textContent = String(triviaRemaining());
     setMsg(ui.triviaMsg, "Correct.", "good");
@@ -311,7 +366,7 @@ function checkTriviaAnswer(){
         setStage("zoom");
         const ok2 = await ensureImagePool(true);
         if(ok2) await nextImage();
-      }, 650);
+      }, 500);
       return;
     }
 
@@ -319,8 +374,8 @@ function checkTriviaAnswer(){
     return;
   }
 
+  // Wrong: show answer, reset streak, move on
   state.trivia.streak = 0;
-  saveInt(STORAGE.triviaStreak, 0);
   ui.streak.textContent = "0";
   ui.remaining.textContent = String(triviaRemaining());
   setMsg(ui.triviaMsg, `Incorrect. Answer: ${q.a}`, "bad");
@@ -422,19 +477,19 @@ async function fetchImageInfoForTitles(titles){
   return [...uniq.values()];
 }
 
-async function fetchFeaturedImagesRobust(target=400){
+async function fetchFeaturedImagesRobust(target=350){
   const titles = await fetchFeaturedFileTitles(target + 60);
   if(titles.length === 0) return [];
   const items = await fetchImageInfoForTitles(titles);
   return items.slice(0, target);
 }
 
-async function fetchRandomImages(target=250){
+async function fetchRandomImages(target=220){
   const base = "https://commons.wikimedia.org/w/api.php";
   const items = [];
   const seen = new Set();
 
-  for(let attempt=0; attempt<12 && items.length < target; attempt++){
+  for(let attempt=0; attempt<10 && items.length < target; attempt++){
     const params = new URLSearchParams({
       action: "query",
       generator: "random",
@@ -469,8 +524,7 @@ async function fetchRandomImages(target=250){
       });
       if(items.length >= target) break;
     }
-
-    await sleep(120);
+    await sleep(100);
   }
 
   return items;
@@ -484,25 +538,20 @@ async function ensureImagePool(allowUIMessage=false){
   if(cached && cached.length >= 60){
     state.zoom.pool = cached;
     ui.imgPool.textContent = String(state.zoom.pool.length);
-    if(allowUIMessage) setMsg(ui.zoomMsg, "Image pool ready.", "good");
+    if(allowUIMessage) setMsg(ui.zoomMsg, "", "");
     return true;
   }
 
   let items = [];
   try{
-    items = await fetchFeaturedImagesRobust(320);
-  } catch (e){
-    console.warn("Featured fetch failed:", e);
-  }
+    items = await fetchFeaturedImagesRobust(280);
+  } catch {}
 
-  if(!items || items.length < 40){
-    if(allowUIMessage) setMsg(ui.zoomMsg, "Featured pool failed. Falling back to random Commons files…", "warn");
+  if(!items || items.length < 30){
     try{
-      const fallback = await fetchRandomImages(240);
+      const fallback = await fetchRandomImages(200);
       items = (items || []).concat(fallback);
-    } catch (e){
-      console.warn("Random fallback failed:", e);
-    }
+    } catch {}
   }
 
   const uniq = new Map();
@@ -515,15 +564,12 @@ async function ensureImagePool(allowUIMessage=false){
   ui.imgPool.textContent = String(finalItems.length);
 
   if(finalItems.length === 0){
-    const hint =
-      "No images returned. This is usually a blocker (Brave Shields/uBlock/Privacy Badger) or a restrictive network. " +
-      "Disable blockers for this site, then click “Refresh image pool”.";
-    if(allowUIMessage) setMsg(ui.zoomMsg, hint, "bad");
+    if(allowUIMessage) setMsg(ui.zoomMsg, "Could not load images (likely a blocker). Try Refresh image pool with blockers off.", "bad");
     return false;
   }
 
   setCachedImages(finalItems);
-  if(allowUIMessage) setMsg(ui.zoomMsg, "Image pool ready.", "good");
+  if(allowUIMessage) setMsg(ui.zoomMsg, "", "");
   return true;
 }
 
@@ -543,8 +589,6 @@ function deriveAnswerFromTitle(title){
 }
 
 const CATEGORY_RULES = [
-  { label: "Mona Lisa", keys: ["mona lisa"] },
-
   { label: "painting", keys: ["painting", "oil on canvas", "fresco", "watercolor", "acrylic", "canvas", "triptych", "altarpiece"] },
   { label: "drawing", keys: ["drawing", "sketch", "ink drawing", "charcoal"] },
   { label: "sculpture", keys: ["sculpture", "statue", "bust", "bronze", "marble"] },
@@ -554,11 +598,8 @@ const CATEGORY_RULES = [
   { label: "bridge", keys: ["bridge", "viaduct", "suspension bridge", "overpass"] },
   { label: "castle", keys: ["castle", "fortress", "citadel"] },
   { label: "church", keys: ["cathedral", "church", "basilica"] },
-  { label: "temple", keys: ["temple", "shrine", "pagoda"] },
-  { label: "mosque", keys: ["mosque", "minaret"] },
   { label: "tower", keys: ["tower", "lighthouse"] },
   { label: "building", keys: ["building", "skyscraper", "architecture", "facade", "interior"] },
-  { label: "street", keys: ["street", "road", "avenue", "highway"] },
 
   { label: "mountain", keys: ["mountain", "peak", "summit", "alps", "himalaya", "volcano"] },
   { label: "waterfall", keys: ["waterfall", "falls", "cascade"] },
@@ -580,8 +621,6 @@ const CATEGORY_RULES = [
   { label: "train", keys: ["train", "locomotive", "railway"] },
   { label: "car", keys: ["car", "automobile"] },
 
-  { label: "space", keys: ["nebula", "galaxy", "planet", "moon", "sun", "eclipse", "astronomy", "saturn", "jupiter", "mars"] },
-
   { label: "person", keys: ["portrait", "self portrait", "person", "people", "man", "woman", "child"] },
   { label: "food", keys: ["food", "dish", "cake", "bread", "fruit", "meal"] }
 ];
@@ -595,23 +634,16 @@ function labelAliases(label){
     map: ["atlas"],
     bridge: ["overpass", "viaduct"],
     church: ["cathedral"],
-    temple: ["shrine", "pagoda"],
     tower: ["lighthouse"],
     mountain: ["peak", "volcano"],
     ocean: ["sea", "beach", "coast"],
     waterfall: ["falls", "cascade"],
     forest: ["woods"],
-    bird: ["animal", "wildlife"],
-    fish: ["animal", "sea life"],
     insect: ["bug"],
-    reptile: ["animal"],
-    mammal: ["animal"],
-    flower: ["plant", "blossom"],
     airplane: ["plane", "aircraft"],
     ship: ["boat"],
     train: ["locomotive"],
     car: ["vehicle"],
-    space: ["astronomy", "planet", "stars"],
     person: ["human", "portrait"],
     food: ["meal"]
   };
@@ -627,8 +659,7 @@ function classifyItem(item){
   for(const r of CATEGORY_RULES){
     for(const k of r.keys){
       if(blob.includes(norm(k))) {
-        const aliases = labelAliases(r.label);
-        return { label: r.label, aliases };
+        return { label: r.label, aliases: labelAliases(r.label) };
       }
     }
   }
@@ -640,7 +671,7 @@ function classifyItem(item){
 function guessMatches(guess, item){
   const g = norm(guess);
 
-  // HARD BLOCK: prevent nonsense like "a" / "i" / "x" from ever passing
+  // stop trivial inputs like "a" from ever passing
   if(g.length < 3){
     return { ok:false, score:0, label: classifyItem(item).label };
   }
@@ -650,7 +681,6 @@ function guessMatches(guess, item){
 
   if(matchesAny(guess, truths)) return { ok:true, score:0.95, label };
 
-  // Similarity fallback ONLY if guess is non-trivial (already ensured length >= 3)
   const s = similarity(guess, label);
   return { ok: s >= 0.78, score: s, label };
 }
@@ -685,9 +715,9 @@ async function nextImage(){
   state.zoom.current = item;
   state.zoom.zoomed = true;
 
-  const ox = Math.floor(15 + Math.random()*70);
-  const oy = Math.floor(15 + Math.random()*70);
-  const scale = 4.2 + Math.random()*1.6;
+  const ox = Math.floor(18 + Math.random()*64);
+  const oy = Math.floor(18 + Math.random()*64);
+  const scale = 3.4 + Math.random()*1.2; // easier than before
   setZoom(scale, ox, oy);
 
   ui.zoomPill.textContent = "Zoomed";
@@ -715,29 +745,41 @@ function zoomOutNow(){
   ui.zoomPill.textContent = "Zoomed out";
 }
 
+function bypassToReveal(){
+  state.zoom.streak = state.zoom.target;
+  ui.zoomStreak.textContent = String(state.zoom.streak);
+  renderSide();
+
+  setStage("reveal");
+  ui.poemText.textContent = POEM;
+  ui.statusPill.textContent = "Unlocked";
+}
+
 async function checkImageGuess(){
   const item = state.zoom.current;
+
+  const raw = ui.imgGuess.value || "";
+  if(isOverride(raw)){
+    bypassToReveal();
+    return;
+  }
+
   if(!item){
     setMsg(ui.zoomMsg, "No image loaded yet.", "bad");
     return;
   }
 
-  const guess = ui.imgGuess.value;
-  const g = norm(guess);
-
-  // Enforce minimum specificity
+  const g = norm(raw);
   if(g.length < 3){
     setMsg(ui.zoomMsg, "Too short. Use at least 3 characters (e.g., “book”, “bird”, “map”).", "bad");
     return;
   }
 
-  const result = guessMatches(guess, item);
+  const result = guessMatches(raw, item);
 
   zoomOutNow();
 
-  const specificTitle = deriveAnswerFromTitle(item.title);
   ui.imgMeta.hidden = false;
-
   ui.imgAnswer.textContent = result.label;
   ui.imgTitle.textContent = item.title.replace(/^File:/i,"");
 
@@ -748,8 +790,6 @@ async function checkImageGuess(){
     state.zoom.solved.add(String(item.pageid));
     saveSet(STORAGE.zoomSolved, state.zoom.solved);
 
-    saveInt(STORAGE.zoomStreak, state.zoom.streak);
-
     setMsg(ui.zoomMsg, `Correct — ${result.label}.`, "good");
 
     if(state.zoom.streak >= state.zoom.target){
@@ -757,24 +797,22 @@ async function checkImageGuess(){
         setStage("reveal");
         ui.poemText.textContent = POEM;
         ui.statusPill.textContent = "Unlocked";
-      }, 650);
+      }, 450);
       return;
     }
 
-    await sleep(700);
+    await sleep(650);
     await nextImage();
     renderSide();
     return;
   }
 
   state.zoom.streak = 0;
-  saveInt(STORAGE.zoomStreak, 0);
   ui.zoomStreak.textContent = "0";
-
   setMsg(ui.zoomMsg, `Incorrect. It was a ${result.label}.`, "bad");
   renderSide();
 
-  await sleep(1100);
+  await sleep(950);
   await nextImage();
 }
 
@@ -783,7 +821,7 @@ async function checkImageGuess(){
 ========================= */
 
 function resetAllProgress(){
-  if(!confirm("This will reset trivia + zoom progress for this browser. Continue?")) return;
+  if(!confirm("This will reset progress for this browser. Continue?")) return;
 
   localStorage.removeItem(STORAGE.triviaRetired);
   localStorage.removeItem(STORAGE.triviaStreak);
@@ -818,18 +856,18 @@ function init(){
     return;
   }
 
-  // ✅ Requirement: remaining resets on every reload
-  // We enforce this by not loading retired from storage and clearing it on boot.
+  // ✅ On every reload: reset remaining + streaks (Trivia + Zoom)
   localStorage.removeItem(STORAGE.triviaRetired);
+  localStorage.removeItem(STORAGE.triviaStreak);
+  localStorage.removeItem(STORAGE.zoomStreak);
+
   state.trivia.retired = new Set();
+  state.trivia.streak = 0;
+  ui.streak.textContent = "0";
 
-  // Keep streak persistence (optional). If you want streak to reset on reload too, clear it here.
-  state.trivia.streak = loadInt(STORAGE.triviaStreak, 0);
-  ui.streak.textContent = String(state.trivia.streak);
-
-  state.zoom.solved = loadSet(STORAGE.zoomSolved);
-  state.zoom.streak = loadInt(STORAGE.zoomStreak, 0);
-  ui.zoomStreak.textContent = String(state.zoom.streak);
+  state.zoom.solved = loadSet(STORAGE.zoomSolved); // keep solved list (optional), not a streak
+  state.zoom.streak = 0;
+  ui.zoomStreak.textContent = "0";
 
   ui.remaining.textContent = String(triviaRemaining());
   ui.zoomTarget.textContent = String(state.zoom.target);
@@ -844,6 +882,11 @@ function init(){
   ensureImagePool(false).then(() => {
     ui.imgPool.textContent = String(state.zoom.pool.length || 0);
   });
+
+  // Remove unwanted text blocks (works even if they’re hardcoded in HTML)
+  scrubUnwantedCopy();
+  // Run again after a beat in case layout scripts render late
+  setTimeout(scrubUnwantedCopy, 250);
 }
 
 /* =========================

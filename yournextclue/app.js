@@ -51,11 +51,11 @@ const triviaCard = document.querySelector("#stageTrivia .qCard");
 const zoomWrap = document.querySelector("#stageZoom .zoomWrap");
 
 const STORAGE = {
-  triviaRetired: "yn_trivia_retired_v5",
-  triviaStreak: "yn_trivia_streak_v5",
-  zoomSolved: "yn_zoom_solved_v3",
-  zoomStreak: "yn_zoom_streak_v3",
-  imgCache: "yn_img_cache_v3"
+  triviaRetired: "yn_trivia_retired_v6",
+  triviaStreak: "yn_trivia_streak_v6",
+  zoomSolved: "yn_zoom_solved_v4",
+  zoomStreak: "yn_zoom_streak_v4",
+  imgCache: "yn_img_cache_v4"
 };
 
 const OVERRIDE_CODE = "1324";
@@ -136,9 +136,7 @@ function setMsg(el, text, kind){
 }
 
 /* =========================
-   SAFE COPY REMOVAL (NO HIDING)
-   - Removes exact phrases from TEXT NODES only.
-   - This prevents the “page disappears” bug.
+   REMOVE UNWANTED STATIC COPY (SAFE: NO HIDING)
 ========================= */
 
 const UNWANTED_PHRASES = [
@@ -146,7 +144,6 @@ const UNWANTED_PHRASES = [
   "Policy: misses reset streaks. That's the contract.",
   "If you want “AI evaluation,” you need a backend or a paid API key exposed to the client (not recommended).",
   "If you want \"AI evaluation,\" you need a backend or a paid API key exposed to the client (not recommended).",
-  "15 in a row. Then the zoom test. No hand-holding.",
   "No hand-holding.",
   "No hand-holding",
   "This system intentionally enforces pressure. Your team should feel friction, then have a clean “ohhhh” moment on the zoom gate.",
@@ -174,17 +171,13 @@ function stripUnwantedTextNodes(){
         }
       }
       if(changed){
-        // clean up leftover whitespace/punctuation lines
         t = t.replace(/\n{3,}/g, "\n\n").replace(/[ \t]{2,}/g, " ");
         node.nodeValue = t;
       }
     }
-  } catch {
-    // deliberately silent: never break the app
-  }
+  } catch {}
 }
 
-/* Optional: stage-specific subtitle (if your HTML has one) */
 function setStageSubtitle(stage){
   const el =
     document.getElementById("subtitle") ||
@@ -199,7 +192,7 @@ function setStageSubtitle(stage){
 }
 
 /* =========================
-   TYPO-TOLERANT MATCHING
+   TYPO TOLERANCE (TRIVIA)
 ========================= */
 
 function levenshtein(a,b){
@@ -244,24 +237,14 @@ function matchesAny(guess, truths){
   for(const t of truths){
     if(!t) continue;
     const tn = norm(t);
-
     if(g === tn) return true;
 
-    // prevent "a" / "an" hacks
+    // prevent 1-2 char hacks (e.g., "a")
     if(g.length >= 3 && tn.length >= 3 && (tn.includes(g) || g.includes(tn))) return true;
 
     if(typoOk(g, tn)) return true;
   }
   return false;
-}
-
-function similarity(a,b){
-  a = norm(a); b = norm(b);
-  if(!a || !b) return 0;
-  if(a === b) return 1;
-  const dist = levenshtein(a,b);
-  const maxLen = Math.max(a.length, b.length);
-  return 1 - (dist / maxLen);
 }
 
 /* =========================
@@ -287,10 +270,10 @@ function setStage(stage){
     ui.objective.textContent = "15 correct in a row";
   } else if(stage === "zoom"){
     ui.panelTitle.textContent = "Stage 2 — Zoom Gate";
-    ui.panelDesc.innerHTML = "Get <b>6 correct in a row</b>.";
+    ui.panelDesc.innerHTML = "Identify a <b>small everyday object</b> from an extreme zoom. Get <b>6 correct in a row</b>.";
     ui.statusPill.textContent = "Partially unlocked";
     ui.objective.textContent = "6 correct in a row";
-    if(ui.imgGuess) ui.imgGuess.placeholder = "e.g., book, bridge, bird, painting…";
+    if(ui.imgGuess) ui.imgGuess.placeholder = "e.g., key, coin, pen, mug, apple…";
   } else {
     ui.panelTitle.textContent = "Stage 3 — Reveal";
     ui.panelDesc.textContent = "";
@@ -300,8 +283,6 @@ function setStage(stage){
 
   setStageSubtitle(stage);
   renderSide();
-
-  // keep removing unwanted copy that may be in static HTML
   stripUnwantedTextNodes();
 
   if(stage === "zoom"){
@@ -355,13 +336,13 @@ function bypassToZoom(){
   state.trivia.streak = state.trivia.target;
   ui.streak.textContent = String(state.trivia.streak);
   renderSide();
-  setMsg(ui.triviaMsg, "Override accepted. Proceeding.", "good");
+  setMsg(ui.triviaMsg, "Override accepted.", "good");
 
   setTimeout(async () => {
     setStage("zoom");
     const ok = await ensureImagePool(true);
     if(ok) await nextImage();
-  }, 250);
+  }, 200);
 }
 
 function checkTriviaAnswer(){
@@ -380,7 +361,7 @@ function checkTriviaAnswer(){
     return;
   }
 
-  // retire on any attempt (session only)
+  // retire on any attempt (session-only)
   state.trivia.retired.add(q.id);
 
   const truths = [q.a, ...(q.alts || [])];
@@ -394,12 +375,12 @@ function checkTriviaAnswer(){
     renderSide();
 
     if(state.trivia.streak >= state.trivia.target){
-      setMsg(ui.triviaMsg, "Gate cleared. Proceeding.", "good");
+      setMsg(ui.triviaMsg, "Gate cleared.", "good");
       setTimeout(async () => {
         setStage("zoom");
         const ok2 = await ensureImagePool(true);
         if(ok2) await nextImage();
-      }, 350);
+      }, 280);
       return;
     }
 
@@ -417,7 +398,7 @@ function checkTriviaAnswer(){
 }
 
 /* =========================
-   ZOOM — GENERIC LABELS
+   ZOOM — SMALL OBJECT POOL (NO “IMAGE” ANSWERS)
 ========================= */
 
 function getCachedImages(){
@@ -434,7 +415,182 @@ function setCachedImages(items){
   localStorage.setItem(STORAGE.imgCache, JSON.stringify({ ts: Date.now(), items }));
 }
 
-async function fetchFeaturedFileTitles(limit=420){
+function stripHtml(s){
+  return (s || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function deriveAnswerFromTitle(title){
+  let t = title || "";
+  t = t.replace(/^file:/i, "");
+  try { t = decodeURIComponent(t); } catch {}
+  t = t.replace(/_/g, " ");
+  t = t.replace(/\.[a-z0-9]{2,5}$/i, "");
+  t = t.replace(/\s*\([^)]*\)\s*/g, " ");
+  t = t.replace(/\s{2,}/g, " ").trim();
+  return t;
+}
+
+/**
+ * We only accept images that can be classified as “small everyday objects”.
+ * If we can’t classify them → they never enter the pool.
+ */
+const SMALL_OBJECT_LABELS = new Set([
+  "key","coin","pen","pencil","marker","eraser","book","notebook",
+  "mug","cup","bottle","spoon","fork","knife","plate",
+  "apple","banana","orange","strawberry",
+  "watch","ring","bracelet",
+  "phone","calculator","remote",
+  "scissors","tape","glue",
+  "screw","bolt","nut","nail",
+  "toy","dice","card",
+  "flower"
+]);
+
+const LABEL_RULES = [
+  { label:"key", keys:["key","keys","keyring"] },
+  { label:"coin", keys:["coin","coins","penny","nickel","dime","quarter","euro"] },
+  { label:"pen", keys:["pen","ballpoint","fountain pen"] },
+  { label:"pencil", keys:["pencil","graphite pencil"] },
+  { label:"marker", keys:["marker","felt tip","sharpie"] },
+  { label:"eraser", keys:["eraser","rubber eraser"] },
+  { label:"book", keys:["book","hardcover","paperback","book cover"] },
+  { label:"notebook", keys:["notebook","journal","notepad"] },
+
+  { label:"mug", keys:["mug"] },
+  { label:"cup", keys:["cup","teacup","glass"] },
+  { label:"bottle", keys:["bottle","water bottle"] },
+  { label:"spoon", keys:["spoon","tablespoon","teaspoon"] },
+  { label:"fork", keys:["fork"] },
+  { label:"knife", keys:["knife","kitchen knife"] },
+  { label:"plate", keys:["plate","dish","saucer"] },
+
+  { label:"apple", keys:["apple"] },
+  { label:"banana", keys:["banana"] },
+  { label:"orange", keys:["orange","citrus"] },
+  { label:"strawberry", keys:["strawberry","strawberries"] },
+
+  { label:"watch", keys:["watch","wristwatch"] },
+  { label:"ring", keys:["ring"] },
+  { label:"bracelet", keys:["bracelet"] },
+
+  { label:"phone", keys:["phone","smartphone","iphone","android phone"] },
+  { label:"calculator", keys:["calculator"] },
+  { label:"remote", keys:["remote","remote control"] },
+
+  { label:"scissors", keys:["scissors"] },
+  { label:"tape", keys:["tape","masking tape","duct tape"] },
+  { label:"glue", keys:["glue","glue stick"] },
+
+  { label:"screw", keys:["screw"] },
+  { label:"bolt", keys:["bolt"] },
+  { label:"nut", keys:["nut","hex nut"] },
+  { label:"nail", keys:["nail","nails"] },
+
+  { label:"toy", keys:["toy","lego","doll","action figure"] },
+  { label:"dice", keys:["dice","die"] },
+  { label:"card", keys:["playing card","cards"] },
+
+  { label:"flower", keys:["flower","blossom"] },
+];
+
+function labelAliases(label){
+  const map = {
+    pen: ["ballpoint","fountain pen"],
+    marker: ["felt tip","sharpie"],
+    eraser: ["rubber"],
+    phone: ["smartphone","cell phone","cellphone"],
+    mug: ["cup"], // accept “cup” for mug
+    cup: ["mug","glass"],
+    bottle: ["water bottle"],
+    scissors: ["shears"],
+    card: ["playing card"],
+    dice: ["die"],
+  };
+  return map[label] || [];
+}
+
+function classifySmallObject(item){
+  const title = stripHtml(deriveAnswerFromTitle(item.title || ""));
+  const obj = stripHtml(item.meta?.objectName || "");
+  const desc = stripHtml(item.meta?.imageDescription || "");
+  const blob = norm([title, obj, desc].join(" "));
+
+  for(const r of LABEL_RULES){
+    for(const k of r.keys){
+      if(blob.includes(norm(k))) return r.label;
+    }
+  }
+  return null;
+}
+
+function guessMatchesSmall(guess, item){
+  const g = norm(guess);
+  if(g.length < 3) return { ok:false, label:item._label || "object" };
+
+  const label = item._label || "object";
+  const truths = [label, ...labelAliases(label)];
+
+  // Don’t accept substring hacks for short guesses.
+  if(g.length < 3) return { ok:false, label };
+
+  // strict-ish match: exact / typo / synonym (no “a”)
+  if(matchesAny(guess, truths)) return { ok:true, label };
+
+  // mild typo tolerance against the core label only
+  if(typoOk(g, label)) return { ok:true, label };
+
+  return { ok:false, label };
+}
+
+/* Wikimedia Commons category titles that skew toward small objects */
+const OBJECT_CATEGORY_TITLES = [
+  "Category:Keys",
+  "Category:Coins",
+  "Category:Pens",
+  "Category:Pencils",
+  "Category:Markers",
+  "Category:Erasers",
+  "Category:Books",
+  "Category:Notebooks",
+
+  "Category:Mugs",
+  "Category:Cups",
+  "Category:Bottles",
+  "Category:Spoons",
+  "Category:Forks",
+  "Category:Knives",
+  "Category:Plates",
+
+  "Category:Apples",
+  "Category:Bananas",
+  "Category:Oranges",
+  "Category:Strawberries",
+
+  "Category:Watches",
+  "Category:Rings",
+  "Category:Bracelets",
+
+  "Category:Mobile phones",
+  "Category:Calculators",
+  "Category:Remote controls",
+
+  "Category:Scissors",
+  "Category:Adhesive tape",
+  "Category:Glue",
+
+  "Category:Screws",
+  "Category:Bolts",
+  "Category:Nuts",
+  "Category:Nails",
+
+  "Category:Toys",
+  "Category:Dice",
+  "Category:Playing cards",
+
+  "Category:Flowers"
+];
+
+async function fetchCategoryFileTitles(categoryTitle, limit=80){
   const base = "https://commons.wikimedia.org/w/api.php";
   const titles = [];
   let cmcontinue = null;
@@ -443,7 +599,7 @@ async function fetchFeaturedFileTitles(limit=420){
     const params = new URLSearchParams({
       action: "query",
       list: "categorymembers",
-      cmtitle: "Category:Featured_pictures",
+      cmtitle: categoryTitle,
       cmtype: "file",
       cmlimit: "50",
       format: "json",
@@ -490,7 +646,8 @@ async function fetchImageInfoForTitles(titles){
     for(const p of pages){
       const ii = p.imageinfo?.[0];
       if(!ii?.thumburl) continue;
-      items.push({
+
+      const it = {
         pageid: p.pageid,
         title: p.title,
         url: ii.thumburl,
@@ -498,7 +655,8 @@ async function fetchImageInfoForTitles(titles){
           objectName: ii.extmetadata?.ObjectName?.value || "",
           imageDescription: ii.extmetadata?.ImageDescription?.value || ""
         }
-      });
+      };
+      items.push(it);
     }
   }
 
@@ -509,211 +667,67 @@ async function fetchImageInfoForTitles(titles){
   return [...uniq.values()];
 }
 
-async function fetchFeaturedImagesRobust(target=260){
-  const titles = await fetchFeaturedFileTitles(target + 60);
-  if(titles.length === 0) return [];
-  const items = await fetchImageInfoForTitles(titles);
-  return items.slice(0, target);
-}
-
-async function fetchRandomImages(target=200){
-  const base = "https://commons.wikimedia.org/w/api.php";
-  const items = [];
-  const seen = new Set();
-
-  for(let attempt=0; attempt<10 && items.length < target; attempt++){
-    const params = new URLSearchParams({
-      action: "query",
-      generator: "random",
-      grnnamespace: "6",
-      grnlimit: "50",
-      prop: "imageinfo",
-      iiprop: "url|extmetadata",
-      iiurlwidth: "2400",
-      format: "json",
-      origin: "*"
-    });
-
-    const res = await fetch(`${base}?${params.toString()}`, { cache: "no-store" });
-    if(!res.ok) continue;
-
-    const data = await res.json();
-    const pages = data?.query?.pages ? Object.values(data.query.pages) : [];
-    for(const p of pages){
-      const ii = p.imageinfo?.[0];
-      if(!ii?.thumburl) continue;
-      if(seen.has(String(p.pageid))) continue;
-      seen.add(String(p.pageid));
-
-      items.push({
-        pageid: p.pageid,
-        title: p.title,
-        url: ii.thumburl,
-        meta: {
-          objectName: ii.extmetadata?.ObjectName?.value || "",
-          imageDescription: ii.extmetadata?.ImageDescription?.value || ""
-        }
-      });
-      if(items.length >= target) break;
-    }
-    await sleep(100);
+async function buildSmallObjectPool(target=220){
+  // pull from multiple object categories; dedupe titles; fetch imageinfo; classify; keep only classifiable
+  const titleSet = new Set();
+  for(const cat of OBJECT_CATEGORY_TITLES){
+    try{
+      const t = await fetchCategoryFileTitles(cat, 80);
+      for(const x of t) titleSet.add(x);
+      if(titleSet.size >= target * 2) break;
+      await sleep(60);
+    } catch {}
   }
 
-  return items;
+  const titles = [...titleSet].slice(0, target * 2);
+  if(titles.length === 0) return [];
+
+  const items = await fetchImageInfoForTitles(titles);
+
+  const filtered = [];
+  for(const it of items){
+    const label = classifySmallObject(it);
+    if(!label) continue;
+    if(!SMALL_OBJECT_LABELS.has(label)) continue;
+    it._label = label; // persist label so we never “answer: image”
+    filtered.push(it);
+  }
+
+  // If we’re short, that’s OK: better small & solvable than huge & random.
+  return filtered.slice(0, target);
 }
 
 async function ensureImagePool(allowUIMessage=false){
-  if(allowUIMessage) setMsg(ui.zoomMsg, "Loading image pool…", "warn");
+  if(allowUIMessage) setMsg(ui.zoomMsg, "Loading objects…", "warn");
   ui.imgMeta.hidden = true;
 
   const cached = getCachedImages();
-  if(cached && cached.length >= 60){
+  if(cached && cached.length >= 80){
     state.zoom.pool = cached;
     ui.imgPool.textContent = String(state.zoom.pool.length);
     if(allowUIMessage) setMsg(ui.zoomMsg, "", "");
     return true;
   }
 
-  let items = [];
   try{
-    items = await fetchFeaturedImagesRobust(240);
-  } catch {}
+    const items = await buildSmallObjectPool(240);
+    if(!items || items.length < 40){
+      state.zoom.pool = items || [];
+      ui.imgPool.textContent = String(state.zoom.pool.length);
+      if(allowUIMessage) setMsg(ui.zoomMsg, "Couldn’t load enough object images. Try Refresh image pool.", "bad");
+      return state.zoom.pool.length > 0;
+    }
 
-  if(!items || items.length < 30){
-    try{
-      items = (items || []).concat(await fetchRandomImages(180));
-    } catch {}
-  }
-
-  const uniq = new Map();
-  for(const it of (items || [])){
-    if(it && it.pageid != null && it.url) uniq.set(String(it.pageid), it);
-  }
-  const finalItems = [...uniq.values()];
-
-  state.zoom.pool = finalItems;
-  ui.imgPool.textContent = String(finalItems.length);
-
-  if(finalItems.length === 0){
-    if(allowUIMessage) setMsg(ui.zoomMsg, "Could not load images (likely a blocker). Try Refresh image pool with blockers off.", "bad");
+    state.zoom.pool = items;
+    setCachedImages(items);
+    ui.imgPool.textContent = String(items.length);
+    if(allowUIMessage) setMsg(ui.zoomMsg, "", "");
+    return true;
+  } catch (e){
+    console.error(e);
+    if(allowUIMessage) setMsg(ui.zoomMsg, "Failed to load objects (likely a blocker). Try Refresh with blockers off.", "bad");
     return false;
   }
-
-  setCachedImages(finalItems);
-  if(allowUIMessage) setMsg(ui.zoomMsg, "", "");
-  return true;
-}
-
-function stripHtml(s){
-  return (s || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function deriveAnswerFromTitle(title){
-  let t = title || "";
-  t = t.replace(/^file:/i, "");
-  try { t = decodeURIComponent(t); } catch {}
-  t = t.replace(/_/g, " ");
-  t = t.replace(/\.[a-z0-9]{2,5}$/i, "");
-  t = t.replace(/\s*\([^)]*\)\s*/g, " ");
-  t = t.replace(/\s{2,}/g, " ").trim();
-  return t;
-}
-
-const CATEGORY_RULES = [
-  { label: "painting", keys: ["painting", "oil on canvas", "fresco", "watercolor", "acrylic", "canvas"] },
-  { label: "drawing", keys: ["drawing", "sketch", "charcoal", "ink drawing"] },
-  { label: "sculpture", keys: ["sculpture", "statue", "bust", "bronze", "marble"] },
-  { label: "book", keys: ["book", "manuscript", "codex", "folio", "pages", "page"] },
-  { label: "map", keys: ["map", "atlas", "cartograph"] },
-
-  { label: "bridge", keys: ["bridge", "viaduct", "overpass"] },
-  { label: "castle", keys: ["castle", "fortress"] },
-  { label: "church", keys: ["cathedral", "church", "basilica"] },
-  { label: "tower", keys: ["tower", "lighthouse"] },
-  { label: "building", keys: ["building", "skyscraper", "architecture", "facade", "interior"] },
-
-  { label: "mountain", keys: ["mountain", "peak", "summit", "volcano"] },
-  { label: "waterfall", keys: ["waterfall", "falls", "cascade"] },
-  { label: "river", keys: ["river", "delta"] },
-  { label: "lake", keys: ["lake"] },
-  { label: "ocean", keys: ["ocean", "sea", "coast", "beach"] },
-  { label: "forest", keys: ["forest", "woods", "jungle"] },
-  { label: "desert", keys: ["desert", "dune"] },
-
-  { label: "bird", keys: ["bird", "eagle", "owl", "penguin", "flamingo", "gull"] },
-  { label: "fish", keys: ["fish", "shark", "salmon", "trout", "tuna"] },
-  { label: "insect", keys: ["insect", "butterfly", "moth", "beetle", "dragonfly", "bee"] },
-  { label: "reptile", keys: ["snake", "lizard", "turtle", "crocodile", "reptile"] },
-  { label: "mammal", keys: ["mammal", "dog", "cat", "horse", "elephant", "tiger", "lion", "bear", "whale", "dolphin"] },
-  { label: "flower", keys: ["flower", "blossom", "orchid", "rose", "tulip"] },
-
-  { label: "airplane", keys: ["airplane", "aircraft", "jet"] },
-  { label: "ship", keys: ["ship", "boat", "yacht", "ferry"] },
-  { label: "train", keys: ["train", "locomotive", "railway"] },
-  { label: "car", keys: ["car", "automobile"] },
-
-  { label: "person", keys: ["portrait", "person", "people", "man", "woman", "child"] },
-  { label: "food", keys: ["food", "dish", "cake", "bread", "fruit", "meal"] }
-];
-
-function labelAliases(label){
-  const map = {
-    painting: ["art", "artwork", "picture"],
-    drawing: ["sketch", "illustration"],
-    sculpture: ["statue"],
-    book: ["novel", "text", "pages"],
-    map: ["atlas"],
-    bridge: ["overpass"],
-    church: ["cathedral"],
-    tower: ["lighthouse"],
-    mountain: ["peak"],
-    ocean: ["sea", "beach", "coast"],
-    waterfall: ["falls"],
-    forest: ["woods"],
-    insect: ["bug"],
-    airplane: ["plane", "aircraft"],
-    ship: ["boat"],
-    train: ["locomotive"],
-    car: ["vehicle"],
-    person: ["human", "portrait"],
-    food: ["meal"]
-  };
-  return map[label] || [];
-}
-
-function classifyItem(item){
-  const title = stripHtml(deriveAnswerFromTitle(item.title || ""));
-  const obj = stripHtml(item.meta?.objectName || "");
-  const desc = stripHtml(item.meta?.imageDescription || "");
-  const blob = norm([title, obj, desc].join(" "));
-
-  for(const r of CATEGORY_RULES){
-    for(const k of r.keys){
-      if(blob.includes(norm(k))){
-        return { label: r.label, aliases: labelAliases(r.label) };
-      }
-    }
-  }
-
-  if(blob.includes("photograph") || blob.includes("photo")) return { label: "photograph", aliases: ["photo", "picture"] };
-  return { label: "image", aliases: ["picture", "photo"] };
-}
-
-function guessMatches(guess, item){
-  const g = norm(guess);
-
-  // Kill trivial inputs (this is why "a" should never work)
-  if(g.length < 3){
-    return { ok:false, score:0, label: classifyItem(item).label };
-  }
-
-  const { label, aliases } = classifyItem(item);
-  const truths = [label, ...aliases];
-
-  if(matchesAny(guess, truths)) return { ok:true, score:0.95, label };
-
-  const s = similarity(guess, label);
-  return { ok: s >= 0.78, score: s, label };
 }
 
 function setZoom(scale, ox, oy){
@@ -729,7 +743,7 @@ async function nextImage(){
   ui.zoomImg.classList.remove("broken");
 
   if(state.zoom.pool.length === 0){
-    setMsg(ui.zoomMsg, "Image pool is empty. Click refresh image pool.", "bad");
+    setMsg(ui.zoomMsg, "Object pool is empty. Click refresh image pool.", "bad");
     ui.imgPool.textContent = "0";
     return;
   }
@@ -738,7 +752,7 @@ async function nextImage(){
   ui.imgPool.textContent = String(available.length);
 
   if(available.length === 0){
-    setMsg(ui.zoomMsg, "No images left in your pool. Refresh the pool.", "bad");
+    setMsg(ui.zoomMsg, "No objects left. Refresh the pool.", "bad");
     return;
   }
 
@@ -746,9 +760,10 @@ async function nextImage(){
   state.zoom.current = item;
   state.zoom.zoomed = true;
 
-  const ox = Math.floor(20 + Math.random()*60);
-  const oy = Math.floor(20 + Math.random()*60);
-  const scale = 3.2 + Math.random()*1.0; // easier
+  // Extreme zoom, but "focused": bias toward center (object photos are usually centered)
+  const ox = Math.floor(45 + (Math.random()*20 - 10));
+  const oy = Math.floor(45 + (Math.random()*20 - 10));
+  const scale = 7.0 + Math.random()*2.2; // MUCH more zoomed
   setZoom(scale, ox, oy);
 
   ui.zoomPill.textContent = "Zoomed";
@@ -801,16 +816,17 @@ async function checkImageGuess(){
 
   const g = norm(raw);
   if(g.length < 3){
-    setMsg(ui.zoomMsg, "Too short. Use at least 3 characters (e.g., “book”, “bird”, “map”).", "bad");
+    setMsg(ui.zoomMsg, "Too short. Use 3+ characters (e.g., “key”, “coin”, “pen”).", "bad");
     return;
   }
 
-  const result = guessMatches(raw, item);
+  const result = guessMatchesSmall(raw, item);
 
+  // Always reveal full image so there's an “oh” moment either way
   zoomOutNow();
 
   ui.imgMeta.hidden = false;
-  ui.imgAnswer.textContent = result.label;
+  ui.imgAnswer.textContent = item._label || result.label || "object";
   ui.imgTitle.textContent = item.title.replace(/^File:/i,"");
 
   if(result.ok){
@@ -820,14 +836,14 @@ async function checkImageGuess(){
     state.zoom.solved.add(String(item.pageid));
     saveSet(STORAGE.zoomSolved, state.zoom.solved);
 
-    setMsg(ui.zoomMsg, `Correct — ${result.label}.`, "good");
+    setMsg(ui.zoomMsg, `Correct — ${item._label}.`, "good");
 
     if(state.zoom.streak >= state.zoom.target){
       setTimeout(() => {
         setStage("reveal");
         ui.poemText.textContent = POEM;
         ui.statusPill.textContent = "Unlocked";
-      }, 350);
+      }, 320);
       return;
     }
 
@@ -837,9 +853,12 @@ async function checkImageGuess(){
     return;
   }
 
+  // Wrong: show a meaningful object label (never “image”)
   state.zoom.streak = 0;
   ui.zoomStreak.textContent = "0";
-  setMsg(ui.zoomMsg, `Incorrect. It was a ${result.label}.`, "bad");
+
+  const lab = item._label || result.label || "object";
+  setMsg(ui.zoomMsg, `Incorrect. It was a ${lab}.`, "bad");
   renderSide();
 
   await sleep(950);
@@ -887,7 +906,7 @@ function init(){
       return;
     }
 
-    // ✅ On every reload: reset remaining + reset BOTH streaks
+    // ✅ Every reload: reset “remaining” and both streaks
     localStorage.removeItem(STORAGE.triviaRetired);
     localStorage.removeItem(STORAGE.triviaStreak);
     localStorage.removeItem(STORAGE.zoomStreak);
@@ -896,7 +915,7 @@ function init(){
     state.trivia.streak = 0;
     ui.streak.textContent = "0";
 
-    // keep solved list (optional). remove next line if you want solved images to reset too.
+    // keep solved list (optional). delete this line if you want solved objects to reset on reload too.
     state.zoom.solved = loadSet(STORAGE.zoomSolved);
 
     state.zoom.streak = 0;
@@ -912,18 +931,15 @@ function init(){
     pickTrivia();
     renderSide();
 
-    // image pool prefetch
     ensureImagePool(false).then(() => {
       ui.imgPool.textContent = String(state.zoom.pool.length || 0);
     });
 
-    // remove unwanted copy safely (NO hiding)
     stripUnwantedTextNodes();
     setTimeout(stripUnwantedTextNodes, 250);
     setTimeout(stripUnwantedTextNodes, 900);
   } catch (e){
     console.error(e);
-    // fail safe: never “disappear” silently
     const banner = document.createElement("div");
     banner.style.position = "fixed";
     banner.style.left = "12px";
@@ -951,7 +967,7 @@ ui.resetProgress.addEventListener("click", resetAllProgress);
 
 ui.refillImages.addEventListener("click", async () => {
   localStorage.removeItem(STORAGE.imgCache);
-  setMsg(ui.zoomMsg, "Refreshing image pool…", "warn");
+  setMsg(ui.zoomMsg, "Refreshing objects…", "warn");
   const ok = await ensureImagePool(true);
   if(ok) await nextImage();
 });

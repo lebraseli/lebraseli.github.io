@@ -394,3 +394,25 @@ input[type="text"]:focus{
   color: rgba(255,255,255,.90);
   white-space: pre-wrap;
 }
+
+/* Smooth swap transitions (question/image) */
+.swapFade {
+  transition: opacity .26s ease, transform .26s ease, filter .26s ease;
+  will-change: opacity, transform, filter;
+}
+.swapFade.isOut {
+  opacity: 0;
+  transform: translateY(8px);
+  filter: blur(1px);
+}
+.swapFade.isIn {
+  opacity: 1;
+  transform: translateY(0px);
+  filter: blur(0px);
+}
+
+/* Make image load failures visually obvious */
+.zoomFrame img.broken {
+  opacity: .25;
+  filter: grayscale(1) blur(1px);
+}

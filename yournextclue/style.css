@@ -223,6 +223,7 @@ body{
   flex-wrap:wrap;
   align-items:center;
 }
+
 input[type="text"]{
   width: min(600px, 100%);
   padding: 11px 12px;
@@ -267,9 +268,10 @@ input[type="text"]:focus{
   border-color: rgba(255,255,255,.10);
   color: rgba(255,255,255,.82);
 }
-.btn.danger{
-  border-color: rgba(255,105,140,.42);
-  background: rgba(255,105,140,.14);
+.btn:disabled{
+  opacity: .55;
+  cursor:not-allowed;
+  transform:none;
 }
 
 .msg{
@@ -300,69 +302,174 @@ input[type="text"]:focus{
   margin-top: 5px;
 }
 
-.zoomWrap{
+/* Smooth swap transitions (question/prompt) */
+.swapFade {
+  transition: opacity .26s ease, transform .26s ease, filter .26s ease;
+  will-change: opacity, transform, filter;
+}
+.swapFade.isOut {
+  opacity: 0;
+  transform: translateY(8px);
+  filter: blur(1px);
+}
+.swapFade.isIn {
+  opacity: 1;
+  transform: translateY(0px);
+  filter: blur(0px);
+}
+
+/* ===== Note stage ===== */
+.noteKeys{
+  margin-top: 10px;
+  display:flex;
+  flex-wrap:wrap;
+  gap: 10px;
+}
+.noteBtn{
+  min-width: 56px;
+  font-family: var(--mono);
+}
+
+/* ===== Sentence Repair ===== */
+.repairPrompt{
+  margin-top: 10px;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.18);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+textarea{
+  width: 100%;
+  margin-top: 12px;
+  min-height: 150px;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(0,0,0,.22);
+  color: rgba(255,255,255,.92);
+  outline:none;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
+textarea:focus{
+  border-color: rgba(110,140,255,.45);
+  box-shadow: 0 0 0 4px rgba(110,140,255,.12);
+}
+
+/* ===== Grid Nav ===== */
+.gridWrap{
   margin-top: 12px;
   display:grid;
-  grid-template-columns: 1.15fr .85fr;
+  grid-template-columns: 1fr .9fr;
   gap: 12px;
 }
 @media (max-width: 900px){
-  .zoomWrap{ grid-template-columns: 1fr; }
+  .gridWrap{ grid-template-columns: 1fr; }
 }
 
-.zoomFrame{
+.gridHint{
+  color: rgba(255,255,255,.70);
+  font-size: 12.5px;
+  margin-bottom: 10px;
+}
+
+.board{
+  --gridN: 11;
+  display:grid;
+  grid-template-columns: repeat(var(--gridN), 34px);
+  gap: 6px;
+  padding: 12px;
   border-radius: 16px;
   border: 1px solid rgba(255,255,255,.10);
-  background: rgba(0,0,0,.18);
-  overflow:hidden;
-  position:relative;
-  min-height: 360px;
-}
-.zoomFrame img{
-  width:100%;
-  height:100%;
-  object-fit: cover;
-  transform-origin: var(--ox) var(--oy);
-  transform: scale(var(--scale));
-  transition: transform .7s cubic-bezier(.2,.8,.2,1);
-  display:block;
-}
-.zoomOverlay{
-  position:absolute; inset:0;
-  pointer-events:none;
-  background:
-    radial-gradient(800px 420px at 30% 20%, rgba(255,255,255,.05), transparent 60%),
-    linear-gradient(180deg, rgba(0,0,0,.10), rgba(0,0,0,.25));
-}
-.zoomPill{
-  position:absolute;
-  left: 12px; top: 12px;
-  font-size: 11.5px;
-  color: rgba(255,255,255,.82);
-  border: 1px solid rgba(255,255,255,.14);
-  background: rgba(0,0,0,.22);
-  padding: 6px 10px;
-  border-radius: 999px;
-  backdrop-filter: blur(10px);
+  background: rgba(0,0,0,.16);
+  width: fit-content;
+  max-width: 100%;
+  overflow:auto;
 }
 
-.metaRow{
-  margin-top: 12px;
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+.cell{
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.20);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition: transform .08s ease, border-color .12s ease, background .12s ease;
 }
-@media (max-width: 720px){
-  .metaRow{ grid-template-columns: 1fr; }
+.cell:hover{
+  border-color: rgba(110,140,255,.35);
+  transform: translateY(-1px);
 }
-.metaBox{
-  border-radius: 14px;
+.cell.start{
+  border-color: rgba(110,140,255,.50);
+  background: rgba(110,140,255,.12);
+}
+.cell.selected{
+  border-color: rgba(78,255,170,.55);
+  background: rgba(78,255,170,.10);
+}
+.dotStart{
+  width:10px;
+  height:10px;
+  border-radius: 99px;
+  background: rgba(110,140,255,.95);
+  box-shadow: 0 0 0 6px rgba(110,140,255,.16);
+}
+
+.gridSide{
+  border-radius: 16px;
   border: 1px solid rgba(255,255,255,.10);
   background: rgba(0,0,0,.14);
-  padding: 10px 12px;
+  padding: 12px;
+  height: fit-content;
 }
-.metaLabel{ font-size: 12px; color: rgba(255,255,255,.62); }
-.metaValue{ margin-top: 4px; font-size: 13px; font-weight: 650; color: rgba(255,255,255,.88); }
+
+.gridStepsBox{
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.16);
+  padding: 10px 10px;
+}
+.gridStepsTitle{
+  font-size: 12px;
+  color: rgba(255,255,255,.62);
+  margin-bottom: 8px;
+}
+.gridStepsArrows{
+  font-size: 14px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+.gridStepsRaw{
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(255,255,255,.78);
+  white-space: pre-wrap;
+}
+
+/* ===== Stage 5 polish ===== */
+body[data-stage="reveal"] #poemText {
+  font-size: 16px;
+  line-height: 1.7;
+  letter-spacing: 0.1px;
+  padding: 18px 18px;
+  border-radius: 16px;
+  background:
+    radial-gradient(900px 300px at 20% 0%, rgba(120,180,255,0.12), transparent 60%),
+    radial-gradient(900px 300px at 80% 0%, rgba(160,120,255,0.10), transparent 60%),
+    rgba(0,0,0,0.30);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+}
 
 .reveal{
   border-radius: 16px;
@@ -393,62 +500,4 @@ input[type="text"]:focus{
   line-height: 1.55;
   color: rgba(255,255,255,.90);
   white-space: pre-wrap;
-}
-
-/* Smooth swap transitions (question/image) */
-.swapFade {
-  transition: opacity .26s ease, transform .26s ease, filter .26s ease;
-  will-change: opacity, transform, filter;
-}
-.swapFade.isOut {
-  opacity: 0;
-  transform: translateY(8px);
-  filter: blur(1px);
-}
-.swapFade.isIn {
-  opacity: 1;
-  transform: translateY(0px);
-  filter: blur(0px);
-}
-
-/* Make image load failures visually obvious */
-.zoomFrame img.broken {
-  opacity: .25;
-  filter: grayscale(1) blur(1px);
-}
-
-/* ===== Stage 3 polish ===== */
-body[data-stage="reveal"] #stageReveal .card,
-body[data-stage="reveal"] #stageReveal .qCard {
-  border-color: rgba(255,255,255,0.14);
-  box-shadow: 0 20px 80px rgba(0,0,0,0.45);
-}
-
-body[data-stage="reveal"] #stageReveal h2,
-body[data-stage="reveal"] #stageReveal h3 {
-  letter-spacing: 0.2px;
-}
-
-body[data-stage="reveal"] #poemText {
-  font-size: 16px;
-  line-height: 1.7;
-  letter-spacing: 0.1px;
-  padding: 18px 18px;
-  border-radius: 16px;
-  background:
-    radial-gradient(900px 300px at 20% 0%, rgba(120,180,255,0.12), transparent 60%),
-    radial-gradient(900px 300px at 80% 0%, rgba(160,120,255,0.10), transparent 60%),
-    rgba(0,0,0,0.30);
-  border: 1px solid rgba(255,255,255,0.12);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
-}
-
-body[data-stage="reveal"] #copyPoem {
-  border-radius: 14px;
-  font-weight: 650;
-  letter-spacing: 0.2px;
-}
-
-body[data-stage="reveal"] #stageReveal .msg.good {
-  color: #7CFFB2;
 }

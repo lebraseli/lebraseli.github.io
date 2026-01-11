@@ -5,29 +5,28 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="dark" />
   <title>Your Next Clue</title>
-  <meta name="description" content="Two locks. One decrypt. The poem stays encrypted until you earn it." />
+  <meta name="description" content="Two-stage puzzle gate: 15-in-a-row trivia, then zoom-guess images." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650;750&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./style.css" />
 </head>
-
 <body>
-  <div class="noise" aria-hidden="true"></div>
-  <div class="bg" aria-hidden="true"></div>
+  <div class="bg"></div>
+  <div class="noise"></div>
 
   <main class="wrap">
     <section class="card" id="app">
       <header class="topbar">
         <div class="brand">
           <div class="brandTitle">Your Next Clue</div>
-          <div class="brandSub">Two locks. One decrypt. No freebies.</div>
+          <div class="brandSub">15 in a row. Then the zoom test. No hand-holding.</div>
         </div>
 
         <nav class="steps" aria-label="progress">
-          <div class="step active" id="step1"><span class="dot"></span>Canopy</div>
-          <div class="step" id="step2"><span class="dot"></span>Stairwell</div>
-          <div class="step" id="step3"><span class="dot"></span>Quiet Room</div>
+          <div class="step active" id="stepTrivia"><span class="dot"></span>Trivia</div>
+          <div class="step" id="stepZoom"><span class="dot"></span>Zoom</div>
+          <div class="step" id="stepReveal"><span class="dot"></span>Reveal</div>
         </nav>
       </header>
 
@@ -35,100 +34,136 @@
         <section class="panel">
           <div class="panelHead">
             <div>
-              <h1 class="panelTitle" id="panelTitle">Lock 1 — The Canopy</h1>
+              <h1 class="panelTitle" id="panelTitle">Stage 1 — Trivia Gate</h1>
               <p class="panelDesc" id="panelDesc">
-                Not everything that moves is useful. Trust what stays still. Read the canopy from high to low.
+                Get <b>15 correct in a row</b>. Any miss resets the streak to 0. Correctly solved questions won’t reappear on this device.
               </p>
             </div>
 
-            <div class="statusPill" id="poemStatus">Poem: encrypted</div>
+            <div class="statusPill" id="statusPill">Locked</div>
           </div>
 
           <div class="panelBody">
-            <!-- STAGE 1 -->
-            <section class="stage show" id="stage1" aria-label="Lock 1">
-              <div class="scene canopy" id="canopyScene" role="application" aria-label="Canopy scene">
-                <div class="sceneHint">
-                  Constraint set: <b>still</b> only. Ordering: <b>high → low</b>.
-                  <span class="muted">If you think you saw a letter, you didn’t.</span>
-                </div>
-                <div class="sceneHUD">
-                  <div class="hudChip">Signal: <span id="l1Signal">0</span>/<span id="l1Target">0</span></div>
-                  <div class="hudChip">Strikes: <span id="l1Strikes">0</span></div>
-                </div>
-                <div class="scatter" id="canopy"></div>
-              </div>
-
-              <div class="resultRow">
-                <div class="resultBox">
-                  <div class="resultLabel">Outcome</div>
-                  <div class="resultValue" id="l1Outcome">No fragment acquired.</div>
-                </div>
-                <div class="btnRow">
-                  <button class="btn ghost" id="l1Reset">Reset</button>
-                </div>
-              </div>
-
-              <div class="msg" id="l1Msg" aria-live="polite"></div>
-            </section>
-
-            <!-- STAGE 2 -->
-            <section class="stage" id="stage2" aria-label="Lock 2">
-              <div class="scene stairwell" id="stairsScene" role="application" aria-label="Stairwell scene">
-                <div class="sceneHint">
-                  In a <b>new kind of height</b>, the path is obvious. Don’t measure it like a mountain.
-                </div>
-                <div class="sceneHUD">
-                  <div class="hudChip">Steps: <span id="l2Steps">0</span>/<span id="l2Target">0</span></div>
-                  <div class="hudChip">Strikes: <span id="l2Strikes">0</span></div>
-                </div>
-                <div class="stairs" id="stairs"></div>
-              </div>
-
-              <div class="resultRow">
-                <div class="resultBox">
-                  <div class="resultLabel">Outcome</div>
-                  <div class="resultValue" id="l2Outcome">No fragment acquired.</div>
-                </div>
-                <div class="btnRow">
-                  <button class="btn ghost" id="l2Reset">Reset</button>
-                </div>
-              </div>
-
-              <div class="msg" id="l2Msg" aria-live="polite"></div>
-            </section>
-
-            <!-- STAGE 3 -->
-            <section class="stage" id="stage3" aria-label="Quiet Room">
-              <div class="quiet">
-                <div class="quietTop">
-                  <div>
-                    <div class="quietTitle">Quiet Room</div>
-                    <div class="quietSub">
-                      Provide the passphrase derived from your fragments. The poem will decrypt locally in your browser.
+            <!-- TRIVIA -->
+            <section class="stage show" id="stageTrivia" aria-label="Trivia stage">
+              <div class="arena">
+                <div class="arenaTop">
+                  <div class="kpis">
+                    <div class="kpi">
+                      <div class="kLabel">Streak</div>
+                      <div class="kValue"><span id="streak">0</span> / 15</div>
+                    </div>
+                    <div class="kpi">
+                      <div class="kLabel">Remaining</div>
+                      <div class="kValue"><span id="remaining">200</span></div>
+                    </div>
+                    <div class="kpi">
+                      <div class="kLabel">Category</div>
+                      <div class="kValue mono" id="category">—</div>
                     </div>
                   </div>
-                  <div class="statusPill" id="unlockStatus">Locked</div>
+
+                  <div class="btnRow">
+                    <button class="btn ghost" id="resetProgress">Reset progress</button>
+                  </div>
                 </div>
 
-                <div class="fieldRow">
-                  <input id="pass" type="text" autocomplete="off" spellcheck="false"
-                    placeholder="passphrase (lowercase, no spaces)" />
-                  <button class="btn primary" id="open">Decrypt</button>
-                  <button class="btn ghost" id="qReset">Reset</button>
+                <div class="qCard">
+                  <div class="qLabel">Question</div>
+                  <div class="qText" id="question">Loading…</div>
+
+                  <div class="answerRow">
+                    <input id="answer" type="text" autocomplete="off" spellcheck="false" placeholder="type answer, press Enter" />
+                    <button class="btn primary" id="submitAnswer">Submit</button>
+                  </div>
+
+                  <div class="msg" id="triviaMsg" aria-live="polite"></div>
                 </div>
 
-                <div class="msg" id="qMsg" aria-live="polite"></div>
+                <div class="rules">
+                  <div class="rule"><span class="dotMini"></span>Answers are case-insensitive. Minor punctuation/spacing differences don’t matter.</div>
+                  <div class="rule"><span class="dotMini"></span>No hints. If you want “wow,” earn it.</div>
+                  <div class="rule"><span class="dotMini"></span>Miss = full reset to 0. That’s the point.</div>
+                </div>
+              </div>
+            </section>
 
-                <div class="poemWrap" id="poemWrap" hidden>
+            <!-- ZOOM -->
+            <section class="stage" id="stageZoom" aria-label="Zoom stage">
+              <div class="arena">
+                <div class="arenaTop">
+                  <div class="kpis">
+                    <div class="kpi">
+                      <div class="kLabel">Streak</div>
+                      <div class="kValue"><span id="zoomStreak">0</span> / <span id="zoomTarget">6</span></div>
+                    </div>
+                    <div class="kpi">
+                      <div class="kLabel">Pool</div>
+                      <div class="kValue"><span id="imgPool">0</span></div>
+                    </div>
+                    <div class="kpi">
+                      <div class="kLabel">Source</div>
+                      <div class="kValue mono">Wikimedia Featured</div>
+                    </div>
+                  </div>
+
+                  <div class="btnRow">
+                    <button class="btn ghost" id="refillImages">Refresh image pool</button>
+                  </div>
+                </div>
+
+                <div class="zoomWrap">
+                  <div class="zoomFrame" id="zoomFrame" aria-label="Zoom image area">
+                    <div class="zoomOverlay">
+                      <div class="zoomPill" id="zoomPill">Zoomed</div>
+                    </div>
+                    <img id="zoomImg" alt="Zoom puzzle" />
+                  </div>
+
+                  <div class="qCard">
+                    <div class="qLabel">What is it?</div>
+                    <div class="qText small" id="imgPrompt">Name the subject. Be specific but human.</div>
+
+                    <div class="answerRow">
+                      <input id="imgGuess" type="text" autocomplete="off" spellcheck="false" placeholder="your guess" />
+                      <button class="btn primary" id="submitGuess">Lock in</button>
+                      <button class="btn ghost" id="zoomOut">Zoom out</button>
+                    </div>
+
+                    <div class="msg" id="zoomMsg" aria-live="polite"></div>
+                  </div>
+                </div>
+
+                <div class="metaRow" id="imgMeta" hidden>
+                  <div class="metaBox">
+                    <div class="metaLabel">Answer (derived)</div>
+                    <div class="metaValue" id="imgAnswer">—</div>
+                  </div>
+                  <div class="metaBox">
+                    <div class="metaLabel">Title</div>
+                    <div class="metaValue" id="imgTitle">—</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- REVEAL -->
+            <section class="stage" id="stageReveal" aria-label="Reveal stage">
+              <div class="reveal">
+                <div class="revealTitle">Access Granted</div>
+                <div class="revealSub">You cleared both gates. Here’s the payload.</div>
+
+                <div class="poemWrap">
                   <div class="poemHead">
-                    <div class="poemTitle">Decrypted Poem</div>
+                    <div class="poemTitle">Echoes</div>
                     <div class="btnRow">
                       <button class="btn ghost" id="copyPoem">Copy</button>
                     </div>
                   </div>
-                  <pre class="poem" id="poem"></pre>
+                  <pre class="poem" id="poemText"></pre>
                 </div>
+
+                <div class="msg good" id="revealMsg">Don’t overfit. Read it twice.</div>
               </div>
             </section>
 
@@ -137,43 +172,42 @@
 
         <aside class="side">
           <div class="sideCard">
-            <div class="sideLabel">Current objective</div>
-            <div class="sideValue" id="objective">Extract Fragment A</div>
+            <div class="sideLabel">Objective</div>
+            <div class="sideValue" id="objective">15 correct trivia answers in a row</div>
             <div class="divider"></div>
             <div class="sideText">
-              This experience is calibrated for competent solvers. It’s intentionally adversarial, but fair.
-              The “wow” comes from realizing you were measuring the wrong thing.
+              This system intentionally enforces pressure. Your team should feel friction, then have a clean “ohhhh” moment on the zoom gate.
             </div>
           </div>
 
           <div class="sideCard">
-            <div class="sideLabel">Fragments acquired</div>
-            <div class="fragLine"><span class="fragKey">Fragment A</span><span class="fragVal" id="fragA">—</span></div>
-            <div class="fragLine"><span class="fragKey">Fragment B</span><span class="fragVal" id="fragB">—</span></div>
+            <div class="sideLabel">Progress</div>
+            <div class="fragLine"><span class="fragKey">Trivia gate</span><span class="fragVal" id="pTrivia">0 / 15</span></div>
+            <div class="fragLine"><span class="fragKey">Zoom gate</span><span class="fragVal" id="pZoom">0 / 6</span></div>
             <div class="divider"></div>
-            <div class="sideFoot">
-              <span class="muted">No hints. No training wheels.</span>
-              <button class="btn danger" id="hardReset">Hard reset</button>
+            <div class="sideText muted">
+              “Remove solved items” is enforced per browser via local storage. Different devices = fresh pool.
             </div>
           </div>
 
           <div class="sideCard">
-            <div class="sideLabel">Design note</div>
+            <div class="sideLabel">Implementation note</div>
             <div class="sideText">
-              Lock 1 tests <b>signal vs motion</b>. Lock 2 tests <b>stacking vs altitude</b>.
-              The poem stays encrypted until both fragments are earned.
+              Images are fetched from Wikimedia Commons Featured pictures in real time (no assets needed).
+              Judging uses fuzzy matching against title/metadata. It’s deterministic and good enough for humans.
             </div>
           </div>
         </aside>
       </div>
 
       <footer class="footer">
-        <span>Operational posture: frustration is expected. The system is deterministic.</span>
-        <span class="muted">If Lock 2 feels “impossible,” you’re using the wrong definition of height.</span>
+        <span>Policy: misses reset streaks. That’s the contract.</span>
+        <span class="muted">If you want “AI evaluation,” you need a backend or a paid API key exposed to the client (not recommended).</span>
       </footer>
     </section>
   </main>
 
-  <script src="./game.js"></script>
+  <script src="./trivia_bank.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>

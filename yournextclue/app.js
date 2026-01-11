@@ -51,10 +51,10 @@ const triviaCard = document.querySelector("#stageTrivia .qCard");
 const zoomWrap = document.querySelector("#stageZoom .zoomWrap");
 
 const STORAGE = {
-  triviaRetired: "yn_trivia_retired_v4",
-  triviaStreak: "yn_trivia_streak_v4",
-  zoomSolved: "yn_zoom_solved_v2",
-  zoomStreak: "yn_zoom_streak_v2",
+  triviaRetired: "yn_trivia_retired_v5",
+  triviaStreak: "yn_trivia_streak_v5",
+  zoomSolved: "yn_zoom_solved_v3",
+  zoomStreak: "yn_zoom_streak_v3",
   imgCache: "yn_img_cache_v3"
 };
 
@@ -82,7 +82,7 @@ const state = {
 
 function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
-async function fadeSwap(el, updateFn, ms=240){
+async function fadeSwap(el, updateFn, ms=220){
   if(!el) { updateFn(); return; }
   el.classList.add("swapFade");
   el.classList.remove("isIn");
@@ -136,36 +136,66 @@ function setMsg(el, text, kind){
 }
 
 /* =========================
-   REMOVE UNWANTED TEXT (DOM scrub)
+   SAFE COPY REMOVAL (NO HIDING)
+   - Removes exact phrases from TEXT NODES only.
+   - This prevents the “page disappears” bug.
 ========================= */
 
-function scrubUnwantedCopy(){
-  const kill = [
-    "Policy: misses reset streaks. That’s the contract.",
-    "Policy: misses reset streaks. That's the contract.",
-    "If you want “AI evaluation,” you need a backend or a paid API key exposed to the client (not recommended).",
-    "If you want \"AI evaluation,\" you need a backend or a paid API key exposed to the client (not recommended).",
-    "15 in a row. Then the zoom test. No hand-holding.",
-    "No hand-holding",
-    "This system intentionally enforces pressure. Your team should feel friction, then have a clean “ohhhh” moment on the zoom gate.",
-    "This system intentionally enforces pressure. Your team should feel friction, then have a clean \"ohhhh\" moment on the zoom gate.",
-    "“Remove solved items” is enforced per browser via local storage. Different devices = fresh pool.",
-    "\"Remove solved items\" is enforced per browser via local storage. Different devices = fresh pool.",
-    "Images are fetched from Wikimedia Commons Featured pictures in real time (no assets needed). Judging uses fuzzy matching against title/metadata. It’s deterministic and good enough for humans.",
-    "Images are fetched from Wikimedia Commons Featured pictures in real time (no assets needed). Judging uses fuzzy matching against title/metadata. It's deterministic and good enough for humans."
-  ].map(s => s.toLowerCase());
+const UNWANTED_PHRASES = [
+  "Policy: misses reset streaks. That’s the contract.",
+  "Policy: misses reset streaks. That's the contract.",
+  "If you want “AI evaluation,” you need a backend or a paid API key exposed to the client (not recommended).",
+  "If you want \"AI evaluation,\" you need a backend or a paid API key exposed to the client (not recommended).",
+  "15 in a row. Then the zoom test. No hand-holding.",
+  "No hand-holding.",
+  "No hand-holding",
+  "This system intentionally enforces pressure. Your team should feel friction, then have a clean “ohhhh” moment on the zoom gate.",
+  "This system intentionally enforces pressure. Your team should feel friction, then have a clean \"ohhhh\" moment on the zoom gate.",
+  "“Remove solved items” is enforced per browser via local storage. Different devices = fresh pool.",
+  "\"Remove solved items\" is enforced per browser via local storage. Different devices = fresh pool.",
+  "Images are fetched from Wikimedia Commons Featured pictures in real time (no assets needed). Judging uses fuzzy matching against title/metadata. It’s deterministic and good enough for humans.",
+  "Images are fetched from Wikimedia Commons Featured pictures in real time (no assets needed). Judging uses fuzzy matching against title/metadata. It's deterministic and good enough for humans."
+];
 
-  const candidates = document.querySelectorAll("p, small, div, span, footer, li");
-  for(const el of candidates){
-    const txt = (el.textContent || "").trim().toLowerCase();
-    if(!txt) continue;
-    for(const k of kill){
-      if(txt.includes(k)){
-        el.style.display = "none";
-        break;
+function stripUnwantedTextNodes(){
+  try{
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    let n;
+    while((n = walker.nextNode())) nodes.push(n);
+
+    for(const node of nodes){
+      let t = node.nodeValue || "";
+      let changed = false;
+      for(const phrase of UNWANTED_PHRASES){
+        if(t.includes(phrase)){
+          t = t.split(phrase).join("");
+          changed = true;
+        }
+      }
+      if(changed){
+        // clean up leftover whitespace/punctuation lines
+        t = t.replace(/\n{3,}/g, "\n\n").replace(/[ \t]{2,}/g, " ");
+        node.nodeValue = t;
       }
     }
+  } catch {
+    // deliberately silent: never break the app
   }
+}
+
+/* Optional: stage-specific subtitle (if your HTML has one) */
+function setStageSubtitle(stage){
+  const el =
+    document.getElementById("subtitle") ||
+    document.getElementById("tagline") ||
+    document.querySelector(".subtitle") ||
+    document.querySelector("[data-role='subtitle']");
+  if(!el) return;
+
+  if(stage === "trivia") el.textContent = "Get 15 correct in a row.";
+  else if(stage === "zoom") el.textContent = "Get 6 correct in a row.";
+  else el.textContent = "";
 }
 
 /* =========================
@@ -217,7 +247,7 @@ function matchesAny(guess, truths){
 
     if(g === tn) return true;
 
-    // prevent 1–2 char substring hacks like "a"
+    // prevent "a" / "an" hacks
     if(g.length >= 3 && tn.length >= 3 && (tn.includes(g) || g.includes(tn))) return true;
 
     if(typoOk(g, tn)) return true;
@@ -268,6 +298,12 @@ function setStage(stage){
     ui.objective.textContent = "";
   }
 
+  setStageSubtitle(stage);
+  renderSide();
+
+  // keep removing unwanted copy that may be in static HTML
+  stripUnwantedTextNodes();
+
   if(stage === "zoom"){
     setTimeout(async () => {
       if(state.zoom.pool.length === 0){
@@ -278,8 +314,6 @@ function setStage(stage){
       }
     }, 0);
   }
-
-  renderSide();
 }
 
 function renderSide(){
@@ -327,18 +361,17 @@ function bypassToZoom(){
     setStage("zoom");
     const ok = await ensureImagePool(true);
     if(ok) await nextImage();
-  }, 350);
+  }, 250);
 }
 
 function checkTriviaAnswer(){
-  const q = state.trivia.current;
-
   const rawGuess = ui.answer.value || "";
   if(isOverride(rawGuess)){
     bypassToZoom();
     return;
   }
 
+  const q = state.trivia.current;
   if(!q) return;
 
   const guess = norm(rawGuess);
@@ -347,7 +380,7 @@ function checkTriviaAnswer(){
     return;
   }
 
-  // Retire on any attempt (SESSION ONLY)
+  // retire on any attempt (session only)
   state.trivia.retired.add(q.id);
 
   const truths = [q.a, ...(q.alts || [])];
@@ -366,7 +399,7 @@ function checkTriviaAnswer(){
         setStage("zoom");
         const ok2 = await ensureImagePool(true);
         if(ok2) await nextImage();
-      }, 500);
+      }, 350);
       return;
     }
 
@@ -374,7 +407,6 @@ function checkTriviaAnswer(){
     return;
   }
 
-  // Wrong: show answer, reset streak, move on
   state.trivia.streak = 0;
   ui.streak.textContent = "0";
   ui.remaining.textContent = String(triviaRemaining());
@@ -385,7 +417,7 @@ function checkTriviaAnswer(){
 }
 
 /* =========================
-   ZOOM — GENERIC ANSWERS
+   ZOOM — GENERIC LABELS
 ========================= */
 
 function getCachedImages(){
@@ -402,7 +434,7 @@ function setCachedImages(items){
   localStorage.setItem(STORAGE.imgCache, JSON.stringify({ ts: Date.now(), items }));
 }
 
-async function fetchFeaturedFileTitles(limit=450){
+async function fetchFeaturedFileTitles(limit=420){
   const base = "https://commons.wikimedia.org/w/api.php";
   const titles = [];
   let cmcontinue = null;
@@ -477,14 +509,14 @@ async function fetchImageInfoForTitles(titles){
   return [...uniq.values()];
 }
 
-async function fetchFeaturedImagesRobust(target=350){
+async function fetchFeaturedImagesRobust(target=260){
   const titles = await fetchFeaturedFileTitles(target + 60);
   if(titles.length === 0) return [];
   const items = await fetchImageInfoForTitles(titles);
   return items.slice(0, target);
 }
 
-async function fetchRandomImages(target=220){
+async function fetchRandomImages(target=200){
   const base = "https://commons.wikimedia.org/w/api.php";
   const items = [];
   const seen = new Set();
@@ -544,13 +576,12 @@ async function ensureImagePool(allowUIMessage=false){
 
   let items = [];
   try{
-    items = await fetchFeaturedImagesRobust(280);
+    items = await fetchFeaturedImagesRobust(240);
   } catch {}
 
   if(!items || items.length < 30){
     try{
-      const fallback = await fetchRandomImages(200);
-      items = (items || []).concat(fallback);
+      items = (items || []).concat(await fetchRandomImages(180));
     } catch {}
   }
 
@@ -589,19 +620,19 @@ function deriveAnswerFromTitle(title){
 }
 
 const CATEGORY_RULES = [
-  { label: "painting", keys: ["painting", "oil on canvas", "fresco", "watercolor", "acrylic", "canvas", "triptych", "altarpiece"] },
-  { label: "drawing", keys: ["drawing", "sketch", "ink drawing", "charcoal"] },
+  { label: "painting", keys: ["painting", "oil on canvas", "fresco", "watercolor", "acrylic", "canvas"] },
+  { label: "drawing", keys: ["drawing", "sketch", "charcoal", "ink drawing"] },
   { label: "sculpture", keys: ["sculpture", "statue", "bust", "bronze", "marble"] },
-  { label: "book", keys: ["book", "manuscript", "codex", "folio", "pages", "page", "library"] },
-  { label: "map", keys: ["map", "atlas", "cartograph", "topographic"] },
+  { label: "book", keys: ["book", "manuscript", "codex", "folio", "pages", "page"] },
+  { label: "map", keys: ["map", "atlas", "cartograph"] },
 
-  { label: "bridge", keys: ["bridge", "viaduct", "suspension bridge", "overpass"] },
-  { label: "castle", keys: ["castle", "fortress", "citadel"] },
+  { label: "bridge", keys: ["bridge", "viaduct", "overpass"] },
+  { label: "castle", keys: ["castle", "fortress"] },
   { label: "church", keys: ["cathedral", "church", "basilica"] },
   { label: "tower", keys: ["tower", "lighthouse"] },
   { label: "building", keys: ["building", "skyscraper", "architecture", "facade", "interior"] },
 
-  { label: "mountain", keys: ["mountain", "peak", "summit", "alps", "himalaya", "volcano"] },
+  { label: "mountain", keys: ["mountain", "peak", "summit", "volcano"] },
   { label: "waterfall", keys: ["waterfall", "falls", "cascade"] },
   { label: "river", keys: ["river", "delta"] },
   { label: "lake", keys: ["lake"] },
@@ -609,19 +640,19 @@ const CATEGORY_RULES = [
   { label: "forest", keys: ["forest", "woods", "jungle"] },
   { label: "desert", keys: ["desert", "dune"] },
 
-  { label: "bird", keys: ["bird", "eagle", "owl", "sparrow", "penguin", "flamingo", "heron", "gull"] },
-  { label: "fish", keys: ["fish", "shark", "ray", "salmon", "trout", "tuna"] },
+  { label: "bird", keys: ["bird", "eagle", "owl", "penguin", "flamingo", "gull"] },
+  { label: "fish", keys: ["fish", "shark", "salmon", "trout", "tuna"] },
   { label: "insect", keys: ["insect", "butterfly", "moth", "beetle", "dragonfly", "bee"] },
   { label: "reptile", keys: ["snake", "lizard", "turtle", "crocodile", "reptile"] },
   { label: "mammal", keys: ["mammal", "dog", "cat", "horse", "elephant", "tiger", "lion", "bear", "whale", "dolphin"] },
   { label: "flower", keys: ["flower", "blossom", "orchid", "rose", "tulip"] },
 
-  { label: "airplane", keys: ["airplane", "aircraft", "jet", "airbus", "boeing"] },
-  { label: "ship", keys: ["ship", "boat", "sailing", "yacht", "ferry"] },
+  { label: "airplane", keys: ["airplane", "aircraft", "jet"] },
+  { label: "ship", keys: ["ship", "boat", "yacht", "ferry"] },
   { label: "train", keys: ["train", "locomotive", "railway"] },
   { label: "car", keys: ["car", "automobile"] },
 
-  { label: "person", keys: ["portrait", "self portrait", "person", "people", "man", "woman", "child"] },
+  { label: "person", keys: ["portrait", "person", "people", "man", "woman", "child"] },
   { label: "food", keys: ["food", "dish", "cake", "bread", "fruit", "meal"] }
 ];
 
@@ -629,15 +660,15 @@ function labelAliases(label){
   const map = {
     painting: ["art", "artwork", "picture"],
     drawing: ["sketch", "illustration"],
-    sculpture: ["statue", "bust"],
+    sculpture: ["statue"],
     book: ["novel", "text", "pages"],
     map: ["atlas"],
-    bridge: ["overpass", "viaduct"],
+    bridge: ["overpass"],
     church: ["cathedral"],
     tower: ["lighthouse"],
-    mountain: ["peak", "volcano"],
+    mountain: ["peak"],
     ocean: ["sea", "beach", "coast"],
-    waterfall: ["falls", "cascade"],
+    waterfall: ["falls"],
     forest: ["woods"],
     insect: ["bug"],
     airplane: ["plane", "aircraft"],
@@ -658,7 +689,7 @@ function classifyItem(item){
 
   for(const r of CATEGORY_RULES){
     for(const k of r.keys){
-      if(blob.includes(norm(k))) {
+      if(blob.includes(norm(k))){
         return { label: r.label, aliases: labelAliases(r.label) };
       }
     }
@@ -671,7 +702,7 @@ function classifyItem(item){
 function guessMatches(guess, item){
   const g = norm(guess);
 
-  // stop trivial inputs like "a" from ever passing
+  // Kill trivial inputs (this is why "a" should never work)
   if(g.length < 3){
     return { ok:false, score:0, label: classifyItem(item).label };
   }
@@ -715,9 +746,9 @@ async function nextImage(){
   state.zoom.current = item;
   state.zoom.zoomed = true;
 
-  const ox = Math.floor(18 + Math.random()*64);
-  const oy = Math.floor(18 + Math.random()*64);
-  const scale = 3.4 + Math.random()*1.2; // easier than before
+  const ox = Math.floor(20 + Math.random()*60);
+  const oy = Math.floor(20 + Math.random()*60);
+  const scale = 3.2 + Math.random()*1.0; // easier
   setZoom(scale, ox, oy);
 
   ui.zoomPill.textContent = "Zoomed";
@@ -756,14 +787,13 @@ function bypassToReveal(){
 }
 
 async function checkImageGuess(){
-  const item = state.zoom.current;
-
   const raw = ui.imgGuess.value || "";
   if(isOverride(raw)){
     bypassToReveal();
     return;
   }
 
+  const item = state.zoom.current;
   if(!item){
     setMsg(ui.zoomMsg, "No image loaded yet.", "bad");
     return;
@@ -797,7 +827,7 @@ async function checkImageGuess(){
         setStage("reveal");
         ui.poemText.textContent = POEM;
         ui.statusPill.textContent = "Unlocked";
-      }, 450);
+      }, 350);
       return;
     }
 
@@ -850,43 +880,65 @@ function resetAllProgress(){
 }
 
 function init(){
-  if(!window.TRIVIA_BANK || !Array.isArray(window.TRIVIA_BANK) || window.TRIVIA_BANK.length < 200){
-    ui.question.textContent = "Trivia bank missing or invalid.";
-    setMsg(ui.triviaMsg, "Ensure trivia_bank.js is loaded before app.js.", "bad");
-    return;
+  try{
+    if(!window.TRIVIA_BANK || !Array.isArray(window.TRIVIA_BANK) || window.TRIVIA_BANK.length < 200){
+      ui.question.textContent = "Trivia bank missing or invalid.";
+      setMsg(ui.triviaMsg, "Ensure trivia_bank.js is loaded before app.js.", "bad");
+      return;
+    }
+
+    // ✅ On every reload: reset remaining + reset BOTH streaks
+    localStorage.removeItem(STORAGE.triviaRetired);
+    localStorage.removeItem(STORAGE.triviaStreak);
+    localStorage.removeItem(STORAGE.zoomStreak);
+
+    state.trivia.retired = new Set();
+    state.trivia.streak = 0;
+    ui.streak.textContent = "0";
+
+    // keep solved list (optional). remove next line if you want solved images to reset too.
+    state.zoom.solved = loadSet(STORAGE.zoomSolved);
+
+    state.zoom.streak = 0;
+    ui.zoomStreak.textContent = "0";
+
+    ui.remaining.textContent = String(triviaRemaining());
+    ui.zoomTarget.textContent = String(state.zoom.target);
+
+    triviaCard?.classList.add("swapFade","isIn");
+    zoomWrap?.classList.add("swapFade","isIn");
+
+    setStage("trivia");
+    pickTrivia();
+    renderSide();
+
+    // image pool prefetch
+    ensureImagePool(false).then(() => {
+      ui.imgPool.textContent = String(state.zoom.pool.length || 0);
+    });
+
+    // remove unwanted copy safely (NO hiding)
+    stripUnwantedTextNodes();
+    setTimeout(stripUnwantedTextNodes, 250);
+    setTimeout(stripUnwantedTextNodes, 900);
+  } catch (e){
+    console.error(e);
+    // fail safe: never “disappear” silently
+    const banner = document.createElement("div");
+    banner.style.position = "fixed";
+    banner.style.left = "12px";
+    banner.style.right = "12px";
+    banner.style.bottom = "12px";
+    banner.style.zIndex = "9999";
+    banner.style.padding = "12px 14px";
+    banner.style.borderRadius = "12px";
+    banner.style.background = "rgba(200,40,80,0.18)";
+    banner.style.border = "1px solid rgba(200,40,80,0.35)";
+    banner.style.color = "#fff";
+    banner.style.fontFamily = "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial";
+    banner.textContent = "App error. Open DevTools → Console to see the stack trace.";
+    document.body.appendChild(banner);
   }
-
-  // ✅ On every reload: reset remaining + streaks (Trivia + Zoom)
-  localStorage.removeItem(STORAGE.triviaRetired);
-  localStorage.removeItem(STORAGE.triviaStreak);
-  localStorage.removeItem(STORAGE.zoomStreak);
-
-  state.trivia.retired = new Set();
-  state.trivia.streak = 0;
-  ui.streak.textContent = "0";
-
-  state.zoom.solved = loadSet(STORAGE.zoomSolved); // keep solved list (optional), not a streak
-  state.zoom.streak = 0;
-  ui.zoomStreak.textContent = "0";
-
-  ui.remaining.textContent = String(triviaRemaining());
-  ui.zoomTarget.textContent = String(state.zoom.target);
-
-  triviaCard?.classList.add("swapFade","isIn");
-  zoomWrap?.classList.add("swapFade","isIn");
-
-  setStage("trivia");
-  pickTrivia();
-  renderSide();
-
-  ensureImagePool(false).then(() => {
-    ui.imgPool.textContent = String(state.zoom.pool.length || 0);
-  });
-
-  // Remove unwanted text blocks (works even if they’re hardcoded in HTML)
-  scrubUnwantedCopy();
-  // Run again after a beat in case layout scripts render late
-  setTimeout(scrubUnwantedCopy, 250);
 }
 
 /* =========================

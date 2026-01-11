@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="dark" />
   <title>Your Next Clue</title>
-  <meta name="description" content="Two-stage puzzle gate: 15-in-a-row trivia, then zoom-guess images." />
+  <meta name="description" content="Multi-stage puzzle gate: trivia, note ID, sentence repair, grid navigation." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650;750&display=swap" rel="stylesheet">
@@ -20,12 +20,14 @@
       <header class="topbar">
         <div class="brand">
           <div class="brandTitle">Your Next Clue</div>
-          <div class="brandSub">15 in a row. Then the zoom test. No hand-holding.</div>
+          <div class="brandSub">Clear each gate. Misses reset streaks.</div>
         </div>
 
         <nav class="steps" aria-label="progress">
           <div class="step active" id="stepTrivia"><span class="dot"></span>Trivia</div>
-          <div class="step" id="stepZoom"><span class="dot"></span>Zoom</div>
+          <div class="step" id="stepNote"><span class="dot"></span>Notes</div>
+          <div class="step" id="stepRepair"><span class="dot"></span>Repair</div>
+          <div class="step" id="stepGrid"><span class="dot"></span>Grid</div>
           <div class="step" id="stepReveal"><span class="dot"></span>Reveal</div>
         </nav>
       </header>
@@ -36,7 +38,7 @@
             <div>
               <h1 class="panelTitle" id="panelTitle">Stage 1 — Trivia Gate</h1>
               <p class="panelDesc" id="panelDesc">
-                Get <b>15 correct in a row</b>. Any miss resets the streak to 0. Correctly solved questions won’t reappear on this device.
+                Get <b>15 correct in a row</b>. Any miss resets the streak to 0.
               </p>
             </div>
 
@@ -44,6 +46,7 @@
           </div>
 
           <div class="panelBody">
+
             <!-- TRIVIA -->
             <section class="stage show" id="stageTrivia" aria-label="Trivia stage">
               <div class="arena">
@@ -82,67 +85,158 @@
 
                 <div class="rules">
                   <div class="rule"><span class="dotMini"></span>Answers are case-insensitive. Minor punctuation/spacing differences don’t matter.</div>
-                  <div class="rule"><span class="dotMini"></span>No hints. If you want “wow,” earn it.</div>
-                  <div class="rule"><span class="dotMini"></span>Miss = full reset to 0. That’s the point.</div>
+                  <div class="rule"><span class="dotMini"></span>Miss = full reset to 0.</div>
                 </div>
               </div>
             </section>
 
-            <!-- ZOOM -->
-            <section class="stage" id="stageZoom" aria-label="Zoom stage">
+            <!-- NOTE ID -->
+            <section class="stage" id="stageNote" aria-label="Note identification stage">
               <div class="arena">
                 <div class="arenaTop">
                   <div class="kpis">
                     <div class="kpi">
                       <div class="kLabel">Streak</div>
-                      <div class="kValue"><span id="zoomStreak">0</span> / <span id="zoomTarget">6</span></div>
+                      <div class="kValue"><span id="noteStreak">0</span> / <span id="noteTarget">5</span></div>
                     </div>
                     <div class="kpi">
-                      <div class="kLabel">Pool</div>
-                      <div class="kValue"><span id="imgPool">0</span></div>
+                      <div class="kLabel">Status</div>
+                      <div class="kValue mono" id="noteStatus">Ready</div>
                     </div>
                     <div class="kpi">
-                      <div class="kLabel">Source</div>
-                      <div class="kValue mono">Wikimedia Featured</div>
+                      <div class="kLabel">Notes</div>
+                      <div class="kValue mono">A B C D E F G</div>
                     </div>
                   </div>
 
                   <div class="btnRow">
-                    <button class="btn ghost" id="refillImages">Refresh image pool</button>
+                    <button class="btn ghost" id="notePlay">Play note</button>
+                    <button class="btn ghost" id="noteReplay" disabled>Replay</button>
                   </div>
                 </div>
 
-                <div class="zoomWrap">
-                  <div class="zoomFrame" id="zoomFrame" aria-label="Zoom image area">
-                    <div class="zoomOverlay">
-                      <div class="zoomPill" id="zoomPill">Zoomed</div>
-                    </div>
-                    <img id="zoomImg" alt="Zoom puzzle" />
+                <div class="qCard">
+                  <div class="qLabel">What note is it?</div>
+                  <div class="qText small">No sharps/flats. Identify A–G.</div>
+
+                  <div class="answerRow">
+                    <input id="noteAnswer" type="text" autocomplete="off" spellcheck="false" placeholder="type A–G (or click a button)" />
+                    <button class="btn primary" id="noteSubmit">Submit</button>
                   </div>
 
-                  <div class="qCard">
-                    <div class="qLabel">What is it?</div>
-                    <div class="qText small" id="imgPrompt">Name the subject. Be specific but human.</div>
+                  <div class="noteKeys" id="noteKeys" aria-label="Note buttons">
+                    <button class="btn noteBtn" data-note="A">A</button>
+                    <button class="btn noteBtn" data-note="B">B</button>
+                    <button class="btn noteBtn" data-note="C">C</button>
+                    <button class="btn noteBtn" data-note="D">D</button>
+                    <button class="btn noteBtn" data-note="E">E</button>
+                    <button class="btn noteBtn" data-note="F">F</button>
+                    <button class="btn noteBtn" data-note="G">G</button>
+                  </div>
+
+                  <div class="msg" id="noteMsg" aria-live="polite"></div>
+                </div>
+
+                <div class="rules">
+                  <div class="rule"><span class="dotMini"></span>Get <b>5 correct in a row</b> to advance.</div>
+                  <div class="rule"><span class="dotMini"></span>You can also press A–G on your keyboard.</div>
+                </div>
+              </div>
+            </section>
+
+            <!-- SENTENCE REPAIR -->
+            <section class="stage" id="stageRepair" aria-label="Sentence repair stage">
+              <div class="arena">
+                <div class="arenaTop">
+                  <div class="kpis">
+                    <div class="kpi">
+                      <div class="kLabel">Pass streak</div>
+                      <div class="kValue"><span id="repairStreak">0</span> / <span id="repairTarget">3</span></div>
+                    </div>
+                    <div class="kpi">
+                      <div class="kLabel">Time left</div>
+                      <div class="kValue mono" id="repairTime">02:00</div>
+                    </div>
+                    <div class="kpi">
+                      <div class="kLabel">Errors</div>
+                      <div class="kValue mono">20 total</div>
+                    </div>
+                  </div>
+
+                  <div class="btnRow">
+                    <button class="btn ghost" id="repairNew">New round (resets streak)</button>
+                  </div>
+                </div>
+
+                <div class="qCard">
+                  <div class="qLabel">Fix the text</div>
+                  <div class="qText small">Rewrite the corrected version in full (punctuation and capitalization matter). 2:00 limit.</div>
+
+                  <pre class="repairPrompt swapFade isIn" id="repairPrompt">Loading…</pre>
+
+                  <textarea id="repairInput" spellcheck="false" placeholder="Type the corrected text here…"></textarea>
+
+                  <div class="answerRow">
+                    <button class="btn primary" id="repairSubmit">Submit</button>
+                  </div>
+
+                  <div class="msg" id="repairMsg" aria-live="polite"></div>
+                </div>
+
+                <div class="rules">
+                  <div class="rule"><span class="dotMini"></span>Get <b>3 passes in a row</b> to advance.</div>
+                  <div class="rule"><span class="dotMini"></span>Whitespace differences are tolerated. Content must match.</div>
+                </div>
+              </div>
+            </section>
+
+            <!-- GRID NAV -->
+            <section class="stage" id="stageGrid" aria-label="Grid navigation stage">
+              <div class="arena">
+                <div class="arenaTop">
+                  <div class="kpis">
+                    <div class="kpi">
+                      <div class="kLabel">Grid</div>
+                      <div class="kValue mono" id="gridSize">11 × 11</div>
+                    </div>
+                    <div class="kpi">
+                      <div class="kLabel">Steps</div>
+                      <div class="kValue mono">20</div>
+                    </div>
+                    <div class="kpi">
+                      <div class="kLabel">Rule</div>
+                      <div class="kValue mono">Target unmarked</div>
+                    </div>
+                  </div>
+
+                  <div class="btnRow">
+                    <button class="btn ghost" id="gridNew">New grid</button>
+                  </div>
+                </div>
+
+                <div class="gridWrap">
+                  <div class="gridBoardWrap">
+                    <div class="gridHint">Start is the blue dot. Follow the 20 steps. Select the final intersection.</div>
+                    <div class="board" id="gridBoard" aria-label="Grid board"></div>
+                  </div>
+
+                  <div class="gridSide">
+                    <div class="gridStepsBox">
+                      <div class="gridStepsTitle">Directions</div>
+                      <div class="gridStepsArrows mono" id="gridSteps">—</div>
+                      <div class="gridStepsRaw mono" id="gridStepsRaw">—</div>
+                    </div>
 
                     <div class="answerRow">
-                      <input id="imgGuess" type="text" autocomplete="off" spellcheck="false" placeholder="your guess" />
-                      <button class="btn primary" id="submitGuess">Lock in</button>
-                      <button class="btn ghost" id="zoomOut">Zoom out</button>
+                      <button class="btn primary" id="gridSubmit">Submit</button>
                     </div>
 
-                    <div class="msg" id="zoomMsg" aria-live="polite"></div>
+                    <div class="msg" id="gridMsg" aria-live="polite"></div>
                   </div>
                 </div>
 
-                <div class="metaRow" id="imgMeta" hidden>
-                  <div class="metaBox">
-                    <div class="metaLabel">Answer (derived)</div>
-                    <div class="metaValue" id="imgAnswer">—</div>
-                  </div>
-                  <div class="metaBox">
-                    <div class="metaLabel">Title</div>
-                    <div class="metaValue" id="imgTitle">—</div>
-                  </div>
+                <div class="rules">
+                  <div class="rule"><span class="dotMini"></span>Wrong submission generates a new grid (prevents brute forcing).</div>
                 </div>
               </div>
             </section>
@@ -151,7 +245,7 @@
             <section class="stage" id="stageReveal" aria-label="Reveal stage">
               <div class="reveal">
                 <div class="revealTitle">Access Granted</div>
-                <div class="revealSub">You cleared both gates. Here’s the payload.</div>
+                <div class="revealSub">You cleared all gates. Here’s the payload.</div>
 
                 <div class="poemWrap">
                   <div class="poemHead">
@@ -176,33 +270,31 @@
             <div class="sideValue" id="objective">15 correct trivia answers in a row</div>
             <div class="divider"></div>
             <div class="sideText">
-              This system intentionally enforces pressure. Your team should feel friction, then have a clean “ohhhh” moment on the zoom gate.
+              Clear each stage. Misses reset streaks.
             </div>
           </div>
 
           <div class="sideCard">
             <div class="sideLabel">Progress</div>
             <div class="fragLine"><span class="fragKey">Trivia gate</span><span class="fragVal" id="pTrivia">0 / 15</span></div>
-            <div class="fragLine"><span class="fragKey">Zoom gate</span><span class="fragVal" id="pZoom">0 / 6</span></div>
-            <div class="divider"></div>
-            <div class="sideText muted">
-              “Remove solved items” is enforced per browser via local storage. Different devices = fresh pool.
-            </div>
+            <div class="fragLine"><span class="fragKey">Note gate</span><span class="fragVal" id="pNote">0 / 5</span></div>
+            <div class="fragLine"><span class="fragKey">Repair gate</span><span class="fragVal" id="pRepair">0 / 3</span></div>
+            <div class="fragLine"><span class="fragKey">Grid gate</span><span class="fragVal" id="pGrid">—</span></div>
           </div>
 
           <div class="sideCard">
             <div class="sideLabel">Implementation note</div>
             <div class="sideText">
-              Images are fetched from Wikimedia Commons Featured pictures in real time (no assets needed).
-              Judging uses fuzzy matching against title/metadata. It’s deterministic and good enough for humans.
+              Notes are generated locally via WebAudio. Sentence repair uses deterministic mutations (20 total errors per round).
+              Grid navigation generates a random 20-step path; target is not marked.
             </div>
           </div>
         </aside>
       </div>
 
       <footer class="footer">
-        <span>Policy: misses reset streaks. That’s the contract.</span>
-        <span class="muted">If you want “AI evaluation,” you need a backend or a paid API key exposed to the client (not recommended).</span>
+        <span>Misses reset streaks.</span>
+        <span class="muted">Audio playback requires clicking “Play note” at least once (browser policy).</span>
       </footer>
     </section>
   </main>

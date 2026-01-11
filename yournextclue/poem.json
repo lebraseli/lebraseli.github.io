@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "kdf": {
+    "name": "PBKDF2",
+    "hash": "SHA-256",
+    "iterations": 250000,
+    "saltB64": "0wCITxRqFDquAG+2FVSODg=="
+  },
+  "cipher": {
+    "name": "AES-GCM",
+    "ivB64": "+A1UESuS5AF/Z6DP",
+    "ctB64": "k0TjYbbqQpIRziaPCBOos1K/xFod24vak3g8+aLwL6/mmOQl8pTIClSKkZZ4BXPYrsoDOn6tfziOff2n1o9w8SXEDVYJpQWmO8y3cO0d1Yr1p0KZkF8nT79IhA1rqYd4aT2B+8tN5VgHhB1yY0nMI2Z8V5hPq8w0H6tqjz0zU4E+1V7XWfR3x7eZrjAk0e8oZZm5OZ+8f8c3u+u8u7u5gYqD7y2Gv0J+2m9rVY9xC3p0o8GmGfPAXrYHqpt6z8Z7bN9J2vGmXcB2g9K7y+7m1i7yQ0qkqZ5lZVb4rLk9x8KQv0y3bC4Hq7v7g0tZCwqZV3kqHfB2b9f6G0qj0mHc2u6oQ8ZQpP7jv1kq2h0R8b6Zb2GZ5jHq9Qj5pW9hYv1N8gqv0Hn3s4kQF3wuuFrmdqinM7wKg4RHt62kBtznIIOqcvPKBYRj4f511JCj+qTPGrOjFiFxme29jX9lz6wPQqo7fk6gQ="
+  },
+  "hint": "passphrase = fragmentA + fragmentB (lowercase, no spaces)"
+}

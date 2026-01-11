@@ -55,7 +55,7 @@ const STORAGE = {
   triviaStreak: "yn_trivia_streak_v3",
   zoomSolved: "yn_zoom_solved_v1",
   zoomStreak: "yn_zoom_streak_v1",
-  imgCache: "yn_img_cache_v3" // bumped again due to fallback logic
+  imgCache: "yn_img_cache_v3"
 };
 
 const POEM = [
@@ -131,7 +131,7 @@ function setMsg(el, text, kind){
 }
 
 /* =========================
-   TYPO-TOLERANT MATCHING (TRIVIA + ZOOM)
+   TYPO-TOLERANT MATCHING
 ========================= */
 
 function levenshtein(a,b){
@@ -197,6 +197,7 @@ function similarity(a,b){
 
 function setStage(stage){
   state.stage = stage;
+  document.body.dataset.stage = stage; // for better stage-specific styling
 
   ui.stepTrivia.className = "step" + (stage === "trivia" ? " active" : (stage !== "trivia" ? " done" : ""));
   ui.stepZoom.className = "step" + (stage === "zoom" ? " active" : (stage === "reveal" ? " done" : ""));
@@ -213,9 +214,10 @@ function setStage(stage){
     ui.objective.textContent = "15 correct trivia answers in a row";
   } else if(stage === "zoom"){
     ui.panelTitle.textContent = "Stage 2 — Zoom Gate";
-    ui.panelDesc.innerHTML = "Identify the subject from a brutal zoom crop. Get <b>6 in a row</b>. Wrong shows the reveal, then you move on.";
+    ui.panelDesc.innerHTML = "Name what you see in <b>plain terms</b> (e.g., <i>book</i>, <i>bridge</i>, <i>bird</i>, <i>painting</i>). Get <b>6 in a row</b>.";
     ui.statusPill.textContent = "Partially unlocked";
     ui.objective.textContent = "6 correct zoom identifications in a row";
+    if(ui.imgGuess) ui.imgGuess.placeholder = "e.g., book, bridge, bird, painting, mountain…";
   } else {
     ui.panelTitle.textContent = "Stage 3 — Reveal";
     ui.panelDesc.textContent = "You cleared both gates.";
@@ -223,7 +225,7 @@ function setStage(stage){
     ui.objective.textContent = "Read the payload";
   }
 
-  // Auto-load zoom pool when entering zoom stage (prevents Pool 0 + no image)
+  // Auto-load zoom pool when entering zoom stage
   if(stage === "zoom"){
     setTimeout(async () => {
       if(state.zoom.pool.length === 0){
@@ -325,7 +327,7 @@ function checkTriviaAnswer(){
 }
 
 /* =========================
-   ZOOM (robust Wikimedia fetch + fallback)
+   ZOOM — GENERIC ANSWERS (not museum-catalog titles)
 ========================= */
 
 function getCachedImages(){
@@ -334,8 +336,7 @@ function getCachedImages(){
     if(!raw) return null;
     const obj = JSON.parse(raw);
     if(!obj || !Array.isArray(obj.items)) return null;
-    // TTL: 7 days
-    if(Date.now() - (obj.ts || 0) > 7*24*3600*1000) return null;
+    if(Date.now() - (obj.ts || 0) > 7*24*3600*1000) return null; // 7d TTL
     return obj.items;
   } catch { return null; }
 }
@@ -524,6 +525,10 @@ async function ensureImagePool(allowUIMessage=false){
   return true;
 }
 
+function stripHtml(s){
+  return (s || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
 function deriveAnswerFromTitle(title){
   let t = title || "";
   t = t.replace(/^file:/i, "");
@@ -535,32 +540,116 @@ function deriveAnswerFromTitle(title){
   return t;
 }
 
-function stripHtml(s){
-  return (s || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+/**
+ * Categorize each image into an answer that is FAIR for humans.
+ * We still show the specific file title after guessing for the “ohhh” moment.
+ */
+const CATEGORY_RULES = [
+  { label: "Mona Lisa", keys: ["mona lisa"] },
+
+  { label: "painting", keys: ["painting", "oil on canvas", "fresco", "watercolor", "acrylic", "canvas", "triptych", "altarpiece"] },
+  { label: "drawing", keys: ["drawing", "sketch", "ink drawing", "charcoal"] },
+  { label: "sculpture", keys: ["sculpture", "statue", "bust", "bronze", "marble"] },
+  { label: "book", keys: ["book", "manuscript", "codex", "folio", "pages", "page", "library"] },
+  { label: "map", keys: ["map", "atlas", "cartograph", "topographic"] },
+
+  { label: "bridge", keys: ["bridge", "viaduct", "suspension bridge", "overpass"] },
+  { label: "castle", keys: ["castle", "fortress", "citadel"] },
+  { label: "church", keys: ["cathedral", "church", "basilica"] },
+  { label: "temple", keys: ["temple", "shrine", "pagoda"] },
+  { label: "mosque", keys: ["mosque", "minaret"] },
+  { label: "tower", keys: ["tower", "lighthouse"] },
+  { label: "building", keys: ["building", "skyscraper", "architecture", "facade", "interior"] },
+  { label: "street", keys: ["street", "road", "avenue", "highway"] },
+
+  { label: "mountain", keys: ["mountain", "peak", "summit", "alps", "himalaya", "volcano"] },
+  { label: "waterfall", keys: ["waterfall", "falls", "cascade"] },
+  { label: "river", keys: ["river", "delta"] },
+  { label: "lake", keys: ["lake"] },
+  { label: "ocean", keys: ["ocean", "sea", "coast", "beach"] },
+  { label: "forest", keys: ["forest", "woods", "jungle"] },
+  { label: "desert", keys: ["desert", "dune"] },
+
+  { label: "bird", keys: ["bird", "eagle", "owl", "sparrow", "penguin", "flamingo", "heron", "gull"] },
+  { label: "fish", keys: ["fish", "shark", "ray", "salmon", "trout", "tuna"] },
+  { label: "insect", keys: ["insect", "butterfly", "moth", "beetle", "dragonfly", "bee"] },
+  { label: "reptile", keys: ["snake", "lizard", "turtle", "crocodile", "reptile"] },
+  { label: "mammal", keys: ["mammal", "dog", "cat", "horse", "elephant", "tiger", "lion", "bear", "whale", "dolphin"] },
+  { label: "flower", keys: ["flower", "blossom", "orchid", "rose", "tulip"] },
+
+  { label: "airplane", keys: ["airplane", "aircraft", "jet", "airbus", "boeing"] },
+  { label: "ship", keys: ["ship", "boat", "sailing", "yacht", "ferry"] },
+  { label: "train", keys: ["train", "locomotive", "railway"] },
+  { label: "car", keys: ["car", "automobile"] },
+
+  { label: "space", keys: ["nebula", "galaxy", "planet", "moon", "sun", "eclipse", "astronomy", "saturn", "jupiter", "mars"] },
+
+  { label: "person", keys: ["portrait", "self portrait", "person", "people", "man", "woman", "child"] },
+  { label: "food", keys: ["food", "dish", "cake", "bread", "fruit", "meal"] }
+];
+
+function labelAliases(label){
+  const map = {
+    painting: ["art", "artwork", "picture"],
+    drawing: ["sketch", "illustration"],
+    sculpture: ["statue", "bust"],
+    book: ["novel", "text", "pages"],
+    map: ["atlas"],
+    bridge: ["overpass", "viaduct"],
+    church: ["cathedral"],
+    temple: ["shrine", "pagoda"],
+    tower: ["lighthouse"],
+    mountain: ["peak", "volcano"],
+    ocean: ["sea", "beach", "coast"],
+    waterfall: ["falls", "cascade"],
+    forest: ["woods"],
+    bird: ["animal", "wildlife"],
+    fish: ["animal", "sea life"],
+    insect: ["bug"],
+    reptile: ["animal"],
+    mammal: ["animal"],
+    flower: ["plant", "blossom"],
+    airplane: ["plane", "aircraft"],
+    ship: ["boat"],
+    train: ["locomotive"],
+    car: ["vehicle"],
+    space: ["astronomy", "planet", "stars"],
+    person: ["human", "portrait"],
+    food: ["meal"]
+  };
+  return map[label] || [];
+}
+
+function classifyItem(item){
+  const title = stripHtml(deriveAnswerFromTitle(item.title || ""));
+  const obj = stripHtml(item.meta?.objectName || "");
+  const desc = stripHtml(item.meta?.imageDescription || "");
+  const blob = norm([title, obj, desc].join(" "));
+
+  for(const r of CATEGORY_RULES){
+    for(const k of r.keys){
+      if(blob.includes(norm(k))) {
+        const aliases = labelAliases(r.label);
+        return { label: r.label, aliases };
+      }
+    }
+  }
+
+  // Weak fallback heuristics (still human-fair)
+  if(blob.includes("photograph") || blob.includes("photo")) return { label: "photograph", aliases: ["photo", "picture"] };
+  return { label: "image", aliases: ["picture", "photo"] };
 }
 
 function guessMatches(guess, item){
-  const g = norm(guess);
-  if(!g) return { ok:false, score:0 };
+  const { label, aliases } = classifyItem(item);
+  const truths = [label, ...aliases];
 
-  const titleAns = deriveAnswerFromTitle(item.title);
-  const obj = stripHtml(item.meta?.objectName || "");
-  const desc = stripHtml(item.meta?.imageDescription || "");
+  // Very forgiving: exact/contains/typo-tolerant against category words
+  if(matchesAny(guess, truths)) return { ok:true, score:0.95, label };
 
-  const truths = [titleAns, obj].filter(Boolean);
-
-  for(const t of truths){
-    const tn = norm(t);
-    if(tn && (tn.includes(g) || g.includes(tn))) return { ok:true, score:0.98 };
-  }
-
-  let best = 0;
-  for(const t of truths){
-    best = Math.max(best, similarity(g, t));
-  }
-  if(desc && g.length >= 6 && norm(desc).includes(g)) best = Math.max(best, 0.82);
-
-  return { ok: best >= 0.78, score: best };
+  // tiny fallback: similarity against the label itself
+  const s = similarity(guess, label);
+  return { ok: s >= 0.78, score: s, label };
 }
 
 function setZoom(scale, ox, oy){
@@ -595,7 +684,7 @@ async function nextImage(){
 
   const ox = Math.floor(15 + Math.random()*70);
   const oy = Math.floor(15 + Math.random()*70);
-  const scale = 4.8 + Math.random()*2.2;
+  const scale = 4.2 + Math.random()*1.6; // slightly less brutal than before
   setZoom(scale, ox, oy);
 
   ui.zoomPill.textContent = "Zoomed";
@@ -638,11 +727,15 @@ async function checkImageGuess(){
 
   const result = guessMatches(guess, item);
 
+  // Always reveal full image
   zoomOutNow();
 
-  const answer = deriveAnswerFromTitle(item.title);
+  const specificTitle = deriveAnswerFromTitle(item.title);
   ui.imgMeta.hidden = false;
-  ui.imgAnswer.textContent = answer;
+
+  // The “fair” answer is the category label
+  ui.imgAnswer.textContent = result.label;
+  // The “ohhh” moment is the specific title
   ui.imgTitle.textContent = item.title.replace(/^File:/i,"");
 
   if(result.ok){
@@ -654,7 +747,7 @@ async function checkImageGuess(){
 
     saveInt(STORAGE.zoomStreak, state.zoom.streak);
 
-    setMsg(ui.zoomMsg, `Correct.`, "good");
+    setMsg(ui.zoomMsg, `Correct — ${result.label}.`, "good");
 
     if(state.zoom.streak >= state.zoom.target){
       setTimeout(() => {
@@ -671,11 +764,12 @@ async function checkImageGuess(){
     return;
   }
 
+  // Wrong: show answer + specific title (since you move on anyway)
   state.zoom.streak = 0;
   saveInt(STORAGE.zoomStreak, 0);
   ui.zoomStreak.textContent = "0";
 
-  setMsg(ui.zoomMsg, `Incorrect. Answer: ${answer}`, "bad");
+  setMsg(ui.zoomMsg, `Incorrect. It was a ${result.label}.`, "bad");
   renderSide();
 
   await sleep(1100);
@@ -740,10 +834,8 @@ function init(){
   pickTrivia();
   renderSide();
 
-  // background prefetch so zoom stage is ready when you get there
-  ensureImagePool(false).then((ok) => {
+  ensureImagePool(false).then(() => {
     ui.imgPool.textContent = String(state.zoom.pool.length || 0);
-    // do NOT auto-start zoom here; only when stage becomes zoom
   });
 }
 

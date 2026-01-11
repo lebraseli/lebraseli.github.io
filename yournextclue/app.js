@@ -172,11 +172,16 @@ function typoOk(guess, truth){
 function matchesAny(guess, truths){
   const g = norm(guess);
   if(!g) return false;
+
   for(const t of truths){
     if(!t) continue;
     const tn = norm(t);
+
     if(g === tn) return true;
-    if(g.length >= 3 && (tn.includes(g) || g.includes(tn))) return true;
+
+    // IMPORTANT: do NOT allow 1–2 char substring hacks like "a"
+    if(g.length >= 3 && tn.length >= 3 && (tn.includes(g) || g.includes(tn))) return true;
+
     if(typoOk(g, tn)) return true;
   }
   return false;
@@ -197,7 +202,7 @@ function similarity(a,b){
 
 function setStage(stage){
   state.stage = stage;
-  document.body.dataset.stage = stage; // for better stage-specific styling
+  document.body.dataset.stage = stage; // for stage-specific styling
 
   ui.stepTrivia.className = "step" + (stage === "trivia" ? " active" : (stage !== "trivia" ? " done" : ""));
   ui.stepZoom.className = "step" + (stage === "zoom" ? " active" : (stage === "reveal" ? " done" : ""));
@@ -209,7 +214,7 @@ function setStage(stage){
 
   if(stage === "trivia"){
     ui.panelTitle.textContent = "Stage 1 — Trivia Gate";
-    ui.panelDesc.innerHTML = "Get <b>15 correct in a row</b>. Any miss resets streak to 0. Any attempted question is removed on this device.";
+    ui.panelDesc.innerHTML = "Get <b>15 correct in a row</b>. Any miss resets streak to 0. Any attempted question is removed on this device (but remaining resets on page reload).";
     ui.statusPill.textContent = "Locked";
     ui.objective.textContent = "15 correct trivia answers in a row";
   } else if(stage === "zoom"){
@@ -250,14 +255,15 @@ function renderSide(){
 ========================= */
 
 function triviaRemaining(){
+  // Remaining should be based on this-session retired set
   return window.TRIVIA_BANK.filter(q => !state.trivia.retired.has(q.id)).length;
 }
 
 function pickTrivia(){
   const pool = window.TRIVIA_BANK.filter(q => !state.trivia.retired.has(q.id));
   if(pool.length === 0){
-    ui.question.textContent = "No trivia remaining on this device.";
-    setMsg(ui.triviaMsg, "Reset progress to replay.", "warn");
+    ui.question.textContent = "No trivia remaining in this session.";
+    setMsg(ui.triviaMsg, "Reload the page to reset remaining.", "warn");
     return;
   }
   const q = pool[Math.floor(Math.random() * pool.length)];
@@ -285,11 +291,9 @@ function checkTriviaAnswer(){
     return;
   }
 
-  // Retire on any attempt
+  // Retire on any attempt (SESSION ONLY)
   state.trivia.retired.add(q.id);
-  saveSet(STORAGE.triviaRetired, state.trivia.retired);
 
-  // Typo-tolerant correctness
   const truths = [q.a, ...(q.alts || [])];
   const ok = matchesAny(rawGuess, truths);
 
@@ -315,7 +319,6 @@ function checkTriviaAnswer(){
     return;
   }
 
-  // Wrong: show the answer (question is retired anyway)
   state.trivia.streak = 0;
   saveInt(STORAGE.triviaStreak, 0);
   ui.streak.textContent = "0";
@@ -327,7 +330,7 @@ function checkTriviaAnswer(){
 }
 
 /* =========================
-   ZOOM — GENERIC ANSWERS (not museum-catalog titles)
+   ZOOM — GENERIC ANSWERS
 ========================= */
 
 function getCachedImages(){
@@ -336,7 +339,7 @@ function getCachedImages(){
     if(!raw) return null;
     const obj = JSON.parse(raw);
     if(!obj || !Array.isArray(obj.items)) return null;
-    if(Date.now() - (obj.ts || 0) > 7*24*3600*1000) return null; // 7d TTL
+    if(Date.now() - (obj.ts || 0) > 7*24*3600*1000) return null;
     return obj.items;
   } catch { return null; }
 }
@@ -426,7 +429,6 @@ async function fetchFeaturedImagesRobust(target=400){
   return items.slice(0, target);
 }
 
-// Fallback: random Commons files
 async function fetchRandomImages(target=250){
   const base = "https://commons.wikimedia.org/w/api.php";
   const items = [];
@@ -540,10 +542,6 @@ function deriveAnswerFromTitle(title){
   return t;
 }
 
-/**
- * Categorize each image into an answer that is FAIR for humans.
- * We still show the specific file title after guessing for the “ohhh” moment.
- */
 const CATEGORY_RULES = [
   { label: "Mona Lisa", keys: ["mona lisa"] },
 
@@ -635,19 +633,24 @@ function classifyItem(item){
     }
   }
 
-  // Weak fallback heuristics (still human-fair)
   if(blob.includes("photograph") || blob.includes("photo")) return { label: "photograph", aliases: ["photo", "picture"] };
   return { label: "image", aliases: ["picture", "photo"] };
 }
 
 function guessMatches(guess, item){
+  const g = norm(guess);
+
+  // HARD BLOCK: prevent nonsense like "a" / "i" / "x" from ever passing
+  if(g.length < 3){
+    return { ok:false, score:0, label: classifyItem(item).label };
+  }
+
   const { label, aliases } = classifyItem(item);
   const truths = [label, ...aliases];
 
-  // Very forgiving: exact/contains/typo-tolerant against category words
   if(matchesAny(guess, truths)) return { ok:true, score:0.95, label };
 
-  // tiny fallback: similarity against the label itself
+  // Similarity fallback ONLY if guess is non-trivial (already ensured length >= 3)
   const s = similarity(guess, label);
   return { ok: s >= 0.78, score: s, label };
 }
@@ -684,7 +687,7 @@ async function nextImage(){
 
   const ox = Math.floor(15 + Math.random()*70);
   const oy = Math.floor(15 + Math.random()*70);
-  const scale = 4.2 + Math.random()*1.6; // slightly less brutal than before
+  const scale = 4.2 + Math.random()*1.6;
   setZoom(scale, ox, oy);
 
   ui.zoomPill.textContent = "Zoomed";
@@ -720,22 +723,22 @@ async function checkImageGuess(){
   }
 
   const guess = ui.imgGuess.value;
-  if(!guess.trim()){
-    setMsg(ui.zoomMsg, "Enter a guess.", "bad");
+  const g = norm(guess);
+
+  // Enforce minimum specificity
+  if(g.length < 3){
+    setMsg(ui.zoomMsg, "Too short. Use at least 3 characters (e.g., “book”, “bird”, “map”).", "bad");
     return;
   }
 
   const result = guessMatches(guess, item);
 
-  // Always reveal full image
   zoomOutNow();
 
   const specificTitle = deriveAnswerFromTitle(item.title);
   ui.imgMeta.hidden = false;
 
-  // The “fair” answer is the category label
   ui.imgAnswer.textContent = result.label;
-  // The “ohhh” moment is the specific title
   ui.imgTitle.textContent = item.title.replace(/^File:/i,"");
 
   if(result.ok){
@@ -764,7 +767,6 @@ async function checkImageGuess(){
     return;
   }
 
-  // Wrong: show answer + specific title (since you move on anyway)
   state.zoom.streak = 0;
   saveInt(STORAGE.zoomStreak, 0);
   ui.zoomStreak.textContent = "0";
@@ -816,7 +818,12 @@ function init(){
     return;
   }
 
-  state.trivia.retired = loadSet(STORAGE.triviaRetired);
+  // ✅ Requirement: remaining resets on every reload
+  // We enforce this by not loading retired from storage and clearing it on boot.
+  localStorage.removeItem(STORAGE.triviaRetired);
+  state.trivia.retired = new Set();
+
+  // Keep streak persistence (optional). If you want streak to reset on reload too, clear it here.
   state.trivia.streak = loadInt(STORAGE.triviaStreak, 0);
   ui.streak.textContent = String(state.trivia.streak);
 

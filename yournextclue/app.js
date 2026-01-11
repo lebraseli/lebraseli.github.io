@@ -113,13 +113,23 @@ function saveInt(key, v){
   localStorage.setItem(key, String(v));
 }
 
+/**
+ * Normalization now handles:
+ * - capitalization
+ * - punctuation/spaces
+ * - smart quotes
+ * - diacritics (é -> e)
+ * This is the base layer for typo-tolerant matching.
+ */
 function norm(s){
   return (s || "")
     .toLowerCase()
     .trim()
-    .replace(/[’‘]/g,"'")
-    .replace(/[^a-z0-9%+\/\s\.\-\^\(\)=|]/g,"")
-    .replace(/\s+/g," ")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")      // strip diacritics
+    .replace(/[’‘]/g,"'")                 // smart quotes
+    .replace(/[^a-z0-9\s]/g, " ")         // drop punctuation (more forgiving)
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -165,6 +175,70 @@ function renderSide(){
 }
 
 /* =========================
+   TRIVIA MATCHING (typo-tolerant)
+========================= */
+
+function levenshtein(a,b){
+  a = norm(a); b = norm(b);
+  const m = a.length, n = b.length;
+  if(m === 0) return n;
+  if(n === 0) return m;
+  const dp = new Array(n+1);
+  for(let j=0; j<=n; j++) dp[j] = j;
+  for(let i=1; i<=m; i++){
+    let prev = dp[0];
+    dp[0] = i;
+    for(let j=1; j<=n; j++){
+      const temp = dp[j];
+      const cost = a[i-1] === b[j-1] ? 0 : 1;
+      dp[j] = Math.min(dp[j] + 1, dp[j-1] + 1, prev + cost);
+      prev = temp;
+    }
+  }
+  return dp[n];
+}
+
+/**
+ * Typo tolerance tuned to feel like "lots of acceptable variants"
+ * without becoming brute-forceable.
+ */
+function typoOk(guess, truth){
+  const g = norm(guess);
+  const t = norm(truth);
+  if(!g || !t) return false;
+  if(g === t) return true;
+
+  const dist = levenshtein(g, t);
+  const L = Math.max(g.length, t.length);
+
+  // strict for very short answers; still allows 1 typo for "accio"->"acio"
+  if(L <= 4) return dist <= 1;
+  if(L <= 7) return dist <= 1;
+  if(L <= 12) return dist <= 2;
+  return dist <= 3;
+}
+
+function matchesAny(guess, truths){
+  const g = norm(guess);
+  if(!g) return false;
+
+  for(const t of truths){
+    if(!t) continue;
+    const tn = norm(t);
+
+    // exact
+    if(g === tn) return true;
+
+    // containment helps with "the sun" vs "sun"
+    if(g.length >= 3 && (tn.includes(g) || g.includes(tn))) return true;
+
+    // typos
+    if(typoOk(g, tn)) return true;
+  }
+  return false;
+}
+
+/* =========================
    TRIVIA
 ========================= */
 
@@ -197,7 +271,8 @@ function checkTriviaAnswer(){
   const q = state.trivia.current;
   if(!q) return;
 
-  const guess = norm(ui.answer.value);
+  const rawGuess = ui.answer.value;
+  const guess = norm(rawGuess);
   if(!guess){
     setMsg(ui.triviaMsg, "Enter an answer.", "bad");
     return;
@@ -207,8 +282,9 @@ function checkTriviaAnswer(){
   state.trivia.retired.add(q.id);
   saveSet(STORAGE.triviaRetired, state.trivia.retired);
 
-  const correctSet = new Set([norm(q.a), ...(q.alts || []).map(norm)]);
-  const ok = correctSet.has(guess);
+  // NEW: typo-tolerant match against main answer + alts
+  const truths = [q.a, ...(q.alts || [])];
+  const ok = matchesAny(rawGuess, truths);
 
   if(ok){
     state.trivia.streak += 1;
@@ -391,25 +467,6 @@ function stripHtml(s){
   return (s || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function levenshtein(a,b){
-  a = norm(a); b = norm(b);
-  const m = a.length, n = b.length;
-  if(m === 0) return n;
-  if(n === 0) return m;
-  const dp = new Array(n+1);
-  for(let j=0; j<=n; j++) dp[j] = j;
-  for(let i=1; i<=m; i++){
-    let prev = dp[0];
-    dp[0] = i;
-    for(let j=1; j<=n; j++){
-      const temp = dp[j];
-      const cost = a[i-1] === b[j-1] ? 0 : 1;
-      dp[j] = Math.min(dp[j] + 1, dp[j-1] + 1, prev + cost);
-      prev = temp;
-    }
-  }
-  return dp[n];
-}
 function similarity(a,b){
   a = norm(a); b = norm(b);
   if(!a || !b) return 0;

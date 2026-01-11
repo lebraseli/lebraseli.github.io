@@ -1,33 +1,5 @@
 /* app.js
-   REQUIREMENTS (index.html must provide these IDs, otherwise the app will fail fast):
-
-   Global:
-     panelTitle, panelDesc, statusPill
-     objective, pTrivia, pNote, pRepair, pGrid
-     resetProgress
-
-   Steps nav:
-     stepTrivia, stepNote, stepRepair, stepGrid, stepReveal
-
-   Stages:
-     stageTrivia, stageNote, stageRepair, stageGrid, stageReveal
-
-   Trivia stage:
-     streak, remaining, category, question, answer, submitAnswer, triviaMsg
-
-   Note stage:
-     noteStreak, noteTarget, playNote, noteAnswer, submitNote, noteMsg
-
-   Sentence repair stage:
-     repairStreak, repairTarget, repairTimer, repairPrompt, repairAnswer, submitRepair, repairMsg
-
-   Grid stage:
-     gridStreak, gridTarget, gridSteps, gridBoard, gridMsg, resetGrid
-
-   Reveal stage:
-     poemText, revealMsg, fragA, fragB, decryptPoemBtn
-
-   Also requires:
+   Requires:
      trivia_bank.js sets window.TRIVIA_BANK = [...]
      poem.json exists next to index.html (./poem.json) and contains the PBKDF2 + AES-GCM bundle.
 */
@@ -35,6 +7,10 @@
 const $ = (id) => document.getElementById(id);
 
 const ui = {
+  // Theme / global
+  themeToggle: $("themeToggle"),
+  resetProgress: $("resetProgress"),
+
   // Steps
   stepTrivia: $("stepTrivia"),
   stepNote: $("stepNote"),
@@ -61,9 +37,6 @@ const ui = {
   pRepair: $("pRepair"),
   pGrid: $("pGrid"),
 
-  // Global controls
-  resetProgress: $("resetProgress"),
-
   // Trivia
   streak: $("streak"),
   remaining: $("remaining"),
@@ -77,8 +50,10 @@ const ui = {
   noteStreak: $("noteStreak"),
   noteTarget: $("noteTarget"),
   playNote: $("playNote"),
+  replayNote: $("replayNote"),
   noteAnswer: $("noteAnswer"),
   submitNote: $("submitNote"),
+  noteKeys: $("noteKeys"),
   noteMsg: $("noteMsg"),
 
   // Repair
@@ -88,6 +63,7 @@ const ui = {
   repairPrompt: $("repairPrompt"),
   repairAnswer: $("repairAnswer"),
   submitRepair: $("submitRepair"),
+  newRepair: $("newRepair"),
   repairMsg: $("repairMsg"),
 
   // Grid
@@ -97,6 +73,7 @@ const ui = {
   gridBoard: $("gridBoard"),
   gridMsg: $("gridMsg"),
   resetGrid: $("resetGrid"),
+  submitGrid: $("submitGrid"),
 
   // Reveal / Poem
   poemText: $("poemText"),
@@ -104,6 +81,7 @@ const ui = {
   fragA: $("fragA"),
   fragB: $("fragB"),
   decryptPoemBtn: $("decryptPoemBtn"),
+  copyPoem: $("copyPoem"),
 };
 
 const OVERRIDE_CODE = "1324";
@@ -113,15 +91,16 @@ const OVERRIDE_CODE = "1324";
 ========================= */
 function assertUI(){
   const required = [
-    "panelTitle","panelDesc","statusPill","resetProgress",
+    "themeToggle","resetProgress",
     "stepTrivia","stepNote","stepRepair","stepGrid","stepReveal",
+    "panelTitle","panelDesc","statusPill",
     "stageTrivia","stageNote","stageRepair","stageGrid","stageReveal",
     "objective","pTrivia","pNote","pRepair","pGrid",
     "streak","remaining","category","question","answer","submitAnswer","triviaMsg",
-    "noteStreak","noteTarget","playNote","noteAnswer","submitNote","noteMsg",
-    "repairStreak","repairTarget","repairTimer","repairPrompt","repairAnswer","submitRepair","repairMsg",
-    "gridStreak","gridTarget","gridSteps","gridBoard","gridMsg","resetGrid",
-    "poemText","revealMsg","fragA","fragB","decryptPoemBtn"
+    "noteStreak","noteTarget","playNote","replayNote","noteAnswer","submitNote","noteKeys","noteMsg",
+    "repairStreak","repairTarget","repairTimer","repairPrompt","repairAnswer","submitRepair","newRepair","repairMsg",
+    "gridStreak","gridTarget","gridSteps","gridBoard","gridMsg","resetGrid","submitGrid",
+    "poemText","revealMsg","fragA","fragB","decryptPoemBtn","copyPoem"
   ];
 
   const missing = required.filter(k => !ui[k]);
@@ -131,8 +110,6 @@ function assertUI(){
     throw new Error(msg);
   }
 }
-
-function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
 function norm(s){
   return (s || "")
@@ -183,7 +160,7 @@ function levenshteinRaw(a,b){
   return dp[n];
 }
 
-/* Trivia tolerance (kept from your original approach) */
+/* Trivia tolerance */
 function levenshtein(a,b){ return levenshteinRaw(norm(a), norm(b)); }
 
 function typoOk(guess, truth){
@@ -216,15 +193,54 @@ function matchesAny(guess, truths){
 }
 
 /* =========================
+   THEME (system default + persisted toggle)
+========================= */
+const THEME_KEY = "ync_theme"; // "dark" | "light" | "system"
+
+function getThemeSetting(){
+  const v = localStorage.getItem(THEME_KEY);
+  return (v === "dark" || v === "light" || v === "system") ? v : "system";
+}
+
+function setThemeSetting(v){
+  localStorage.setItem(THEME_KEY, v);
+  applyThemeSetting();
+}
+
+function applyThemeSetting(){
+  const root = document.documentElement;
+  const setting = getThemeSetting();
+
+  if(setting === "dark" || setting === "light"){
+    root.dataset.theme = setting;
+  } else {
+    delete root.dataset.theme; // system
+  }
+
+  const effectiveDark = root.dataset.theme
+    ? (root.dataset.theme === "dark")
+    : window.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
+
+  ui.themeToggle.textContent = `Theme: ${setting === "system" ? (effectiveDark ? "System (Dark)" : "System (Light)") : (setting === "dark" ? "Dark" : "Light")}`;
+}
+
+function cycleTheme(){
+  const cur = getThemeSetting();
+  if(cur === "system") return setThemeSetting("dark");
+  if(cur === "dark") return setThemeSetting("light");
+  return setThemeSetting("system");
+}
+
+/* =========================
    APP STATE / FLOW
 ========================= */
 const TESTS = ["trivia","note","repair","grid"]; // reveal is implicit final
 
 const state = {
-  stage: "trivia",        // current stage key
-  order: [],              // randomized test order
-  idx: 0,                 // index in order
-  cleared: new Set(),     // cleared tests
+  stage: "trivia",
+  order: [],
+  idx: 0,
+  cleared: new Set(),
 
   trivia: { target: 15, streak: 0, retired: new Set(), current: null },
   note:   { target: 5,  streak: 0, current: null },
@@ -238,7 +254,6 @@ function setStage(stage){
   state.stage = stage;
   document.body.dataset.stage = stage;
 
-  // Steps UI
   const stepMap = {
     trivia: ui.stepTrivia,
     note: ui.stepNote,
@@ -255,11 +270,9 @@ function setStage(stage){
     reveal: ui.stageReveal
   };
 
-  // Reset classes
   Object.values(stepMap).forEach(el => el.className = "step");
   Object.values(stageMap).forEach(el => el.classList.remove("show"));
 
-  // Mark done/active based on order progress
   for(let i=0; i<state.order.length; i++){
     const key = state.order[i];
     const el = stepMap[key];
@@ -272,7 +285,6 @@ function setStage(stage){
 
   stageMap[stage].classList.add("show");
 
-  // Panel copy
   if(stage === "trivia"){
     ui.panelTitle.textContent = "Test — Trivia";
     ui.panelDesc.innerHTML = `Get <b>${state.trivia.target} correct in a row</b>. Miss resets to 0.`;
@@ -290,7 +302,7 @@ function setStage(stage){
     ui.objective.textContent = `${state.repair.target} wins in a row`;
   } else if(stage === "grid"){
     ui.panelTitle.textContent = "Test — Grid Navigation";
-    ui.panelDesc.innerHTML = `Follow <b>20</b> directions from the blue start dot. Click the final intersection.`;
+    ui.panelDesc.innerHTML = `Follow <b>20</b> directions from the blue start dot. Select the final intersection.`;
     ui.statusPill.textContent = "In progress";
     ui.objective.textContent = `1 correct`;
   } else {
@@ -311,7 +323,6 @@ function renderSide(){
 }
 
 function advanceOrReveal(){
-  // Clear current test
   const justCleared = state.order[state.idx];
   state.cleared.add(justCleared);
 
@@ -322,7 +333,6 @@ function advanceOrReveal(){
     return;
   }
 
-  // Move to next randomized test
   const next = state.order[state.idx];
   setStage(next);
 
@@ -378,7 +388,6 @@ function checkTriviaAnswer(){
     return;
   }
 
-  // retire on any attempt
   state.trivia.retired.add(q.id);
   ui.remaining.textContent = String(triviaRemaining());
 
@@ -421,10 +430,7 @@ const NOTE_BANK = [
   { n:"B", f:493.88 },
 ];
 
-let audio = {
-  ctx: null,
-  master: null,
-};
+let audio = { ctx: null, master: null };
 
 function ensureAudio(){
   if(audio.ctx) return;
@@ -446,7 +452,6 @@ function playTone(freq, ms=750){
   osc.type = "sine";
   osc.frequency.value = freq;
 
-  // envelope
   g.gain.setValueAtTime(0.0001, now);
   g.gain.exponentialRampToValueAtTime(1.0, now + 0.02);
   g.gain.exponentialRampToValueAtTime(0.0001, now + ms/1000);
@@ -463,7 +468,6 @@ function newNoteRound(autoPlay=false){
   ui.noteAnswer.value = "";
   setMsg(ui.noteMsg, "Click Play, then type A–G.", "warn");
   if(autoPlay){
-    // browsers may block autoplay; this is best-effort
     try{ playTone(state.note.current.f, 750); } catch {}
   }
   setTimeout(() => ui.noteAnswer.focus(), 0);
@@ -512,16 +516,28 @@ function checkNoteAnswer(){
   state.note.streak = 0;
   ui.noteStreak.textContent = "0";
   renderSide();
-  setMsg(ui.noteMsg, `Incorrect.`, "bad");
+  setMsg(ui.noteMsg, "Incorrect.", "bad");
   setTimeout(() => newNoteRound(false), 450);
+}
+
+function buildNoteKeys(){
+  ui.noteKeys.innerHTML = "";
+  for(const n of ["A","B","C","D","E","F","G"]){
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn ghost";
+    b.textContent = n;
+    b.addEventListener("click", () => {
+      ui.noteAnswer.value = n;
+      checkNoteAnswer();
+    });
+    ui.noteKeys.appendChild(b);
+  }
 }
 
 /* =========================
    SENTENCE REPAIR (2 minutes)
 ========================= */
-/* Each entry is one “round”: 4 sentences broken -> fixed.
-   Total errors ~20 per round; this is intentionally unforgiving.
-*/
 const REPAIR_BANK = [
   {
     broken:
@@ -587,7 +603,6 @@ function startRepairTimer(){
       state.repair.streak = 0;
       ui.repairStreak.textContent = "0";
       renderSide();
-      // Load next round after a beat
       setTimeout(() => newRepairRound(false), 650);
     }
   };
@@ -641,8 +656,6 @@ function checkRepairAnswer(){
   const guess = canonRepair(raw);
   const truth = canonRepair(state.repair.current.fixed);
 
-  // Strict-ish, but not petty on whitespace/quotes/case:
-  // Accept exact match OR very small edit distance.
   const dist = levenshteinRaw(guess, truth);
   const ok = (guess === truth) || dist <= 6;
 
@@ -675,17 +688,14 @@ function checkRepairAnswer(){
    GRID NAV (20 steps)
 ========================= */
 function makeGridModel(){
-  const size = 9; // intersections: 9x9 (0..8)
+  const size = 9; // 9x9 intersections
   const stepsN = 20;
-  const dirs = ["U","D","L","R"];
 
-  // pick start with margin so we can generate steps without endless retries
   const start = {
     x: 2 + Math.floor(Math.random() * (size - 4)),
     y: 2 + Math.floor(Math.random() * (size - 4)),
   };
 
-  // generate a valid 20-step path that stays in-bounds
   let steps = [];
   let x = start.x, y = start.y;
 
@@ -696,7 +706,6 @@ function makeGridModel(){
     if(x > 0) options.push("L");
     if(x < size-1) options.push("R");
 
-    // bias away from immediate undo (optional)
     const prev = steps[i-1];
     const filtered = options.filter(d => {
       if(prev === "U" && d === "D") return false;
@@ -716,9 +725,7 @@ function makeGridModel(){
     if(d === "R") x += 1;
   }
 
-  const target = { x, y };
-
-  return { size, start, steps, target, chosen: null };
+  return { size, start, steps, target: { x, y }, chosen: null };
 }
 
 function dirToText(d){
@@ -733,10 +740,10 @@ function renderGrid(){
   const m = state.grid.model;
   if(!m) return;
 
-  // steps list
-  ui.gridSteps.innerHTML = m.steps.map((d,i) => `<div class="stepLine"><span class="mono">${String(i+1).padStart(2,"0")}</span> ${dirToText(d)}</div>`).join("");
+  ui.gridSteps.innerHTML = m.steps
+    .map((d,i) => `<div class="stepLine"><span class="mono">${String(i+1).padStart(2,"0")}</span> ${dirToText(d)}</div>`)
+    .join("");
 
-  // board
   ui.gridBoard.innerHTML = "";
   ui.gridBoard.style.setProperty("--n", String(m.size));
 
@@ -749,24 +756,8 @@ function renderGrid(){
       cell.dataset.y = String(y);
       cell.setAttribute("aria-label", `Intersection ${x},${y}`);
 
-      const isStart = (x===m.start.x && y===m.start.y);
-      const isChosen = (m.chosen && x===m.chosen.x && y===m.chosen.y);
-
-      if(isStart) cell.classList.add("start");
-      if(isChosen) cell.classList.add("chosen");
-
-      cell.addEventListener("click", () => {
-        m.chosen = { x, y };
-        renderGrid();
-        setMsg(ui.gridMsg, "Selection recorded. Submit by clicking the selected point again.", "warn");
-      });
-
-      // double-click submit behavior (simple)
-      cell.addEventListener("dblclick", () => {
-        m.chosen = { x, y };
-        renderGrid();
-        checkGridChoice();
-      });
+      if(x===m.start.x && y===m.start.y) cell.classList.add("start");
+      if(m.chosen && x===m.chosen.x && y===m.chosen.y) cell.classList.add("chosen");
 
       ui.gridBoard.appendChild(cell);
     }
@@ -776,7 +767,7 @@ function renderGrid(){
 function newGridRound(resetMsg=false){
   state.grid.model = makeGridModel();
   renderGrid();
-  setMsg(ui.gridMsg, resetMsg ? "Click the final intersection (double-click to submit)." : "Click an intersection (double-click to submit).", "warn");
+  setMsg(ui.gridMsg, resetMsg ? "New grid generated. Select the final intersection, then submit." : "Select an intersection, then submit.", "warn");
 }
 
 function checkGridChoice(){
@@ -785,13 +776,11 @@ function checkGridChoice(){
     setMsg(ui.gridMsg, "No grid loaded.", "bad");
     return;
   }
-
   if(!m.chosen){
     setMsg(ui.gridMsg, "Select an intersection first.", "bad");
     return;
   }
 
-  // override via hidden input is not applicable here; keep it consistent by allowing it in message box only
   const ok = (m.chosen.x === m.target.x && m.chosen.y === m.target.y);
 
   if(ok){
@@ -884,6 +873,9 @@ async function tryDecryptFromInputs(){
     return;
   }
 
+  ui.decryptPoemBtn.disabled = true;
+  ui.decryptPoemBtn.textContent = "Decrypting…";
+
   try{
     const poem = await decryptPoemJson(pass, pj);
     ui.poemText.textContent = poem;
@@ -893,6 +885,37 @@ async function tryDecryptFromInputs(){
     ui.poemText.textContent = "";
     const hint = pj?.hint ? ` ${pj.hint}` : "";
     setMsg(ui.revealMsg, `Decryption failed.${hint}`, "bad");
+  } finally {
+    ui.decryptPoemBtn.disabled = false;
+    ui.decryptPoemBtn.textContent = "Decrypt";
+  }
+}
+
+async function copyPoem(){
+  const text = ui.poemText.textContent || "";
+  if(!text){
+    setMsg(ui.revealMsg, "Nothing to copy yet.", "warn");
+    return;
+  }
+  try{
+    await navigator.clipboard.writeText(text);
+    setMsg(ui.revealMsg, "Copied to clipboard.", "good");
+  } catch {
+    // Fallback
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    try{
+      document.execCommand("copy");
+      setMsg(ui.revealMsg, "Copied to clipboard.", "good");
+    } catch {
+      setMsg(ui.revealMsg, "Copy failed (browser permission).", "bad");
+    } finally {
+      document.body.removeChild(ta);
+    }
   }
 }
 
@@ -902,10 +925,8 @@ async function tryDecryptFromInputs(){
 function resetAllProgress(){
   if(!confirm("This will reset progress for this browser session. Continue?")) return;
 
-  // stop timers
   stopRepairTimer();
 
-  // reset state
   state.idx = 0;
   state.cleared = new Set();
 
@@ -938,10 +959,8 @@ function resetAllProgress(){
   ui.fragA.value = "";
   ui.fragB.value = "";
 
-  // new randomized order
   state.order = shuffle(TESTS);
 
-  // start first
   const first = state.order[0];
   setStage(first);
   if(first === "trivia") pickTrivia();
@@ -955,37 +974,40 @@ function resetAllProgress(){
 async function init(){
   assertUI();
 
+  applyThemeSetting();
+  window.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener?.("change", () => {
+    if(getThemeSetting() === "system") applyThemeSetting();
+  });
+
+  buildNoteKeys();
+
   if(!window.TRIVIA_BANK || !Array.isArray(window.TRIVIA_BANK) || window.TRIVIA_BANK.length < 50){
     ui.question.textContent = "Trivia bank missing or invalid.";
     setMsg(ui.triviaMsg, "Ensure trivia_bank.js is loaded before app.js.", "bad");
     return;
   }
 
-  // Randomize test order every load
   state.order = shuffle(TESTS);
   state.idx = 0;
 
-  // Targets (set labels)
   ui.noteTarget.textContent = String(state.note.target);
   ui.repairTarget.textContent = String(state.repair.target);
   ui.gridTarget.textContent = String(state.grid.target);
 
-  // Always reset streaks on reload (session pressure)
   ui.streak.textContent = "0";
   ui.noteStreak.textContent = "0";
   ui.repairStreak.textContent = "0";
   ui.gridStreak.textContent = "0";
   ui.remaining.textContent = String(triviaRemaining());
 
-  // Load poem.json for final decrypt
   try{
     await loadPoemJson();
+    setMsg(ui.revealMsg, "Ready to decrypt when unlocked.", "warn");
   } catch (e){
     console.error(e);
     setMsg(ui.revealMsg, "Warning: poem.json failed to load. Reveal stage will not decrypt.", "warn");
   }
 
-  // Enter first test
   const first = state.order[0];
   setStage(first);
 
@@ -1000,6 +1022,9 @@ async function init(){
 /* =========================
    EVENTS
 ========================= */
+// Theme
+ui.themeToggle.addEventListener("click", cycleTheme);
+
 // Trivia
 ui.submitAnswer.addEventListener("click", checkTriviaAnswer);
 ui.answer.addEventListener("keydown", (e) => { if(e.key === "Enter") checkTriviaAnswer(); });
@@ -1016,33 +1041,72 @@ ui.playNote.addEventListener("click", () => {
     setMsg(ui.noteMsg, "Audio blocked. Interact with the page and try again.", "bad");
   }
 });
+ui.replayNote.addEventListener("click", () => {
+  if(!state.note.current){
+    setMsg(ui.noteMsg, "No note loaded yet. Click Play.", "warn");
+    return;
+  }
+  try{
+    playTone(state.note.current.f, 750);
+    setMsg(ui.noteMsg, "Replayed. Enter A–G.", "warn");
+    ui.noteAnswer.focus();
+  } catch (e){
+    console.error(e);
+    setMsg(ui.noteMsg, "Audio blocked. Interact with the page and try again.", "bad");
+  }
+});
 ui.submitNote.addEventListener("click", checkNoteAnswer);
 ui.noteAnswer.addEventListener("keydown", (e) => { if(e.key === "Enter") checkNoteAnswer(); });
 
 // Repair
 ui.submitRepair.addEventListener("click", checkRepairAnswer);
-ui.repairAnswer.addEventListener("keydown", (e) => { if(e.key === "Enter" && (e.metaKey || e.ctrlKey)) checkRepairAnswer(); });
+ui.repairAnswer.addEventListener("keydown", (e) => {
+  if(e.key === "Enter" && (e.metaKey || e.ctrlKey)) checkRepairAnswer();
+});
+ui.newRepair.addEventListener("click", () => newRepairRound(true));
 
 // Grid
 ui.resetGrid.addEventListener("click", () => newGridRound(true));
-// Allow “submit” by clicking chosen point again (single-click submit)
+ui.submitGrid.addEventListener("click", checkGridChoice);
+
+// Grid selection: click selects, click same again submits; dblclick submits immediately
 ui.gridBoard.addEventListener("click", (e) => {
   const btn = e.target?.closest?.(".gridCell");
   if(!btn) return;
   const x = Number(btn.dataset.x);
   const y = Number(btn.dataset.y);
   const m = state.grid.model;
-  if(!m || !m.chosen) return;
-  if(m.chosen.x === x && m.chosen.y === y){
+  if(!m) return;
+
+  if(m.chosen && m.chosen.x === x && m.chosen.y === y){
     checkGridChoice();
+    return;
   }
+
+  m.chosen = { x, y };
+  renderGrid();
+  setMsg(ui.gridMsg, "Selection recorded. Click again or press Submit.", "warn");
+});
+
+ui.gridBoard.addEventListener("dblclick", (e) => {
+  const btn = e.target?.closest?.(".gridCell");
+  if(!btn) return;
+  const x = Number(btn.dataset.x);
+  const y = Number(btn.dataset.y);
+  const m = state.grid.model;
+  if(!m) return;
+  m.chosen = { x, y };
+  renderGrid();
+  checkGridChoice();
 });
 
 // Reveal
 ui.decryptPoemBtn.addEventListener("click", tryDecryptFromInputs);
 ui.fragB.addEventListener("keydown", (e) => { if(e.key === "Enter") tryDecryptFromInputs(); });
+ui.copyPoem.addEventListener("click", copyPoem);
 
 // Reset
 ui.resetProgress.addEventListener("click", resetAllProgress);
 
+// Init
 window.addEventListener("load", () => { init(); });

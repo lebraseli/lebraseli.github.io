@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="light dark" />
   <title>Your Next Clue</title>
-  <meta name="description" content="Multi-gate puzzle: trivia, music notes, repair, grid — randomized order." />
+  <meta name="description" content="Multi-gate puzzle: trivia, music notes, repair — then final reveal." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650;750&display=swap" rel="stylesheet">
@@ -29,11 +29,14 @@
             <button class="step" id="stepTrivia" type="button"><span class="dot"></span>Trivia</button>
             <button class="step" id="stepNote" type="button"><span class="dot"></span>Music Notes</button>
             <button class="step" id="stepRepair" type="button"><span class="dot"></span>Repair</button>
-            <button class="step" id="stepGrid" type="button"><span class="dot"></span>Grid</button>
           </nav>
 
-          <button class="btn ghost themeBtn" id="themeToggle" type="button" aria-label="Toggle theme">
-            Toggle theme
+          <!-- Sun icon theme toggle (works) -->
+          <button class="iconBtn" id="themeToggle" data-action="toggle-theme" type="button" aria-label="Toggle theme">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                d="M12 4V2m0 20v-2m8-8h2M2 12h2m13.657-6.343 1.414-1.414M4.929 19.071l1.414-1.414m12.728 1.414-1.414-1.414M6.343 6.343 4.929 4.929M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z"/>
+            </svg>
           </button>
         </div>
       </header>
@@ -187,86 +190,30 @@
               </div>
             </section>
 
-            <!-- GRID -->
-            <section class="stage" id="stageGrid" aria-label="Grid gate">
-              <div class="arena">
-                <div class="arenaTop">
-                  <div class="kpis">
-                    <div class="kpi">
-                      <div class="kLabel">Streak</div>
-                      <div class="kValue"><span id="gridStreak">0</span> / <span id="gridTarget">1</span></div>
-                    </div>
-                    <div class="kpi">
-                      <div class="kLabel">Directions</div>
-                      <div class="kValue mono">15 steps</div>
-                    </div>
-                    <div class="kpi">
-                      <div class="kLabel">Visibility</div>
-                      <div class="kValue"><span id="gridTimer">0:30</span></div>
-                    </div>
-                  </div>
-
-                  <div class="btnRow">
-                    <button class="btn ghost" id="resetGrid" type="button">Regenerate</button>
-                  </div>
-                </div>
-
-                <div class="gridWrap">
-                  <div class="qCard">
-                    <div class="qLabel">Directions (hide after 30s)</div>
-                    <div class="qText small">
-                      Memorize the 15 directions. After 30 seconds, they disappear and you must click the full path on the grid.
-                      <b>Click start first</b>, then every step, then press Submit.
-                    </div>
-
-                    <div class="dirList" id="gridSteps">Loading…</div>
-
-                    <div class="btnRow">
-                      <button class="btn primary" id="submitGrid" type="button" disabled>Submit Path</button>
-                    </div>
-
-                    <div class="msg" id="gridMsg" aria-live="polite"></div>
-                  </div>
-
-                  <div class="gridBoard">
-                    <div class="gridLegend">
-                      <span class="pill">Start is blue</span>
-                      <span class="pill">Your path is green</span>
-                    </div>
-                    <div class="grid" id="gridBoard"></div>
-                  </div>
-                </div>
-
-                <div class="rules">
-                  <div class="rule"><span class="dotMini"></span>Wrong step resets your entered path (and streak on submit failure).</div>
-                </div>
-              </div>
-            </section>
-
-            <!-- REVEAL -->
+            <!-- REVEAL (Redesigned) -->
             <section class="stage" id="stageReveal" aria-label="Reveal stage">
-              <div class="reveal">
-                <div class="revealTitle">Access Granted</div>
-                <div class="revealSub">All gates cleared. Enter the passphrase fragments to decrypt.</div>
+              <div class="revealFull">
+                <!-- Top-right sun icon toggle (works) -->
+                <button class="iconBtn revealTheme" id="revealThemeToggle" data-action="toggle-theme" type="button" aria-label="Toggle theme">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                      d="M12 4V2m0 20v-2m8-8h2M2 12h2m13.657-6.343 1.414-1.414M4.929 19.071l1.414-1.414m12.728 1.414-1.414-1.414M6.343 6.343 4.929 4.929M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z"/>
+                  </svg>
+                </button>
 
-                <div class="qCard" style="margin-top:12px;">
-                  <div class="qLabel">Passphrase</div>
-                  <div class="qText small">Passphrase = fragmentA + fragmentB (lowercase, no spaces)</div>
-
-                  <div class="answerRow">
-                    <input id="fragA" type="text" autocomplete="off" spellcheck="false" placeholder="fragmentA" />
-                    <input id="fragB" type="text" autocomplete="off" spellcheck="false" placeholder="fragmentB" />
-                    <button class="btn primary" id="decryptPoemBtn" type="button">Decrypt</button>
-                  </div>
-
-                  <div class="msg" id="revealMsg" aria-live="polite"></div>
+                <div class="revealHero">
+                  <div class="revealKicker">Unlocked</div>
+                  <h2 class="revealHeadline">Access Granted</h2>
+                  <p class="revealLead">
+                    You’ve cleared the sequence. The final clue is embedded in the poem below.
+                  </p>
                 </div>
 
-                <div class="poemWrap">
-                  <div class="poemHead">
-                    <div class="poemTitle">Payload</div>
+                <div class="revealCard">
+                  <div class="revealCardHead">
+                    <div class="revealCardTitle">Final Poem</div>
                   </div>
-                  <pre class="poem" id="poemText"></pre>
+                  <pre class="revealPoem" id="poemText"></pre>
                 </div>
               </div>
             </section>
@@ -280,7 +227,7 @@
             <div class="sideValue" id="objective">Clear all gates</div>
             <div class="divider"></div>
             <div class="sideText">
-              Gate order is randomized on each page load. Misses reset the active gate’s streak.
+              Gate order is fixed. Misses reset the active gate’s streak.
             </div>
           </div>
 
@@ -289,10 +236,9 @@
             <div class="fragLine"><span class="fragKey">Trivia gate</span><span class="fragVal" id="pTrivia">0 / 15</span></div>
             <div class="fragLine"><span class="fragKey">Music Notes gate</span><span class="fragVal" id="pNote">0 / 5</span></div>
             <div class="fragLine"><span class="fragKey">Repair gate</span><span class="fragVal" id="pRepair">0 / 3</span></div>
-            <div class="fragLine"><span class="fragKey">Grid gate</span><span class="fragVal" id="pGrid">0 / 1</span></div>
             <div class="divider"></div>
             <div class="sideText muted">
-              Grid directions hide after 30 seconds. You must click the full remembered path and then submit.
+              Theme persists; progress does not.
             </div>
           </div>
         </aside>

@@ -1,27 +1,29 @@
-/* app.js
-   Requires:
-     trivia_bank.js sets window.TRIVIA_BANK = [...]
-     poem.json exists next to index.html (./poem.json) and contains the PBKDF2 + AES-GCM bundle.
+/* app.js — Your Next Clue
+   - Tabs at top switch stages (Reveal has no tab).
+   - Full reset on every reload (no persistence).
+   - Repair allows up to 3 mistakes (word-level tolerance) and enforces 4-line numbered format.
 */
 
 const $ = (id) => document.getElementById(id);
 
 const ui = {
-  // Theme / global
-  themeToggle: $("themeToggle"),
-  resetProgress: $("resetProgress"),
-
-  // Steps
+  // Tabs
   stepTrivia: $("stepTrivia"),
   stepNote: $("stepNote"),
   stepRepair: $("stepRepair"),
   stepGrid: $("stepGrid"),
-  stepReveal: $("stepReveal"),
+
+  // Theme
+  themeToggle: $("themeToggle"),
 
   // Panels
   panelTitle: $("panelTitle"),
   panelDesc: $("panelDesc"),
   statusPill: $("statusPill"),
+  objective: $("objective"),
+
+  // Global
+  resetProgress: $("resetProgress"),
 
   // Stages
   stageTrivia: $("stageTrivia"),
@@ -30,8 +32,7 @@ const ui = {
   stageGrid: $("stageGrid"),
   stageReveal: $("stageReveal"),
 
-  // Sidebar
-  objective: $("objective"),
+  // Sidebar progress
   pTrivia: $("pTrivia"),
   pNote: $("pNote"),
   pRepair: $("pRepair"),
@@ -39,6 +40,7 @@ const ui = {
 
   // Trivia
   streak: $("streak"),
+  triviaTarget: $("triviaTarget"),
   remaining: $("remaining"),
   category: $("category"),
   question: $("question"),
@@ -46,14 +48,12 @@ const ui = {
   submitAnswer: $("submitAnswer"),
   triviaMsg: $("triviaMsg"),
 
-  // Note
+  // Music notes
   noteStreak: $("noteStreak"),
   noteTarget: $("noteTarget"),
   playNote: $("playNote"),
-  replayNote: $("replayNote"),
   noteAnswer: $("noteAnswer"),
   submitNote: $("submitNote"),
-  noteKeys: $("noteKeys"),
   noteMsg: $("noteMsg"),
 
   // Repair
@@ -61,9 +61,9 @@ const ui = {
   repairTarget: $("repairTarget"),
   repairTimer: $("repairTimer"),
   repairPrompt: $("repairPrompt"),
+  repairFormat: $("repairFormat"),
   repairAnswer: $("repairAnswer"),
   submitRepair: $("submitRepair"),
-  newRepair: $("newRepair"),
   repairMsg: $("repairMsg"),
 
   // Grid
@@ -73,38 +73,37 @@ const ui = {
   gridBoard: $("gridBoard"),
   gridMsg: $("gridMsg"),
   resetGrid: $("resetGrid"),
-  submitGrid: $("submitGrid"),
 
-  // Reveal / Poem
+  // Reveal
   poemText: $("poemText"),
   revealMsg: $("revealMsg"),
   fragA: $("fragA"),
   fragB: $("fragB"),
   decryptPoemBtn: $("decryptPoemBtn"),
-  copyPoem: $("copyPoem"),
 };
 
 const OVERRIDE_CODE = "1324";
+const TESTS = ["trivia", "note", "repair", "grid"];
+const REPAIR_ALLOWED_MISTAKES = 3;
 
 /* =========================
    UTIL
 ========================= */
-function assertUI(){
+function assertUI() {
   const required = [
-    "themeToggle","resetProgress",
-    "stepTrivia","stepNote","stepRepair","stepGrid","stepReveal",
-    "panelTitle","panelDesc","statusPill",
+    "stepTrivia","stepNote","stepRepair","stepGrid",
+    "panelTitle","panelDesc","statusPill","objective","resetProgress",
     "stageTrivia","stageNote","stageRepair","stageGrid","stageReveal",
-    "objective","pTrivia","pNote","pRepair","pGrid",
-    "streak","remaining","category","question","answer","submitAnswer","triviaMsg",
-    "noteStreak","noteTarget","playNote","replayNote","noteAnswer","submitNote","noteKeys","noteMsg",
-    "repairStreak","repairTarget","repairTimer","repairPrompt","repairAnswer","submitRepair","newRepair","repairMsg",
-    "gridStreak","gridTarget","gridSteps","gridBoard","gridMsg","resetGrid","submitGrid",
-    "poemText","revealMsg","fragA","fragB","decryptPoemBtn","copyPoem"
+    "pTrivia","pNote","pRepair","pGrid",
+    "streak","triviaTarget","remaining","category","question","answer","submitAnswer","triviaMsg",
+    "noteStreak","noteTarget","playNote","noteAnswer","submitNote","noteMsg",
+    "repairStreak","repairTarget","repairTimer","repairPrompt","repairFormat","repairAnswer","submitRepair","repairMsg",
+    "gridStreak","gridTarget","gridSteps","gridBoard","gridMsg","resetGrid",
+    "poemText","revealMsg","fragA","fragB","decryptPoemBtn"
   ];
 
   const missing = required.filter(k => !ui[k]);
-  if(missing.length){
+  if (missing.length) {
     const msg = `Missing required DOM IDs: ${missing.join(", ")}`;
     console.error(msg);
     throw new Error(msg);
@@ -118,7 +117,7 @@ function norm(s){
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[’‘]/g,"'")
-    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/[^a-z0-9\s']/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -141,6 +140,191 @@ function shuffle(arr){
   return a;
 }
 
+function levenshteinTokens(aTokens, bTokens){
+  const a = aTokens, b = bTokens;
+  const m = a.length, n = b.length;
+  if(m === 0) return n;
+  if(n === 0) return m;
+
+  const dp = new Array(n + 1);
+  for(let j=0; j<=n; j++) dp[j] = j;
+
+  for(let i=1; i<=m; i++){
+    let prev = dp[0];
+    dp[0] = i;
+    for(let j=1; j<=n; j++){
+      const tmp = dp[j];
+      const cost = (a[i-1] === b[j-1]) ? 0 : 1;
+      dp[j] = Math.min(
+        dp[j] + 1,      // delete
+        dp[j-1] + 1,    // insert
+        prev + cost     // substitute
+      );
+      prev = tmp;
+    }
+  }
+  return dp[n];
+}
+
+/* =========================
+   THEME
+========================= */
+function preferredTheme(){
+  const saved = localStorage.getItem("ync_theme");
+  if(saved === "light" || saved === "dark") return saved;
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(t){
+  document.documentElement.dataset.theme = t;
+  ui.themeToggle.textContent = (t === "dark") ? "Dark" : "Light";
+}
+
+function toggleTheme(){
+  const cur = document.documentElement.dataset.theme || preferredTheme();
+  const next = (cur === "dark") ? "light" : "dark";
+  localStorage.setItem("ync_theme", next);
+  applyTheme(next);
+}
+
+/* =========================
+   APP STATE / FLOW
+========================= */
+const state = {
+  stage: "trivia",
+  initialized: new Set(),
+  cleared: new Set(),
+
+  trivia: { target: 15, streak: 0, retired: new Set(), current: null },
+  note:   { target: 5,  streak: 0, current: null },
+  repair: { target: 3,  streak: 0, current: null, deadlineTs: 0, timerId: null },
+  grid:   { target: 1,  streak: 0, model: null },
+
+  poem: { json: null }
+};
+
+function allCleared(){
+  return TESTS.every(k => state.cleared.has(k));
+}
+
+function renderSide(){
+  ui.pTrivia.textContent = `${state.trivia.streak} / ${state.trivia.target}`;
+  ui.pNote.textContent   = `${state.note.streak} / ${state.note.target}`;
+  ui.pRepair.textContent = `${state.repair.streak} / ${state.repair.target}`;
+  ui.pGrid.textContent   = `${state.grid.streak} / ${state.grid.target}`;
+}
+
+function renderTabs(){
+  const tabMap = {
+    trivia: ui.stepTrivia,
+    note: ui.stepNote,
+    repair: ui.stepRepair,
+    grid: ui.stepGrid
+  };
+
+  for(const [k, el] of Object.entries(tabMap)){
+    el.className = "step";
+    if(state.cleared.has(k)) el.classList.add("done");
+    if(state.stage === k) el.classList.add("active");
+  }
+
+  // Reveal has no tab; remove active highlight when revealing
+  if(state.stage === "reveal"){
+    Object.values(tabMap).forEach(el => el.classList.remove("active"));
+  }
+}
+
+function showStage(stage){
+  state.stage = stage;
+  document.body.dataset.stage = stage;
+
+  // Hide all
+  ui.stageTrivia.classList.remove("show");
+  ui.stageNote.classList.remove("show");
+  ui.stageRepair.classList.remove("show");
+  ui.stageGrid.classList.remove("show");
+  ui.stageReveal.classList.remove("show");
+
+  // Show selected
+  const map = {
+    trivia: ui.stageTrivia,
+    note: ui.stageNote,
+    repair: ui.stageRepair,
+    grid: ui.stageGrid,
+    reveal: ui.stageReveal
+  };
+  map[stage].classList.add("show");
+
+  // Panel copy
+  if(stage === "trivia"){
+    ui.panelTitle.textContent = "Test — Trivia";
+    ui.panelDesc.innerHTML = `Get <b>${state.trivia.target} correct in a row</b>. Miss resets to 0.`;
+    ui.statusPill.textContent = state.cleared.has("trivia") ? "Cleared" : "In progress";
+    ui.objective.textContent = `${state.trivia.target} in a row`;
+  } else if(stage === "note"){
+    ui.panelTitle.textContent = "Test — Music Notes";
+    ui.panelDesc.innerHTML = `Listen to a note and type the letter (<b>A–G</b>). Get <b>${state.note.target} in a row</b>.`;
+    ui.statusPill.textContent = state.cleared.has("note") ? "Cleared" : "In progress";
+    ui.objective.textContent = `${state.note.target} in a row`;
+  } else if(stage === "repair"){
+    ui.panelTitle.textContent = "Test — Sentence Repair";
+    ui.panelDesc.innerHTML = `Fix the text. <b>2:00</b> limit. Up to <b>${REPAIR_ALLOWED_MISTAKES}</b> accidental mistakes allowed. Get <b>${state.repair.target} wins in a row</b>.`;
+    ui.statusPill.textContent = state.cleared.has("repair") ? "Cleared" : "In progress";
+    ui.objective.textContent = `${state.repair.target} wins in a row`;
+  } else if(stage === "grid"){
+    ui.panelTitle.textContent = "Test — Grid Navigation";
+    ui.panelDesc.innerHTML = `Follow <b>20</b> directions from the blue start dot. Click the final intersection.`;
+    ui.statusPill.textContent = state.cleared.has("grid") ? "Cleared" : "In progress";
+    ui.objective.textContent = `1 correct`;
+  } else {
+    ui.panelTitle.textContent = "Access Granted";
+    ui.panelDesc.textContent = "";
+    ui.statusPill.textContent = "Unlocked";
+    ui.objective.textContent = "";
+  }
+
+  renderTabs();
+  renderSide();
+}
+
+function ensureStageInitialized(stage){
+  if(state.initialized.has(stage)) return;
+
+  if(stage === "trivia") pickTrivia();
+  if(stage === "note") newNoteRound();
+  if(stage === "repair") newRepairRound(true);
+  if(stage === "grid") newGridRound(true);
+
+  state.initialized.add(stage);
+}
+
+function setStage(stage){
+  showStage(stage);
+  ensureStageInitialized(stage);
+}
+
+function markClearedAndAdvance(which){
+  state.cleared.add(which);
+  renderTabs();
+
+  if(allCleared()){
+    setStage("reveal");
+    setMsg(ui.revealMsg, "Enter fragmentA + fragmentB, then decrypt.", "warn");
+    return;
+  }
+
+  const remaining = TESTS.filter(k => !state.cleared.has(k));
+  const next = remaining[Math.floor(Math.random() * remaining.length)];
+  setStage(next);
+}
+
+/* =========================
+   TRIVIA
+========================= */
+function triviaRemaining(){
+  return window.TRIVIA_BANK.filter(q => !state.trivia.retired.has(q.id)).length;
+}
+
 function levenshteinRaw(a,b){
   const m = a.length, n = b.length;
   if(m === 0) return n;
@@ -159,9 +343,6 @@ function levenshteinRaw(a,b){
   }
   return dp[n];
 }
-
-/* Trivia tolerance */
-function levenshtein(a,b){ return levenshteinRaw(norm(a), norm(b)); }
 
 function typoOk(guess, truth){
   const g = norm(guess);
@@ -192,163 +373,6 @@ function matchesAny(guess, truths){
   return false;
 }
 
-/* =========================
-   THEME (system default + persisted toggle)
-========================= */
-const THEME_KEY = "ync_theme"; // "dark" | "light" | "system"
-
-function getThemeSetting(){
-  const v = localStorage.getItem(THEME_KEY);
-  return (v === "dark" || v === "light" || v === "system") ? v : "system";
-}
-
-function setThemeSetting(v){
-  localStorage.setItem(THEME_KEY, v);
-  applyThemeSetting();
-}
-
-function applyThemeSetting(){
-  const root = document.documentElement;
-  const setting = getThemeSetting();
-
-  if(setting === "dark" || setting === "light"){
-    root.dataset.theme = setting;
-  } else {
-    delete root.dataset.theme; // system
-  }
-
-  const effectiveDark = root.dataset.theme
-    ? (root.dataset.theme === "dark")
-    : window.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
-
-  ui.themeToggle.textContent = `Theme: ${setting === "system" ? (effectiveDark ? "System (Dark)" : "System (Light)") : (setting === "dark" ? "Dark" : "Light")}`;
-}
-
-function cycleTheme(){
-  const cur = getThemeSetting();
-  if(cur === "system") return setThemeSetting("dark");
-  if(cur === "dark") return setThemeSetting("light");
-  return setThemeSetting("system");
-}
-
-/* =========================
-   APP STATE / FLOW
-========================= */
-const TESTS = ["trivia","note","repair","grid"]; // reveal is implicit final
-
-const state = {
-  stage: "trivia",
-  order: [],
-  idx: 0,
-  cleared: new Set(),
-
-  trivia: { target: 15, streak: 0, retired: new Set(), current: null },
-  note:   { target: 5,  streak: 0, current: null },
-  repair: { target: 3,  streak: 0, current: null, deadlineTs: 0, timerId: null },
-  grid:   { target: 1,  streak: 0, model: null },
-
-  poem: { json: null }
-};
-
-function setStage(stage){
-  state.stage = stage;
-  document.body.dataset.stage = stage;
-
-  const stepMap = {
-    trivia: ui.stepTrivia,
-    note: ui.stepNote,
-    repair: ui.stepRepair,
-    grid: ui.stepGrid,
-    reveal: ui.stepReveal
-  };
-
-  const stageMap = {
-    trivia: ui.stageTrivia,
-    note: ui.stageNote,
-    repair: ui.stageRepair,
-    grid: ui.stageGrid,
-    reveal: ui.stageReveal
-  };
-
-  Object.values(stepMap).forEach(el => el.className = "step");
-  Object.values(stageMap).forEach(el => el.classList.remove("show"));
-
-  for(let i=0; i<state.order.length; i++){
-    const key = state.order[i];
-    const el = stepMap[key];
-    if(!el) continue;
-    if(i < state.idx) el.className = "step done";
-    else if(i === state.idx && stage !== "reveal") el.className = "step active";
-    else el.className = "step";
-  }
-  if(stage === "reveal") ui.stepReveal.className = "step active";
-
-  stageMap[stage].classList.add("show");
-
-  if(stage === "trivia"){
-    ui.panelTitle.textContent = "Test — Trivia";
-    ui.panelDesc.innerHTML = `Get <b>${state.trivia.target} correct in a row</b>. Miss resets to 0.`;
-    ui.statusPill.textContent = "In progress";
-    ui.objective.textContent = `${state.trivia.target} in a row`;
-  } else if(stage === "note"){
-    ui.panelTitle.textContent = "Test — Note ID";
-    ui.panelDesc.innerHTML = `Listen to a note and type the letter (<b>A–G</b>). Get <b>${state.note.target} in a row</b>.`;
-    ui.statusPill.textContent = "In progress";
-    ui.objective.textContent = `${state.note.target} in a row`;
-  } else if(stage === "repair"){
-    ui.panelTitle.textContent = "Test — Sentence Repair";
-    ui.panelDesc.innerHTML = `Fix the text. <b>2:00</b> time limit. Get <b>${state.repair.target} wins in a row</b>.`;
-    ui.statusPill.textContent = "In progress";
-    ui.objective.textContent = `${state.repair.target} wins in a row`;
-  } else if(stage === "grid"){
-    ui.panelTitle.textContent = "Test — Grid Navigation";
-    ui.panelDesc.innerHTML = `Follow <b>20</b> directions from the blue start dot. Select the final intersection.`;
-    ui.statusPill.textContent = "In progress";
-    ui.objective.textContent = `1 correct`;
-  } else {
-    ui.panelTitle.textContent = "Access Granted";
-    ui.panelDesc.textContent = "";
-    ui.statusPill.textContent = "Unlocked";
-    ui.objective.textContent = "";
-  }
-
-  renderSide();
-}
-
-function renderSide(){
-  ui.pTrivia.textContent = `${state.trivia.streak} / ${state.trivia.target}`;
-  ui.pNote.textContent   = `${state.note.streak} / ${state.note.target}`;
-  ui.pRepair.textContent = `${state.repair.streak} / ${state.repair.target}`;
-  ui.pGrid.textContent   = `${state.grid.streak} / ${state.grid.target}`;
-}
-
-function advanceOrReveal(){
-  const justCleared = state.order[state.idx];
-  state.cleared.add(justCleared);
-
-  state.idx += 1;
-  if(state.idx >= state.order.length){
-    setStage("reveal");
-    setMsg(ui.revealMsg, "Enter fragmentA + fragmentB, then decrypt.", "warn");
-    return;
-  }
-
-  const next = state.order[state.idx];
-  setStage(next);
-
-  if(next === "trivia") pickTrivia();
-  if(next === "note") newNoteRound(true);
-  if(next === "repair") newRepairRound(true);
-  if(next === "grid") newGridRound(true);
-}
-
-/* =========================
-   TRIVIA
-========================= */
-function triviaRemaining(){
-  return window.TRIVIA_BANK.filter(q => !state.trivia.retired.has(q.id)).length;
-}
-
 function pickTrivia(){
   const pool = window.TRIVIA_BANK.filter(q => !state.trivia.retired.has(q.id));
   if(pool.length === 0){
@@ -375,7 +399,7 @@ function checkTriviaAnswer(){
     ui.streak.textContent = String(state.trivia.streak);
     renderSide();
     setMsg(ui.triviaMsg, "Override accepted.", "good");
-    advanceOrReveal();
+    markClearedAndAdvance("trivia");
     return;
   }
 
@@ -388,6 +412,7 @@ function checkTriviaAnswer(){
     return;
   }
 
+  // retire on any attempt
   state.trivia.retired.add(q.id);
   ui.remaining.textContent = String(triviaRemaining());
 
@@ -401,12 +426,12 @@ function checkTriviaAnswer(){
     setMsg(ui.triviaMsg, "Correct.", "good");
 
     if(state.trivia.streak >= state.trivia.target){
-      setMsg(ui.triviaMsg, "Test cleared.", "good");
-      setTimeout(() => advanceOrReveal(), 280);
+      setMsg(ui.triviaMsg, "Gate cleared.", "good");
+      setTimeout(() => markClearedAndAdvance("trivia"), 250);
       return;
     }
 
-    setTimeout(pickTrivia, 350);
+    setTimeout(pickTrivia, 250);
     return;
   }
 
@@ -414,11 +439,11 @@ function checkTriviaAnswer(){
   ui.streak.textContent = "0";
   renderSide();
   setMsg(ui.triviaMsg, `Incorrect. Answer: ${q.a}`, "bad");
-  setTimeout(pickTrivia, 700);
+  setTimeout(pickTrivia, 650);
 }
 
 /* =========================
-   NOTE ID (A–G only)
+   MUSIC NOTES (7 notes, single octave)
 ========================= */
 const NOTE_BANK = [
   { n:"C", f:261.63 },
@@ -430,7 +455,10 @@ const NOTE_BANK = [
   { n:"B", f:493.88 },
 ];
 
-let audio = { ctx: null, master: null };
+let audio = {
+  ctx: null,
+  master: null,
+};
 
 function ensureAudio(){
   if(audio.ctx) return;
@@ -441,7 +469,7 @@ function ensureAudio(){
   audio.master.connect(audio.ctx.destination);
 }
 
-function playTone(freq, ms=750){
+function playTone(freq, ms=700){
   ensureAudio();
   if(audio.ctx.state === "suspended") audio.ctx.resume();
 
@@ -450,7 +478,8 @@ function playTone(freq, ms=750){
   const g = audio.ctx.createGain();
 
   osc.type = "sine";
-  osc.frequency.value = freq;
+  osc.frequency.value = freq;     // fixed frequencies only (single octave)
+  osc.detune.value = 0;           // no drift
 
   g.gain.setValueAtTime(0.0001, now);
   g.gain.exponentialRampToValueAtTime(1.0, now + 0.02);
@@ -463,14 +492,15 @@ function playTone(freq, ms=750){
   osc.stop(now + ms/1000 + 0.03);
 }
 
-function newNoteRound(autoPlay=false){
+function newNoteRound(){
   state.note.current = NOTE_BANK[Math.floor(Math.random()*NOTE_BANK.length)];
   ui.noteAnswer.value = "";
-  setMsg(ui.noteMsg, "Click Play, then type A–G.", "warn");
-  if(autoPlay){
-    try{ playTone(state.note.current.f, 750); } catch {}
-  }
-  setTimeout(() => ui.noteAnswer.focus(), 0);
+  setMsg(ui.noteMsg, "Click Play, then type A–G (Submit required).", "warn");
+}
+
+function setNoteInput(letter){
+  ui.noteAnswer.value = (letter || "").toUpperCase().replace(/[^A-G]/g,"").slice(0,1);
+  ui.noteAnswer.focus();
 }
 
 function checkNoteAnswer(){
@@ -481,7 +511,7 @@ function checkNoteAnswer(){
     ui.noteStreak.textContent = String(state.note.streak);
     renderSide();
     setMsg(ui.noteMsg, "Override accepted.", "good");
-    advanceOrReveal();
+    markClearedAndAdvance("note");
     return;
   }
 
@@ -504,12 +534,12 @@ function checkNoteAnswer(){
     setMsg(ui.noteMsg, "Correct.", "good");
 
     if(state.note.streak >= state.note.target){
-      setMsg(ui.noteMsg, "Test cleared.", "good");
-      setTimeout(() => advanceOrReveal(), 250);
+      setMsg(ui.noteMsg, "Gate cleared.", "good");
+      setTimeout(() => markClearedAndAdvance("note"), 220);
       return;
     }
 
-    setTimeout(() => newNoteRound(false), 350);
+    setTimeout(() => newNoteRound(), 220);
     return;
   }
 
@@ -517,26 +547,11 @@ function checkNoteAnswer(){
   ui.noteStreak.textContent = "0";
   renderSide();
   setMsg(ui.noteMsg, "Incorrect.", "bad");
-  setTimeout(() => newNoteRound(false), 450);
-}
-
-function buildNoteKeys(){
-  ui.noteKeys.innerHTML = "";
-  for(const n of ["A","B","C","D","E","F","G"]){
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "btn ghost";
-    b.textContent = n;
-    b.addEventListener("click", () => {
-      ui.noteAnswer.value = n;
-      checkNoteAnswer();
-    });
-    ui.noteKeys.appendChild(b);
-  }
+  setTimeout(() => newNoteRound(), 260);
 }
 
 /* =========================
-   SENTENCE REPAIR (2 minutes)
+   SENTENCE REPAIR (2 minutes, <=3 mistakes)
 ========================= */
 const REPAIR_BANK = [
   {
@@ -577,16 +592,11 @@ const REPAIR_BANK = [
   },
 ];
 
-function canonRepair(s){
-  return (s || "")
-    .replace(/\r\n/g, "\n")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim()
-    .toLowerCase()
-    .normalize("NFKC")
-    .replace(/[’‘]/g,"'")
-    .replace(/[“”]/g,'"');
+function stopRepairTimer(){
+  if(state.repair.timerId){
+    clearInterval(state.repair.timerId);
+    state.repair.timerId = null;
+  }
 }
 
 function startRepairTimer(){
@@ -603,42 +613,76 @@ function startRepairTimer(){
       state.repair.streak = 0;
       ui.repairStreak.textContent = "0";
       renderSide();
-      setTimeout(() => newRepairRound(false), 650);
+      setTimeout(() => newRepairRound(true), 500);
     }
   };
   state.repair.timerId = setInterval(tick, 250);
   tick();
 }
 
-function stopRepairTimer(){
-  if(state.repair.timerId){
-    clearInterval(state.repair.timerId);
-    state.repair.timerId = null;
-  }
-}
-
-function newRepairRound(resetMsg=false){
+function newRepairRound(showIntroMsg=false){
   stopRepairTimer();
   const item = REPAIR_BANK[Math.floor(Math.random()*REPAIR_BANK.length)];
   state.repair.current = item;
 
   ui.repairPrompt.textContent = item.broken;
+  ui.repairFormat.textContent = `1) ...
+2) ...
+3) ...
+4) ...`;
   ui.repairAnswer.value = "";
-  setMsg(ui.repairMsg, resetMsg ? "2 minutes. Fix everything." : "", resetMsg ? "warn" : "");
+  setMsg(ui.repairMsg, showIntroMsg ? `2 minutes. Output 4 numbered lines. Up to ${REPAIR_ALLOWED_MISTAKES} mistakes allowed.` : "", showIntroMsg ? "warn" : "");
   state.repair.deadlineTs = Date.now() + 2*60*1000;
   startRepairTimer();
   setTimeout(() => ui.repairAnswer.focus(), 0);
 }
 
+function extractNumberedLines(raw){
+  const lines = (raw || "")
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+
+  if(lines.length !== 4){
+    return { ok:false, msg:"Format error: paste exactly 4 non-empty lines (1)–(4)." };
+  }
+
+  const out = [];
+  for(let i=0; i<4; i++){
+    const n = i + 1;
+    const m = lines[i].match(/^(\d)\s*[\)\.\:\-]\s*(.+)$/);
+    if(!m || Number(m[1]) !== n){
+      return { ok:false, msg:`Format error: line ${n} must start with "${n})" (or "${n}."), then a space.` };
+    }
+    out.push(m[2].trim());
+  }
+  return { ok:true, body: out.join("\n") };
+}
+
+function canonRepairForScoring(s){
+  // Word-level scoring. Ignores punctuation differences; counts word insert/delete/substitute as 1 mistake.
+  return (s || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’‘]/g,"'")
+    .replace(/[“”]/g,'"')
+    .replace(/[^a-z0-9\s']/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function checkRepairAnswer(){
   const raw = ui.repairAnswer.value || "";
+
   if(isOverride(raw)){
     stopRepairTimer();
     state.repair.streak = state.repair.target;
     ui.repairStreak.textContent = String(state.repair.streak);
     renderSide();
     setMsg(ui.repairMsg, "Override accepted.", "good");
-    advanceOrReveal();
+    markClearedAndAdvance("repair");
     return;
   }
 
@@ -647,32 +691,47 @@ function checkRepairAnswer(){
     return;
   }
 
-  const left = state.repair.deadlineTs - Date.now();
-  if(left <= 0){
+  if(Date.now() > state.repair.deadlineTs){
     setMsg(ui.repairMsg, "Time expired.", "bad");
     return;
   }
 
-  const guess = canonRepair(raw);
-  const truth = canonRepair(state.repair.current.fixed);
+  const g1 = extractNumberedLines(raw);
+  if(!g1.ok){
+    setMsg(ui.repairMsg, g1.msg, "bad");
+    return;
+  }
 
-  const dist = levenshteinRaw(guess, truth);
-  const ok = (guess === truth) || dist <= 6;
+  const t1 = extractNumberedLines(state.repair.current.fixed);
+  if(!t1.ok){
+    // should never happen unless bank is corrupted
+    setMsg(ui.repairMsg, "Internal format error in answer key.", "bad");
+    return;
+  }
+
+  const guess = canonRepairForScoring(g1.body);
+  const truth = canonRepairForScoring(t1.body);
+
+  const gTok = guess ? guess.split(" ") : [];
+  const tTok = truth ? truth.split(" ") : [];
+
+  const mistakes = levenshteinTokens(gTok, tTok);
+  const ok = mistakes <= REPAIR_ALLOWED_MISTAKES;
 
   if(ok){
     stopRepairTimer();
     state.repair.streak += 1;
     ui.repairStreak.textContent = String(state.repair.streak);
     renderSide();
-    setMsg(ui.repairMsg, "Correct.", "good");
+    setMsg(ui.repairMsg, `Correct (mistakes: ${mistakes}/${REPAIR_ALLOWED_MISTAKES}).`, "good");
 
     if(state.repair.streak >= state.repair.target){
-      setMsg(ui.repairMsg, "Test cleared.", "good");
-      setTimeout(() => advanceOrReveal(), 250);
+      setMsg(ui.repairMsg, "Gate cleared.", "good");
+      setTimeout(() => markClearedAndAdvance("repair"), 220);
       return;
     }
 
-    setTimeout(() => newRepairRound(true), 350);
+    setTimeout(() => newRepairRound(true), 280);
     return;
   }
 
@@ -680,15 +739,15 @@ function checkRepairAnswer(){
   state.repair.streak = 0;
   ui.repairStreak.textContent = "0";
   renderSide();
-  setMsg(ui.repairMsg, "Incorrect. Streak reset.", "bad");
-  setTimeout(() => newRepairRound(true), 550);
+  setMsg(ui.repairMsg, `Too many mistakes (${mistakes}). Streak reset.`, "bad");
+  setTimeout(() => newRepairRound(true), 450);
 }
 
 /* =========================
    GRID NAV (20 steps)
 ========================= */
 function makeGridModel(){
-  const size = 9; // 9x9 intersections
+  const size = 9;
   const stepsN = 20;
 
   const start = {
@@ -725,7 +784,8 @@ function makeGridModel(){
     if(d === "R") x += 1;
   }
 
-  return { size, start, steps, target: { x, y }, chosen: null };
+  const target = { x, y };
+  return { size, start, steps, target, chosen: null };
 }
 
 function dirToText(d){
@@ -754,20 +814,29 @@ function renderGrid(){
       cell.className = "gridCell";
       cell.dataset.x = String(x);
       cell.dataset.y = String(y);
-      cell.setAttribute("aria-label", `Intersection ${x},${y}`);
 
-      if(x===m.start.x && y===m.start.y) cell.classList.add("start");
-      if(m.chosen && x===m.chosen.x && y===m.chosen.y) cell.classList.add("chosen");
+      const isStart = (x===m.start.x && y===m.start.y);
+      const isChosen = (m.chosen && x===m.chosen.x && y===m.chosen.y);
+
+      if(isStart) cell.classList.add("start");
+      if(isChosen) cell.classList.add("chosen");
+
+      cell.addEventListener("click", () => {
+        // click once selects; click again submits (handled by container listener)
+        m.chosen = { x, y };
+        renderGrid();
+        setMsg(ui.gridMsg, "Selection recorded. Click the same point again to submit.", "warn");
+      });
 
       ui.gridBoard.appendChild(cell);
     }
   }
 }
 
-function newGridRound(resetMsg=false){
+function newGridRound(showMsg=false){
   state.grid.model = makeGridModel();
   renderGrid();
-  setMsg(ui.gridMsg, resetMsg ? "New grid generated. Select the final intersection, then submit." : "Select an intersection, then submit.", "warn");
+  setMsg(ui.gridMsg, showMsg ? "Click the final intersection, then click it again to submit." : "Click an intersection to select.", "warn");
 }
 
 function checkGridChoice(){
@@ -787,13 +856,8 @@ function checkGridChoice(){
     state.grid.streak += 1;
     ui.gridStreak.textContent = String(state.grid.streak);
     renderSide();
-    setMsg(ui.gridMsg, "Correct. Test cleared.", "good");
-
-    if(state.grid.streak >= state.grid.target){
-      setTimeout(() => advanceOrReveal(), 260);
-      return;
-    }
-    setTimeout(() => newGridRound(true), 350);
+    setMsg(ui.gridMsg, "Correct. Gate cleared.", "good");
+    setTimeout(() => markClearedAndAdvance("grid"), 240);
     return;
   }
 
@@ -801,7 +865,7 @@ function checkGridChoice(){
   ui.gridStreak.textContent = "0";
   renderSide();
   setMsg(ui.gridMsg, "Incorrect. Streak reset.", "bad");
-  setTimeout(() => newGridRound(true), 450);
+  setTimeout(() => newGridRound(true), 350);
 }
 
 /* =========================
@@ -873,9 +937,6 @@ async function tryDecryptFromInputs(){
     return;
   }
 
-  ui.decryptPoemBtn.disabled = true;
-  ui.decryptPoemBtn.textContent = "Decrypting…";
-
   try{
     const poem = await decryptPoemJson(pass, pj);
     ui.poemText.textContent = poem;
@@ -885,49 +946,18 @@ async function tryDecryptFromInputs(){
     ui.poemText.textContent = "";
     const hint = pj?.hint ? ` ${pj.hint}` : "";
     setMsg(ui.revealMsg, `Decryption failed.${hint}`, "bad");
-  } finally {
-    ui.decryptPoemBtn.disabled = false;
-    ui.decryptPoemBtn.textContent = "Decrypt";
-  }
-}
-
-async function copyPoem(){
-  const text = ui.poemText.textContent || "";
-  if(!text){
-    setMsg(ui.revealMsg, "Nothing to copy yet.", "warn");
-    return;
-  }
-  try{
-    await navigator.clipboard.writeText(text);
-    setMsg(ui.revealMsg, "Copied to clipboard.", "good");
-  } catch {
-    // Fallback
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.position = "fixed";
-    ta.style.left = "-9999px";
-    document.body.appendChild(ta);
-    ta.select();
-    try{
-      document.execCommand("copy");
-      setMsg(ui.revealMsg, "Copied to clipboard.", "good");
-    } catch {
-      setMsg(ui.revealMsg, "Copy failed (browser permission).", "bad");
-    } finally {
-      document.body.removeChild(ta);
-    }
   }
 }
 
 /* =========================
    RESET / INIT
 ========================= */
-function resetAllProgress(){
-  if(!confirm("This will reset progress for this browser session. Continue?")) return;
-
+function hardResetProgress(){
+  // timers
   stopRepairTimer();
 
-  state.idx = 0;
+  // reset state
+  state.initialized = new Set();
   state.cleared = new Set();
 
   state.trivia.streak = 0;
@@ -945,9 +975,13 @@ function resetAllProgress(){
   state.grid.model = null;
 
   ui.streak.textContent = "0";
+  ui.triviaTarget.textContent = String(state.trivia.target);
   ui.noteStreak.textContent = "0";
+  ui.noteTarget.textContent = String(state.note.target);
   ui.repairStreak.textContent = "0";
+  ui.repairTarget.textContent = String(state.repair.target);
   ui.gridStreak.textContent = "0";
+  ui.gridTarget.textContent = String(state.grid.target);
 
   setMsg(ui.triviaMsg, "", "");
   setMsg(ui.noteMsg, "", "");
@@ -959,27 +993,25 @@ function resetAllProgress(){
   ui.fragA.value = "";
   ui.fragB.value = "";
 
-  state.order = shuffle(TESTS);
-
-  const first = state.order[0];
+  // pick a random starting stage
+  const first = shuffle(TESTS)[0];
   setStage(first);
-  if(first === "trivia") pickTrivia();
-  if(first === "note") newNoteRound(true);
-  if(first === "repair") newRepairRound(true);
-  if(first === "grid") newGridRound(true);
 
+  // counters
+  ui.remaining.textContent = String(triviaRemaining());
   renderSide();
 }
 
 async function init(){
   assertUI();
 
-  applyThemeSetting();
-  window.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener?.("change", () => {
-    if(getThemeSetting() === "system") applyThemeSetting();
-  });
+  applyTheme(preferredTheme());
+  ui.themeToggle.addEventListener("click", toggleTheme);
 
-  buildNoteKeys();
+  // Top tabs: always switch view
+  [ui.stepTrivia, ui.stepNote, ui.stepRepair, ui.stepGrid].forEach(btn => {
+    btn.addEventListener("click", () => setStage(btn.dataset.stage));
+  });
 
   if(!window.TRIVIA_BANK || !Array.isArray(window.TRIVIA_BANK) || window.TRIVIA_BANK.length < 50){
     ui.question.textContent = "Trivia bank missing or invalid.";
@@ -987,126 +1019,83 @@ async function init(){
     return;
   }
 
-  state.order = shuffle(TESTS);
-  state.idx = 0;
-
-  ui.noteTarget.textContent = String(state.note.target);
-  ui.repairTarget.textContent = String(state.repair.target);
-  ui.gridTarget.textContent = String(state.grid.target);
-
-  ui.streak.textContent = "0";
-  ui.noteStreak.textContent = "0";
-  ui.repairStreak.textContent = "0";
-  ui.gridStreak.textContent = "0";
-  ui.remaining.textContent = String(triviaRemaining());
-
   try{
     await loadPoemJson();
-    setMsg(ui.revealMsg, "Ready to decrypt when unlocked.", "warn");
   } catch (e){
     console.error(e);
     setMsg(ui.revealMsg, "Warning: poem.json failed to load. Reveal stage will not decrypt.", "warn");
   }
 
-  const first = state.order[0];
-  setStage(first);
+  // Full reset every page load (as requested)
+  hardResetProgress();
 
-  if(first === "trivia") pickTrivia();
-  if(first === "note") newNoteRound(false);
-  if(first === "repair") newRepairRound(true);
-  if(first === "grid") newGridRound(true);
+  // Events: Trivia
+  ui.submitAnswer.addEventListener("click", checkTriviaAnswer);
+  ui.answer.addEventListener("keydown", (e) => { if(e.key === "Enter") checkTriviaAnswer(); });
 
-  renderSide();
+  // Events: Music notes
+  ui.playNote.addEventListener("click", () => {
+    if(!state.note.current) newNoteRound();
+    try{
+      playTone(state.note.current.f, 700);
+      setMsg(ui.noteMsg, "Played. Enter A–G, then Submit.", "warn");
+      ui.noteAnswer.focus();
+    } catch (e){
+      console.error(e);
+      setMsg(ui.noteMsg, "Audio blocked. Click Play again.", "bad");
+    }
+  });
+  ui.submitNote.addEventListener("click", checkNoteAnswer);
+  ui.noteAnswer.addEventListener("keydown", (e) => { if(e.key === "Enter") checkNoteAnswer(); });
+
+  // On-screen note buttons: fill only (no submit)
+  document.querySelectorAll(".noteBtn").forEach(btn => {
+    btn.addEventListener("click", () => setNoteInput(btn.dataset.note));
+  });
+
+  // Hotkeys (A–G) in note stage: fill only (no submit)
+  window.addEventListener("keydown", (e) => {
+    if(state.stage !== "note") return;
+    if(e.metaKey || e.ctrlKey || e.altKey) return;
+
+    const k = (e.key || "").toUpperCase();
+    if(/^[A-G]$/.test(k)){
+      // Do not auto-submit; only fill
+      setNoteInput(k);
+    }
+  });
+
+  // Events: Repair
+  ui.submitRepair.addEventListener("click", checkRepairAnswer);
+  ui.repairAnswer.addEventListener("keydown", (e) => {
+    if(e.key === "Enter" && (e.metaKey || e.ctrlKey)) checkRepairAnswer();
+  });
+
+  // Events: Grid
+  ui.resetGrid.addEventListener("click", () => newGridRound(true));
+  ui.gridBoard.addEventListener("click", (e) => {
+    const btn = e.target?.closest?.(".gridCell");
+    if(!btn) return;
+
+    const x = Number(btn.dataset.x);
+    const y = Number(btn.dataset.y);
+    const m = state.grid.model;
+    if(!m || !m.chosen) return;
+
+    // submit only when clicking chosen again
+    if(m.chosen.x === x && m.chosen.y === y){
+      checkGridChoice();
+    }
+  });
+
+  // Reveal
+  ui.decryptPoemBtn.addEventListener("click", tryDecryptFromInputs);
+  ui.fragB.addEventListener("keydown", (e) => { if(e.key === "Enter") tryDecryptFromInputs(); });
+
+  // Manual reset button (still available)
+  ui.resetProgress.addEventListener("click", () => {
+    if(confirm("Reset progress for this session?")) hardResetProgress();
+  });
 }
 
-/* =========================
-   EVENTS
-========================= */
-// Theme
-ui.themeToggle.addEventListener("click", cycleTheme);
-
-// Trivia
-ui.submitAnswer.addEventListener("click", checkTriviaAnswer);
-ui.answer.addEventListener("keydown", (e) => { if(e.key === "Enter") checkTriviaAnswer(); });
-
-// Note
-ui.playNote.addEventListener("click", () => {
-  if(!state.note.current) newNoteRound(false);
-  try{
-    playTone(state.note.current.f, 750);
-    setMsg(ui.noteMsg, "Played. Enter A–G.", "warn");
-    ui.noteAnswer.focus();
-  } catch (e){
-    console.error(e);
-    setMsg(ui.noteMsg, "Audio blocked. Interact with the page and try again.", "bad");
-  }
-});
-ui.replayNote.addEventListener("click", () => {
-  if(!state.note.current){
-    setMsg(ui.noteMsg, "No note loaded yet. Click Play.", "warn");
-    return;
-  }
-  try{
-    playTone(state.note.current.f, 750);
-    setMsg(ui.noteMsg, "Replayed. Enter A–G.", "warn");
-    ui.noteAnswer.focus();
-  } catch (e){
-    console.error(e);
-    setMsg(ui.noteMsg, "Audio blocked. Interact with the page and try again.", "bad");
-  }
-});
-ui.submitNote.addEventListener("click", checkNoteAnswer);
-ui.noteAnswer.addEventListener("keydown", (e) => { if(e.key === "Enter") checkNoteAnswer(); });
-
-// Repair
-ui.submitRepair.addEventListener("click", checkRepairAnswer);
-ui.repairAnswer.addEventListener("keydown", (e) => {
-  if(e.key === "Enter" && (e.metaKey || e.ctrlKey)) checkRepairAnswer();
-});
-ui.newRepair.addEventListener("click", () => newRepairRound(true));
-
-// Grid
-ui.resetGrid.addEventListener("click", () => newGridRound(true));
-ui.submitGrid.addEventListener("click", checkGridChoice);
-
-// Grid selection: click selects, click same again submits; dblclick submits immediately
-ui.gridBoard.addEventListener("click", (e) => {
-  const btn = e.target?.closest?.(".gridCell");
-  if(!btn) return;
-  const x = Number(btn.dataset.x);
-  const y = Number(btn.dataset.y);
-  const m = state.grid.model;
-  if(!m) return;
-
-  if(m.chosen && m.chosen.x === x && m.chosen.y === y){
-    checkGridChoice();
-    return;
-  }
-
-  m.chosen = { x, y };
-  renderGrid();
-  setMsg(ui.gridMsg, "Selection recorded. Click again or press Submit.", "warn");
-});
-
-ui.gridBoard.addEventListener("dblclick", (e) => {
-  const btn = e.target?.closest?.(".gridCell");
-  if(!btn) return;
-  const x = Number(btn.dataset.x);
-  const y = Number(btn.dataset.y);
-  const m = state.grid.model;
-  if(!m) return;
-  m.chosen = { x, y };
-  renderGrid();
-  checkGridChoice();
-});
-
-// Reveal
-ui.decryptPoemBtn.addEventListener("click", tryDecryptFromInputs);
-ui.fragB.addEventListener("keydown", (e) => { if(e.key === "Enter") tryDecryptFromInputs(); });
-ui.copyPoem.addEventListener("click", copyPoem);
-
-// Reset
-ui.resetProgress.addEventListener("click", resetAllProgress);
-
-// Init
-window.addEventListener("load", () => { init(); });
+window.addEventListener("load", init);

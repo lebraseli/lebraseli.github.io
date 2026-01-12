@@ -5,15 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="light dark" />
   <title>Your Next Clue</title>
-  <meta name="description" content="Multi-gate puzzle: trivia, notes, repair, grid — randomized order." />
-
+  <meta name="description" content="Multi-gate puzzle: trivia, music notes, repair, grid." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650;750&display=swap" rel="stylesheet">
-
   <link rel="stylesheet" href="./style.css" />
 </head>
-
 <body>
   <div class="bg"></div>
   <div class="noise"></div>
@@ -23,21 +20,19 @@
       <header class="topbar">
         <div class="brand">
           <div class="brandTitle">Your Next Clue</div>
-          <div class="brandSub" id="subtitle">Clear each gate. Misses reset streaks. Gate order randomizes on refresh.</div>
+          <div class="brandSub" id="subtitle">Clear all gates to unlock the reveal.</div>
         </div>
 
-        <div class="topActions">
-          <button class="btn ghost" id="themeToggle" type="button" aria-label="Toggle theme">Theme</button>
-          <button class="btn ghost" id="resetProgress" type="button">Reset</button>
-        </div>
+        <div class="topbarRight">
+          <nav class="steps" aria-label="sections" id="stepsNav">
+            <button class="step" id="stepTrivia" type="button" data-stage="trivia"><span class="dot"></span>Trivia</button>
+            <button class="step" id="stepNote" type="button" data-stage="note"><span class="dot"></span>Music Notes</button>
+            <button class="step" id="stepRepair" type="button" data-stage="repair"><span class="dot"></span>Repair</button>
+            <button class="step" id="stepGrid" type="button" data-stage="grid"><span class="dot"></span>Grid</button>
+          </nav>
 
-        <nav class="steps" aria-label="progress">
-          <div class="step" id="stepTrivia"><span class="dot"></span>Trivia</div>
-          <div class="step" id="stepNote"><span class="dot"></span>Notes</div>
-          <div class="step" id="stepRepair"><span class="dot"></span>Repair</div>
-          <div class="step" id="stepGrid"><span class="dot"></span>Grid</div>
-          <div class="step" id="stepReveal"><span class="dot"></span>Reveal</div>
-        </nav>
+          <button class="btn ghost themeBtn" id="themeToggle" type="button" aria-label="Toggle theme">Theme</button>
+        </div>
       </header>
 
       <div class="layout">
@@ -47,13 +42,14 @@
               <h1 class="panelTitle" id="panelTitle">Gate</h1>
               <p class="panelDesc" id="panelDesc">Loading…</p>
             </div>
+
             <div class="statusPill" id="statusPill">Locked</div>
           </div>
 
           <div class="panelBody">
 
             <!-- TRIVIA -->
-            <section class="stage" id="stageTrivia" aria-label="Trivia gate">
+            <section class="stage show" id="stageTrivia" aria-label="Trivia gate">
               <div class="arena">
                 <div class="arenaTop">
                   <div class="kpis">
@@ -70,11 +66,15 @@
                       <div class="kValue mono" id="category">—</div>
                     </div>
                   </div>
+
+                  <div class="btnRow">
+                    <button class="btn ghost" id="resetProgress" type="button">Reset progress</button>
+                  </div>
                 </div>
 
                 <div class="qCard">
                   <div class="qLabel">Question</div>
-                  <div class="qText swapFade" id="question">Loading…</div>
+                  <div class="qText" id="question">Loading…</div>
 
                   <div class="answerRow">
                     <input id="answer" type="text" autocomplete="off" spellcheck="false" placeholder="Type answer, press Enter" />
@@ -91,8 +91,8 @@
               </div>
             </section>
 
-            <!-- NOTES -->
-            <section class="stage" id="stageNote" aria-label="Notes gate">
+            <!-- MUSIC NOTES -->
+            <section class="stage" id="stageNote" aria-label="Music notes gate">
               <div class="arena">
                 <div class="arenaTop">
                   <div class="kpis">
@@ -102,22 +102,31 @@
                     </div>
                     <div class="kpi">
                       <div class="kLabel">Allowed</div>
-                      <div class="kValue mono">A–G</div>
+                      <div class="kValue mono">A B C D E F G</div>
                     </div>
                     <div class="kpi">
-                      <div class="kLabel">Policy</div>
-                      <div class="kValue mono">No sharps/flats</div>
+                      <div class="kLabel">Octave</div>
+                      <div class="kValue mono">Single octave</div>
                     </div>
                   </div>
                 </div>
 
                 <div class="qCard">
                   <div class="qLabel">Audio</div>
-                  <div class="qText small">Press “Play”, then type the note letter.</div>
+                  <div class="qText small">Click “Play note”, then enter A–G. Hotkeys only fill—still press Submit.</div>
 
                   <div class="btnRow">
-                    <button class="btn primary" id="playNote" type="button">Play</button>
-                    <button class="btn ghost" id="replayNote" type="button">Replay</button>
+                    <button class="btn primary" id="playNote" type="button">Play note</button>
+                  </div>
+
+                  <div class="noteKeys" aria-label="note shortcuts">
+                    <button class="btn ghost noteBtn" type="button" data-note="A">A</button>
+                    <button class="btn ghost noteBtn" type="button" data-note="B">B</button>
+                    <button class="btn ghost noteBtn" type="button" data-note="C">C</button>
+                    <button class="btn ghost noteBtn" type="button" data-note="D">D</button>
+                    <button class="btn ghost noteBtn" type="button" data-note="E">E</button>
+                    <button class="btn ghost noteBtn" type="button" data-note="F">F</button>
+                    <button class="btn ghost noteBtn" type="button" data-note="G">G</button>
                   </div>
 
                   <div class="answerRow">
@@ -125,13 +134,11 @@
                     <button class="btn primary" id="submitNote" type="button">Submit</button>
                   </div>
 
-                  <div class="noteKeys" id="noteKeys" aria-label="Quick note buttons"></div>
-
                   <div class="msg" id="noteMsg" aria-live="polite"></div>
                 </div>
 
                 <div class="rules">
-                  <div class="rule"><span class="dotMini"></span>Browser audio requires at least one user click to enable sound.</div>
+                  <div class="rule"><span class="dotMini"></span>Browser audio requires at least one click on “Play note”.</div>
                   <div class="rule"><span class="dotMini"></span>Miss = streak reset to 0.</div>
                 </div>
               </div>
@@ -151,23 +158,36 @@
                       <div class="kValue"><span id="repairTimer">2:00</span></div>
                     </div>
                     <div class="kpi">
-                      <div class="kLabel">Hotkey</div>
-                      <div class="kValue mono">Ctrl/⌘ + Enter</div>
+                      <div class="kLabel">Tolerance</div>
+                      <div class="kValue mono">Up to 3 mistakes</div>
                     </div>
-                  </div>
-
-                  <div class="btnRow">
-                    <button class="btn ghost" id="newRepair" type="button">New set</button>
                   </div>
                 </div>
 
                 <div class="qCard">
                   <div class="qLabel">Fix the text</div>
-                  <div class="qText small">Correct all errors within 2 minutes. Close matches are accepted (not petty on whitespace/quotes/case).</div>
+                  <div class="qText small">
+                    Output must be exactly <b>4 numbered lines</b> (1)–(4). Minor accidental mistakes are tolerated (max 3).
+                  </div>
 
-                  <pre class="repairPrompt" id="repairPrompt">Loading…</pre>
+                  <div class="repairGrid">
+                    <div class="repairBlock">
+                      <div class="repairLabel">Broken text</div>
+                      <pre class="repairText" id="repairPrompt">Loading…</pre>
+                    </div>
 
-                  <textarea id="repairAnswer" spellcheck="false" placeholder="Type the corrected text here…"></textarea>
+                    <div class="repairBlock">
+                      <div class="repairLabel">Required format</div>
+                      <pre class="repairText format" id="repairFormat">1) ...
+2) ...
+3) ...
+4) ...</pre>
+                    </div>
+                  </div>
+
+                  <div class="answerRow">
+                    <textarea id="repairAnswer" class="repairInput" spellcheck="false" placeholder="Paste your corrected 4 lines here…"></textarea>
+                  </div>
 
                   <div class="btnRow">
                     <button class="btn primary" id="submitRepair" type="button">Submit</button>
@@ -177,7 +197,8 @@
                 </div>
 
                 <div class="rules">
-                  <div class="rule"><span class="dotMini"></span>Timeout or miss = streak reset to 0.</div>
+                  <div class="rule"><span class="dotMini"></span>Each line must start with: <span class="mono">1)</span> <span class="mono">2)</span> <span class="mono">3)</span> <span class="mono">4)</span></div>
+                  <div class="rule"><span class="dotMini"></span>Timeout or too many mistakes resets streak.</div>
                 </div>
               </div>
             </section>
@@ -196,31 +217,30 @@
                       <div class="kValue mono">20</div>
                     </div>
                     <div class="kpi">
-                      <div class="kLabel">Mechanic</div>
-                      <div class="kValue mono">Click = select, click again = submit</div>
+                      <div class="kLabel">Target</div>
+                      <div class="kValue mono">Unmarked</div>
                     </div>
                   </div>
 
                   <div class="btnRow">
                     <button class="btn ghost" id="resetGrid" type="button">Regenerate</button>
-                    <button class="btn primary" id="submitGrid" type="button">Submit</button>
                   </div>
                 </div>
 
                 <div class="gridWrap">
                   <div class="qCard">
                     <div class="qLabel">Directions</div>
-                    <div class="qText small">Start at the blue dot. Apply the steps. Select the final intersection and submit.</div>
+                    <div class="qText small">Follow the 20 steps from the blue start dot. Click the final intersection, then click it again to submit.</div>
                     <div class="dirList" id="gridSteps">Loading…</div>
                     <div class="msg" id="gridMsg" aria-live="polite"></div>
                   </div>
 
-                  <div class="gridSide">
+                  <div class="gridPanel">
                     <div class="gridLegend">
-                      <span class="pill">Blue = start</span>
-                      <span class="pill">Green = your selection</span>
+                      <span class="pill">Start is blue</span>
+                      <span class="pill">Your pick is green</span>
                     </div>
-                    <div class="gridBoard" id="gridBoard" aria-label="Grid board"></div>
+                    <div class="gridBoard" id="gridBoard"></div>
                   </div>
                 </div>
 
@@ -230,15 +250,15 @@
               </div>
             </section>
 
-            <!-- REVEAL -->
+            <!-- REVEAL (no top tab) -->
             <section class="stage" id="stageReveal" aria-label="Reveal stage">
               <div class="reveal">
                 <div class="revealTitle">Access Granted</div>
-                <div class="revealSub">All gates cleared. Provide passphrase fragments to decrypt.</div>
+                <div class="revealSub">All gates cleared. Provide both fragments to decrypt the payload.</div>
 
                 <div class="qCard">
                   <div class="qLabel">Passphrase</div>
-                  <div class="qText small">Passphrase = fragmentA + fragmentB (lowercase, no spaces).</div>
+                  <div class="qText small">passphrase = fragmentA + fragmentB (lowercase, no spaces)</div>
 
                   <div class="answerRow">
                     <input id="fragA" type="text" autocomplete="off" spellcheck="false" placeholder="fragmentA" />
@@ -252,9 +272,6 @@
                 <div class="poemWrap">
                   <div class="poemHead">
                     <div class="poemTitle">Payload</div>
-                    <div class="btnRow">
-                      <button class="btn ghost" id="copyPoem" type="button">Copy</button>
-                    </div>
                   </div>
                   <pre class="poem" id="poemText"></pre>
                 </div>
@@ -267,22 +284,22 @@
         <aside class="side">
           <div class="sideCard">
             <div class="sideLabel">Objective</div>
-            <div class="sideValue" id="objective">Clear the active gate</div>
+            <div class="sideValue" id="objective">Clear all gates</div>
             <div class="divider"></div>
-            <div class="sideText">
-              Gate order randomizes each refresh. Misses reset the active gate’s streak.
+            <div class="sideText" id="objectiveDesc">
+              Reloading always resets progress. Theme is independent.
             </div>
           </div>
 
           <div class="sideCard">
             <div class="sideLabel">Progress</div>
-            <div class="fragLine"><span class="fragKey">Trivia</span><span class="fragVal" id="pTrivia">0 / 15</span></div>
-            <div class="fragLine"><span class="fragKey">Notes</span><span class="fragVal" id="pNote">0 / 5</span></div>
-            <div class="fragLine"><span class="fragKey">Repair</span><span class="fragVal" id="pRepair">0 / 3</span></div>
-            <div class="fragLine"><span class="fragKey">Grid</span><span class="fragVal" id="pGrid">0 / 1</span></div>
+            <div class="fragLine"><span class="fragKey">Trivia gate</span><span class="fragVal" id="pTrivia">0 / 15</span></div>
+            <div class="fragLine"><span class="fragKey">Music Notes gate</span><span class="fragVal" id="pNote">0 / 5</span></div>
+            <div class="fragLine"><span class="fragKey">Repair gate</span><span class="fragVal" id="pRepair">0 / 3</span></div>
+            <div class="fragLine"><span class="fragKey">Grid gate</span><span class="fragVal" id="pGrid">0 / 1</span></div>
             <div class="divider"></div>
             <div class="sideText muted">
-              Tip: the “Reset” button clears all progress for this browser session.
+              Notes are exactly 7 pitches (A–G). Repair accepts up to 3 accidental mistakes (word-level).
             </div>
           </div>
         </aside>
@@ -290,7 +307,7 @@
 
       <footer class="footer">
         <span>Misses reset streaks.</span>
-        <span class="muted">Audio playback requires a user click at least once.</span>
+        <span class="muted">Reload = full reset.</span>
       </footer>
     </section>
   </main>

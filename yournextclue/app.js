@@ -1,51 +1,72 @@
-/* app.js — Your Next Clue (hardened)
-   Goals:
-   - Works even if index.html IDs differ (supports your older + newer variants).
-   - Reload ALWAYS resets progress + returns to Trivia (theme persists).
-   - Tabs switch stages (Reveal tab hidden/ignored if present).
-   - Sentence Repair: 2:30 timer, tolerance <= 5 wrong characters, clearer format expectations.
-   - Music Notes: single octave, only 7 notes; backdoor accepts 1324 (not shown to players).
-   - Grid: 15 directions shown for 30s with ticking clock; directions fully disappear; user must click the FULL path then submit.
-   - Backdoor 1324 exists for EVERY gate:
-       Trivia: type 1324 and Submit
-       Music Notes: submit 1, then 3, then 2, then 4 (or submit 1324 once)
-       Repair: type 1324 and Submit
-       Grid: secret click-path override (described below) OR (optional) type 1324 if you add a grid input in HTML
-       Reveal: entering 1324 in either fragment box grants access (shows "Override accepted" + skips decrypt)
+/* app.js (patched)
+   Drop-in replacement for /yournextclue/app.js
 
-   Grid backdoor (hidden, no UI hint):
-     From the BLUE start dot:
-       click cell ( +3 right, -2 up ),
-       then click cell ( +3 right,  0 net )  i.e., down by 2 from previous,
-       then click cell ( +7 right,  0 net )  i.e., right by 4 from previous,
-     then Submit Path.
+   Goals implemented:
+   - Always reset progress on reload; always start at Trivia.
+   - Tabs navigate, but only the CURRENT active gate is clickable (no going back after completion, no skipping ahead).
+   - Remove Reveal tab behavior (JS hides it if present).
+   - Backdoor code "1324" works for EVERY gate (Trivia, Music Notes, Repair, Grid).
+   - Music Notes: single octave (7 fixed notes), no replay, never auto-submit via keyboard.
+   - Sentence Repair: 2:30 timer, <= 5 wrong characters allowed, clearer formatting expectations.
+   - Grid: 15 directions shown for 30s while grid is hidden; then directions disappear, grid appears;
+           must click the FULL path (start first, then each step) and press Submit.
+           Also includes a secret grid-click backdoor pattern.
+
+   NOTE: This file is tolerant of several HTML ID variants.
 */
 
 (() => {
   "use strict";
 
   /* =========================
-     DOM UTIL (robust)
+     CONFIG
   ========================= */
-  const $ = (id) => document.getElementById(id);
-  const gid = (...ids) => {
-    for (const id of ids) {
-      const el = $(id);
-      if (el) return el;
+  const BACKDOOR = "1324";
+
+  const GATES = ["trivia", "notes", "repair", "grid"]; // reveal is implicit final
+
+  const GRID = {
+    size: 9,           // 9x9 intersections
+    stepsN: 15,        // 15 directions
+    memoMs: 30_000,    // 30 seconds directions visibility
+  };
+
+  const REPAIR = {
+    ms: 150_000,       // 2:30
+    tol: 5,            // <= 5 wrong characters
+    target: 3,         // 3 wins in a row
+  };
+
+  const TRIVIA = { target: 15 };
+  const NOTES  = { target: 5 };
+
+  /* =========================
+     DOM HELPERS (ID tolerant)
+  ========================= */
+  const byId = (id) => document.getElementById(id) || null;
+
+  function firstEl(...candidates) {
+    for (const c of candidates) {
+      if (!c) continue;
+      if (typeof c === "string") {
+        const el = byId(c);
+        if (el) return el;
+        const q = document.querySelector(c);
+        if (q) return q;
+      } else if (c instanceof HTMLElement) {
+        return c;
+      }
     }
     return null;
-  };
-  const q = (sel, root = document) => root.querySelector(sel);
-  const qa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-
-  function on(el, evt, fn, opts) {
-    if (!el) return;
-    el.addEventListener(evt, fn, opts);
   }
 
-  function setText(el, txt) {
+  function els(selector) {
+    return Array.from(document.querySelectorAll(selector));
+  }
+
+  function setText(el, text) {
     if (!el) return;
-    el.textContent = txt ?? "";
+    el.textContent = text ?? "";
   }
 
   function setHTML(el, html) {
@@ -53,47 +74,379 @@
     el.innerHTML = html ?? "";
   }
 
-  function show(el, yes) {
+  function show(el) {
     if (!el) return;
-    el.style.display = yes ? "" : "none";
+    el.style.display = "";
+    el.hidden = false;
+    el.classList.add("show");
+  }
+
+  function hide(el) {
+    if (!el) return;
+    el.style.display = "none";
+    el.hidden = true;
+    el.classList.remove("show");
   }
 
   function setMsg(el, text, kind) {
     if (!el) return;
     el.textContent = text || "";
-    el.className = "msg" + (kind ? (" " + kind) : "");
+    el.className = "msg" + (kind ? ` ${kind}` : "");
   }
 
-  /* =========================
-     NORMALIZATION / DISTANCE
-  ========================= */
-  const OVERRIDE_CODE = "1324";
-
-  function normSimple(s) {
+  function norm(s) {
     return (s || "")
       .toLowerCase()
       .trim()
       .normalize("NFKD")
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[’‘]/g, "'")
-      .replace(/\s+/g, "");
-  }
-
-  function isOverride(raw) {
-    return normSimple(raw) === OVERRIDE_CODE;
-  }
-
-  // More conservative for repair comparisons: keep punctuation mostly intact,
-  // normalize quotes + line endings + trailing spaces.
-  function canonRepair(s) {
-    const lines = (s || "")
-      .replace(/\r\n/g, "\n")
-      .replace(/[’‘]/g, "'")
       .replace(/[“”]/g, '"')
-      .split("\n")
-      .map((ln) => ln.replace(/[ \t]+/g, " ").replace(/[ \t]+$/g, ""));
-    // preserve line breaks; trim only outer whitespace
-    return lines.join("\n").trim();
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function isBackdoor(s) {
+    return norm(s) === BACKDOOR;
+  }
+
+  /* =========================
+     UI MAP (supports multiple HTML variants)
+  ========================= */
+  const ui = {
+    // Top header / panels
+    panelTitle: firstEl("panelTitle", "#panelTitle", '[data-role="panelTitle"]'),
+    panelDesc:  firstEl("panelDesc", "#panelDesc",  '[data-role="panelDesc"]'),
+    statusPill: firstEl("statusPill", "#statusPill", '[data-role="statusPill"]'),
+
+    // Tabs container (new UI) or steps nav (older UI)
+    tabsNav: firstEl("#tabsNav", "#stepsNav", '[data-role="tabs"]', '[aria-label="progress"]'),
+
+    // Individual tabs (try data-gate first, then legacy ids)
+    tabTrivia: firstEl('[data-gate="trivia"]', "#stepTrivia", "#step0", "#tabTrivia"),
+    tabNotes:  firstEl('[data-gate="notes"]',  "#stepNote", "#stepNotes", "#step1", "#tabNotes"),
+    tabRepair: firstEl('[data-gate="repair"]', "#stepRepair", "#step2", "#tabRepair"),
+    tabGrid:   firstEl('[data-gate="grid"]',   "#stepGrid", "#step3", "#tabGrid"),
+    tabReveal: firstEl('[data-gate="reveal"]', "#stepReveal", "#step4", "#tabReveal"),
+
+    // Stages (sections)
+    stageTrivia: firstEl("#stageTrivia", '[data-stage="trivia"]'),
+    stageNotes:  firstEl("#stageNotes", "#stageNote", '[data-stage="notes"]'),
+    stageRepair: firstEl("#stageRepair", '[data-stage="repair"]'),
+    stageGrid:   firstEl("#stageGrid", '[data-stage="grid"]'),
+    stageReveal: firstEl("#stageReveal", '[data-stage="reveal"]'),
+
+    // Sidebar / progress area (may be hidden on reveal)
+    side:        firstEl(".side", "#side", '[data-role="side"]'),
+    objective:   firstEl("#objective", '[data-role="objective"]'),
+    objectiveDesc: firstEl("#objectiveDesc", '[data-role="objectiveDesc"]'),
+
+    // Progress values (multiple variants)
+    pTrivia: firstEl("#pTrivia", "#p0Val", '[data-progress="trivia"]'),
+    pNotes:  firstEl("#pNote", "#pNotes", "#p1Val", '[data-progress="notes"]'),
+    pRepair: firstEl("#pRepair", "#p2Val", '[data-progress="repair"]'),
+    pGrid:   firstEl("#pGrid", "#p3Val", '[data-progress="grid"]'),
+    implNote: firstEl("#implNote", '[data-role="implNote"]'),
+
+    // Theme toggle
+    toggleTheme: firstEl("#toggleTheme", '[data-action="toggle-theme"]', 'button:has-text("Toggle theme")'),
+
+    /* TRIVIA */
+    triviaStreak: firstEl("#streak", '[data-role="triviaStreak"]'),
+    triviaTarget: firstEl("#triviaTarget", '[data-role="triviaTarget"]'),
+    triviaRemaining: firstEl("#remaining", '[data-role="triviaRemaining"]'),
+    triviaCategory: firstEl("#category", '[data-role="triviaCategory"]'),
+    triviaQuestion: firstEl("#question", '[data-role="triviaQuestion"]'),
+    triviaAnswer: firstEl("#answer", '[data-role="triviaAnswer"]'),
+    triviaSubmit: firstEl("#submitAnswer", '[data-action="trivia-submit"]'),
+    triviaMsg: firstEl("#triviaMsg", '[data-role="triviaMsg"]'),
+
+    /* NOTES */
+    noteStreak: firstEl("#noteStreak", '[data-role="noteStreak"]'),
+    noteTarget: firstEl("#noteTarget", '[data-role="noteTarget"]'),
+    playNote: firstEl("#playNote", '[data-action="note-play"]'),
+    replayNote: firstEl("#replayNote", '[data-action="note-replay"]'), // we will hide if exists
+    noteInput: firstEl("#noteGuess", "#noteAnswer", '[data-role="noteInput"]'),
+    noteSubmit: firstEl("#submitNote", '[data-action="note-submit"]'),
+    noteMsg: firstEl("#noteMsg", '[data-role="noteMsg"]'),
+
+    /* REPAIR */
+    repairStreak: firstEl("#repairStreak", '[data-role="repairStreak"]'),
+    repairTarget: firstEl("#repairTarget", '[data-role="repairTarget"]'),
+    repairTimer: firstEl("#repairTimer", '[data-role="repairTimer"]'),
+    repairTol: firstEl("#repairTol", '[data-role="repairTol"]'), // optional chip
+    repairBroken: firstEl("#repairBroken", "#repairPrompt", '[data-role="repairBroken"]'),
+    repairInput: firstEl("#repairInput", "#repairAnswer", '[data-role="repairInput"]'),
+    repairSubmit: firstEl("#submitRepair", '[data-action="repair-submit"]'),
+    repairNew: firstEl("#newRepair", '[data-action="repair-new"]'),
+    repairMsg: firstEl("#repairMsg", '[data-role="repairMsg"]'),
+
+    /* GRID */
+    gridVisibility: firstEl("#gridVisibility", '[data-role="gridVisibility"]'),
+    gridHint: firstEl("#gridHint", '[data-role="gridHint"]'),
+    dirList: firstEl("#dirList", "#gridSteps", '[data-role="dirList"]'),
+    gridBoardWrap: firstEl(".gridBoard", '[data-role="gridBoardWrap"]'),
+    gridBoard: firstEl("#grid", "#gridBoard", '[data-role="gridBoard"]'),
+    gridMsg: firstEl("#gridMsg", '[data-role="gridMsg"]'),
+    gridStreak: firstEl("#gridStreak", '[data-role="gridStreak"]'),
+    gridTarget: firstEl("#gridTarget", '[data-role="gridTarget"]'),
+    regenGrid: firstEl("#regenGrid", "#resetGrid", '[data-action="grid-regen"]'),
+    submitPath: firstEl("#submitPath", "#submitGrid", '[data-action="grid-submit"]'),
+
+    /* REVEAL */
+    fragA: firstEl("#fragA", "#fragmentA", '[data-role="fragA"]'),
+    fragB: firstEl("#fragB", "#fragmentB", '[data-role="fragB"]'),
+    decryptBtn: firstEl("#decryptPoemBtn", "#decryptBtn", '[data-action="decrypt"]'),
+    poemText: firstEl("#poemText", '[data-role="poemText"]'),
+    revealMsg: firstEl("#revealMsg", '[data-role="revealMsg"]'),
+  };
+
+  /* =========================
+     STATE
+  ========================= */
+  const state = {
+    gate: "trivia",
+    idx: 0,
+    cleared: new Set(),
+
+    trivia: { streak: 0, retired: new Set(), current: null },
+    notes:  { streak: 0, current: null, secretBuf: "" },
+    repair: { streak: 0, current: null, deadlineTs: 0, timerId: null },
+    grid:   {
+      streak: 0,
+      model: null,
+      phase: "memo",           // memo -> play
+      memoDeadlineTs: 0,
+      memoTimerId: null,
+      clicked: [],             // clicked cell sequence in play phase
+    },
+
+    poem: { json: null },
+
+    theme: "dark",
+  };
+
+  /* =========================
+     THEME (persist theme only)
+  ========================= */
+  function applyTheme(t) {
+    state.theme = (t === "light") ? "light" : "dark";
+    document.documentElement.dataset.theme = state.theme;
+    // Some CSS uses color-scheme; keep in sync if present
+    document.documentElement.style.colorScheme = state.theme;
+    try { localStorage.setItem("ync_theme", state.theme); } catch {}
+  }
+
+  function initTheme() {
+    let t = "dark";
+    try {
+      t = localStorage.getItem("ync_theme") || "dark";
+    } catch {}
+    applyTheme(t);
+    if (ui.toggleTheme) {
+      ui.toggleTheme.addEventListener("click", () => {
+        applyTheme(state.theme === "dark" ? "light" : "dark");
+      });
+    }
+  }
+
+  /* =========================
+     TABS / NAV (only active gate clickable)
+  ========================= */
+  function gateTabEl(g) {
+    if (g === "trivia") return ui.tabTrivia;
+    if (g === "notes")  return ui.tabNotes;
+    if (g === "repair") return ui.tabRepair;
+    if (g === "grid")   return ui.tabGrid;
+    if (g === "reveal") return ui.tabReveal;
+    return null;
+  }
+
+  function setTabState() {
+    // Hide reveal tab if it exists
+    if (ui.tabReveal) hide(ui.tabReveal);
+
+    for (const g of GATES) {
+      const el = gateTabEl(g);
+      if (!el) continue;
+
+      const isActive = (g === state.gate);
+      const isCleared = state.cleared.has(g);
+      const isFuture = (GATES.indexOf(g) > state.idx);
+
+      // Rules:
+      // - Only CURRENT ACTIVE gate is clickable.
+      // - Completed gates are not clickable.
+      // - Future gates are not clickable.
+      const clickable = isActive && !isCleared && !isFuture;
+
+      el.classList.toggle("active", isActive);
+      el.classList.toggle("done", isCleared);
+      el.classList.toggle("locked", !clickable);
+
+      el.setAttribute("aria-current", isActive ? "page" : "false");
+      el.setAttribute("aria-disabled", clickable ? "false" : "true");
+
+      if ("disabled" in el) el.disabled = !clickable;
+
+      // Ensure cursor/interaction is dead if locked (covers div tabs)
+      el.style.pointerEvents = clickable ? "auto" : "none";
+      el.style.opacity = clickable ? "" : "0.75";
+    }
+  }
+
+  function wireTabs() {
+    const map = [
+      ["trivia", ui.tabTrivia],
+      ["notes", ui.tabNotes],
+      ["repair", ui.tabRepair],
+      ["grid", ui.tabGrid],
+    ];
+
+    for (const [g, el] of map) {
+      if (!el) continue;
+      el.addEventListener("click", (e) => {
+        e.preventDefault();
+        // Only allow if it is the current active gate (setTabState enforces)
+        if (g !== state.gate) return;
+        setGate(g);
+      });
+    }
+  }
+
+  /* =========================
+     STAGE SWITCHING + COPY
+  ========================= */
+  function showOnlyStage(g) {
+    const stages = {
+      trivia: ui.stageTrivia,
+      notes: ui.stageNotes,
+      repair: ui.stageRepair,
+      grid: ui.stageGrid,
+      reveal: ui.stageReveal,
+    };
+    for (const k of Object.keys(stages)) hide(stages[k]);
+    show(stages[g]);
+    document.body.dataset.stage = g;
+  }
+
+  function renderProgress() {
+    // Side progress numbers
+    const triviaTxt = `${state.trivia.streak} / ${TRIVIA.target}`;
+    const notesTxt  = `${state.notes.streak} / ${NOTES.target}`;
+    const repairTxt = `${state.repair.streak} / ${REPAIR.target}`;
+    const gridTxt   = `${state.grid.streak} / 1`;
+
+    setText(ui.pTrivia, triviaTxt);
+    setText(ui.pNotes, notesTxt);
+    setText(ui.pRepair, repairTxt);
+    setText(ui.pGrid, gridTxt);
+
+    // In-stage KPIs (if present)
+    setText(ui.triviaStreak, String(state.trivia.streak));
+    setText(ui.triviaTarget, String(TRIVIA.target));
+    setText(ui.noteStreak, String(state.notes.streak));
+    setText(ui.noteTarget, String(NOTES.target));
+    setText(ui.repairStreak, String(state.repair.streak));
+    setText(ui.repairTarget, String(REPAIR.target));
+    setText(ui.gridStreak, String(state.grid.streak));
+    setText(ui.gridTarget, "1");
+
+    // Repair tolerance chip if present
+    if (ui.repairTol) setText(ui.repairTol, `≤ ${REPAIR.tol} wrong chars`);
+  }
+
+  function setGate(g) {
+    state.gate = g;
+    setTabState();
+    showOnlyStage(g);
+
+    // Gate-specific panel header + sidebar note
+    if (g === "trivia") {
+      setText(ui.panelTitle, "Test — Trivia");
+      setHTML(ui.panelDesc, `Answer <b>${TRIVIA.target}</b> correctly in a row. Miss resets streak.`);
+      setText(ui.statusPill, "In progress");
+      setText(ui.objective, `${TRIVIA.target} in a row`);
+      setText(ui.objectiveDesc, "Answer each question. Submit is required.");
+      if (ui.implNote) setText(ui.implNote, "Trivia: case-insensitive; minor spacing/punctuation tolerated. Backdoor exists.");
+    } else if (g === "notes") {
+      setText(ui.panelTitle, "Test — Music Notes");
+      setHTML(ui.panelDesc, `Press “Play note”, then type the letter (A–G). Get <b>${NOTES.target}</b> in a row. Submit is required.`);
+      setText(ui.statusPill, "In progress");
+      setText(ui.objective, `${NOTES.target} in a row`);
+      setText(ui.objectiveDesc, "Audio is single-octave A–G only. Keyboard never auto-submits.");
+      if (ui.implNote) setText(ui.implNote, "Music Notes: WebAudio single octave; submit is mandatory; backdoor exists.");
+    } else if (g === "repair") {
+      setText(ui.panelTitle, "Test — Sentence Repair");
+      setHTML(ui.panelDesc, `Fix the text. <b>2:30</b> limit. Get <b>${REPAIR.target}</b> wins in a row. Tolerance: ≤ <b>${REPAIR.tol}</b> wrong characters.`);
+      setText(ui.statusPill, "In progress");
+      setText(ui.objective, `${REPAIR.target} wins in a row`);
+      setText(ui.objectiveDesc, "Keep the same numbering and line breaks. Submit is required.");
+      if (ui.implNote) setText(ui.implNote, "Repair: strict format (line breaks + numbering). ≤ 5 wrong characters allowed. Backdoor exists.");
+    } else if (g === "grid") {
+      setText(ui.panelTitle, "Test — Grid Memory Path");
+      setHTML(ui.panelDesc, `Memorize <b>${GRID.stepsN}</b> directions for <b>30 seconds</b> (grid hidden). Then directions disappear and you must click the full path and submit.`);
+      setText(ui.statusPill, "In progress");
+      setText(ui.objective, `1 correct`);
+      setText(ui.objectiveDesc, "During memo phase: directions only. After 30s: click start, then each step, then submit.");
+      if (ui.implNote) setText(ui.implNote, "Grid: directions visible 30s; grid hidden; then click full remembered path + submit. Backdoor exists.");
+    }
+
+    renderProgress();
+
+    // Gate startup hooks
+    if (g === "trivia") pickTrivia();
+    if (g === "notes") newNoteRound(false);
+    if (g === "repair") newRepairRound(true);
+    if (g === "grid") newGridRound(true);
+  }
+
+  function completeGate(g) {
+    state.cleared.add(g);
+    state.idx = Math.min(state.idx + 1, GATES.length);
+
+    // Immediately advance to next gate or reveal
+    if (state.idx >= GATES.length) {
+      enterReveal();
+      return;
+    }
+    const next = GATES[state.idx];
+    setGate(next);
+  }
+
+  function enterReveal() {
+    state.gate = "reveal";
+    showOnlyStage("reveal");
+    document.body.classList.add("revealOnly");
+
+    // Hide tabs + sidebar/progress entirely on reveal
+    if (ui.tabsNav) hide(ui.tabsNav);
+    if (ui.side) hide(ui.side);
+
+    // Also hide any lingering “progress” blocks inside reveal layouts if they exist
+    els('[data-role="progress"], .progress, #progress').forEach(hide);
+
+    // Clean header copy: keep brand + toggle theme only (HTML controls layout; JS ensures content)
+    setText(ui.panelTitle, "Access Granted");
+    setText(ui.statusPill, "Unlocked");
+    setText(ui.panelDesc, "");
+
+    setMsg(ui.revealMsg, "All gates cleared. Enter fragmentA + fragmentB, then decrypt.", "good");
+
+    // Focus first input if present
+    if (ui.fragA) setTimeout(() => ui.fragA.focus(), 0);
+  }
+
+  /* =========================
+     TRIVIA
+  ========================= */
+  function triviaRemaining() {
+    if (!window.TRIVIA_BANK || !Array.isArray(window.TRIVIA_BANK)) return 0;
+    return window.TRIVIA_BANK.filter(q => !state.trivia.retired.has(q.id)).length;
+  }
+
+  function shufflePick(pool) {
+    return pool[Math.floor(Math.random() * pool.length)];
   }
 
   function levenshteinRaw(a, b) {
@@ -115,22 +468,9 @@
     return dp[n];
   }
 
-  /* Trivia matching helpers (your original idea kept) */
-  function normTrivia(s) {
-    return (s || "")
-      .toLowerCase()
-      .trim()
-      .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[’‘]/g, "'")
-      .replace(/[^a-z0-9\s]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
   function typoOk(guess, truth) {
-    const g = normTrivia(guess);
-    const t = normTrivia(truth);
+    const g = norm(guess);
+    const t = norm(truth);
     if (!g || !t) return false;
     if (g === t) return true;
 
@@ -143,12 +483,11 @@
   }
 
   function matchesAny(guess, truths) {
-    const g = normTrivia(guess);
+    const g = norm(guess);
     if (!g) return false;
-
     for (const t of truths) {
       if (!t) continue;
-      const tn = normTrivia(t);
+      const tn = norm(t);
       if (g === tn) return true;
       if (g.length >= 3 && tn.length >= 3 && (tn.includes(g) || g.includes(tn))) return true;
       if (typoOk(g, tn)) return true;
@@ -156,403 +495,90 @@
     return false;
   }
 
-  function shuffle(arr) {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
-
-  /* =========================
-     UI BINDINGS (supports both ID sets)
-  ========================= */
-  const ui = {
-    // Header/brand
-    panelTitle: gid("panelTitle"),
-    panelDesc: gid("panelDesc"),
-    statusPill: gid("statusPill"),
-    toggleTheme: gid("toggleTheme", "themeToggle", "toggle", "themeBtn"),
-
-    // Nav tabs / steps (multiple variants)
-    nav: gid("stepsNav", "tabsNav", "navTabs"),
-    stepTrivia: gid("stepTrivia", "tabTrivia", "step0"),
-    stepNote: gid("stepNote", "tabNote", "tabNotes", "tabMusic", "step1"),
-    stepRepair: gid("stepRepair", "tabRepair", "step2"),
-    stepGrid: gid("stepGrid", "tabGrid", "step3"),
-    stepReveal: gid("stepReveal", "tabReveal", "step4"),
-
-    // Stages containers
-    stageTrivia: gid("stageTrivia"),
-    stageNote: gid("stageNote", "stageNotes", "stageMusic", "stageMusicNotes"),
-    stageRepair: gid("stageRepair"),
-    stageGrid: gid("stageGrid"),
-    stageReveal: gid("stageReveal"),
-
-    // Sidebar / progress blocks (multiple variants)
-    side: gid("side", "sidebar"),
-    objective: gid("objective"),
-    objectiveDesc: gid("objectiveDesc"),
-    implNote: gid("implNote", "implementationNote"),
-    pTrivia: gid("pTrivia", "p0Val"),
-    pNote: gid("pNote", "p1Val"),
-    pRepair: gid("pRepair", "p2Val"),
-    pGrid: gid("pGrid", "p3Val"),
-
-    // Controls
-    resetProgress: gid("resetProgress", "resetBtn"),
-
-    // Trivia
-    streak: gid("streak"),
-    triviaTarget: gid("triviaTarget"),
-    remaining: gid("remaining"),
-    category: gid("category"),
-    question: gid("question"),
-    answer: gid("answer"),
-    submitAnswer: gid("submitAnswer"),
-    triviaMsg: gid("triviaMsg"),
-
-    // Notes
-    noteStreak: gid("noteStreak"),
-    noteTarget: gid("noteTarget"),
-    playNote: gid("playNote"),
-    noteAnswer: gid("noteAnswer", "noteGuess"),
-    submitNote: gid("submitNote"),
-    noteMsg: gid("noteMsg"),
-
-    // Repair
-    repairStreak: gid("repairStreak"),
-    repairTarget: gid("repairTarget"),
-    repairTimer: gid("repairTimer"),
-    repairPrompt: gid("repairPrompt", "repairBroken"),
-    repairAnswer: gid("repairAnswer", "repairInput"),
-    submitRepair: gid("submitRepair"),
-    repairMsg: gid("repairMsg"),
-
-    // Grid (supports old + new)
-    gridStreak: gid("gridStreak"),
-    gridTarget: gid("gridTarget"),
-    gridSteps: gid("gridSteps", "dirList"),
-    gridBoard: gid("gridBoard", "grid"),
-    gridMsg: gid("gridMsg"),
-    resetGrid: gid("resetGrid", "regenGrid", "regen", "regenBtn"),
-    submitGrid: gid("submitGrid", "gridSubmit"),
-
-    // Grid timers (optional IDs; we’ll populate if present)
-    gridVisLabel: gid("gridVisLabel", "gridVisibilityLabel"),
-    gridVisValue: gid("gridVisValue", "gridVisibilityValue", "gridClock", "gridTimer"),
-
-    // Reveal
-    poemText: gid("poemText"),
-    revealMsg: gid("revealMsg"),
-    fragA: gid("fragA"),
-    fragB: gid("fragB"),
-    decryptPoemBtn: gid("decryptPoemBtn"),
-  };
-
-  function hasCoreUI() {
-    // We avoid "fail fast" now; we degrade gracefully.
-    return !!(ui.stageTrivia && ui.stageRepair && ui.stageGrid);
-  }
-
-  /* =========================
-     THEME (persist)
-  ========================= */
-  const THEME_KEY = "ync_theme";
-
-  function applyTheme(theme) {
-    // Your CSS can key off body[data-theme="light"|"dark"]
-    document.body.dataset.theme = theme;
-  }
-
-  function initTheme() {
-    const saved = localStorage.getItem(THEME_KEY);
-    applyTheme(saved === "light" ? "light" : "dark");
-    on(ui.toggleTheme, "click", () => {
-      const cur = document.body.dataset.theme === "light" ? "light" : "dark";
-      const next = cur === "light" ? "dark" : "light";
-      localStorage.setItem(THEME_KEY, next);
-      applyTheme(next);
-    });
-  }
-
-  /* =========================
-     APP STATE
-  ========================= */
-  const STAGES = ["trivia", "note", "repair", "grid"]; // reveal is implicit final
-  const state = {
-    stage: "trivia",
-    order: [...STAGES], // keep stable order; users can click tabs anyway
-    cleared: new Set(),
-
-    trivia: { target: 15, streak: 0, retired: new Set(), current: null },
-    note: { target: 5, streak: 0, current: null, backdoorProgress: 0 }, // 1324 sequence
-    repair: { target: 3, streak: 0, current: null, deadlineTs: 0, timerId: null, secs: 150, tol: 5 },
-    grid: {
-      target: 1,
-      streak: 0,
-      model: null,
-      visSecs: 30,
-      visDeadlineTs: 0,
-      visTimerId: null,
-      chosenPath: [], // list of {x,y}
-    },
-
-    poem: { json: null },
-  };
-
-  function renderSide() {
-    // Sidebar progress values (support multiple layouts)
-    if (ui.pTrivia) setText(ui.pTrivia, `${state.trivia.streak} / ${state.trivia.target}`);
-    if (ui.pNote) setText(ui.pNote, `${state.note.streak} / ${state.note.target}`);
-    if (ui.pRepair) setText(ui.pRepair, `${state.repair.streak} / ${state.repair.target}`);
-    if (ui.pGrid) setText(ui.pGrid, `${state.grid.streak} / ${state.grid.target}`);
-
-    // Optional pill status
-    if (ui.statusPill) {
-      if (state.stage === "reveal") setText(ui.statusPill, "Unlocked");
-      else setText(ui.statusPill, state.cleared.has(state.stage) ? "Cleared" : "In progress");
-    }
-  }
-
-  function setPanelCopy(stage) {
-    if (!ui.panelTitle || !ui.panelDesc) return;
-
-    if (stage === "trivia") {
-      setText(ui.panelTitle, "Test — Trivia");
-      setHTML(ui.panelDesc, `Get <b>${state.trivia.target}</b> correct in a row. Miss resets streak.`);
-      if (ui.objective) setText(ui.objective, `${state.trivia.target} in a row`);
-      if (ui.objectiveDesc) setText(ui.objectiveDesc, "Answer carefully. Minor spacing/punctuation is tolerated.");
-      if (ui.implNote) setText(ui.implNote, "Trivia answers are case-insensitive; minor typos are tolerated.");
-      return;
-    }
-
-    if (stage === "note") {
-      setText(ui.panelTitle, "Test — Music Notes");
-      setHTML(ui.panelDesc, `Listen to a note and type <b>A–G</b>. Get <b>${state.note.target}</b> in a row.`);
-      if (ui.objective) setText(ui.objective, `${state.note.target} in a row`);
-      if (ui.objectiveDesc) setText(ui.objectiveDesc, "Single octave only. Submission is mandatory.");
-      if (ui.implNote) setText(ui.implNote, "Audio requires a user click at least once due to browser policy.");
-      return;
-    }
-
-    if (stage === "repair") {
-      setText(ui.panelTitle, "Test — Sentence Repair");
-      setHTML(
-        ui.panelDesc,
-        `Fix the text. <b>2:30</b> time limit. Get <b>${state.repair.target}</b> wins in a row. Tolerance: ≤ <b>${state.repair.tol}</b> character errors.`
-      );
-      if (ui.objective) setText(ui.objective, `${state.repair.target} wins in a row`);
-      if (ui.objectiveDesc) setText(
-        ui.objectiveDesc,
-        "Keep the same numbering and line breaks. Minor fat-finger mistakes are tolerated."
-      );
-      if (ui.implNote) setText(ui.implNote, "Comparison is character-level after quote/whitespace normalization.");
-      return;
-    }
-
-    if (stage === "grid") {
-      setText(ui.panelTitle, "Test — Grid Memory Path");
-      setHTML(
-        ui.panelDesc,
-        `Memorize <b>15</b> directions. They hide after <b>${state.grid.visSecs}s</b>. Then click the full path and submit.`
-      );
-      if (ui.objective) setText(ui.objective, `${state.grid.target} correct`);
-      if (ui.objectiveDesc) setText(ui.objectiveDesc, "Directions vanish. You must reconstruct the entire path from memory.");
-      if (ui.implNote) setText(ui.implNote, "Directions hide after 30 seconds. Click the full remembered path, then submit.");
-      return;
-    }
-
-    if (stage === "reveal") {
-      setText(ui.panelTitle, "Access Granted");
-      setText(ui.panelDesc, "");
-      if (ui.objective) setText(ui.objective, "");
-      if (ui.objectiveDesc) setText(ui.objectiveDesc, "");
-      if (ui.implNote) setText(ui.implNote, "");
-      return;
-    }
-  }
-
-  function setStage(stage) {
-    state.stage = stage;
-    document.body.dataset.stage = stage;
-
-    // Stage show/hide
-    const mapStageEl = {
-      trivia: ui.stageTrivia,
-      note: ui.stageNote,
-      repair: ui.stageRepair,
-      grid: ui.stageGrid,
-      reveal: ui.stageReveal,
-    };
-
-    for (const k of Object.keys(mapStageEl)) {
-      const el = mapStageEl[k];
-      if (!el) continue;
-      el.classList.toggle("show", k === stage);
-      // support older CSS: show class only; stage display is CSS
-      if (k === stage) el.style.display = "";
-      else el.style.display = "none";
-    }
-
-    // Nav styling + click behavior
-    const navItems = [
-      { k: "trivia", el: ui.stepTrivia },
-      { k: "note", el: ui.stepNote },
-      { k: "repair", el: ui.stepRepair },
-      { k: "grid", el: ui.stepGrid },
-    ];
-
-    for (const it of navItems) {
-      if (!it.el) continue;
-      it.el.classList.remove("active", "done");
-      if (it.k === stage) it.el.classList.add("active");
-      if (state.cleared.has(it.k)) it.el.classList.add("done");
-    }
-
-    // Hide reveal tab if it exists (per your instruction)
-    if (ui.stepReveal) show(ui.stepReveal, false);
-
-    // Reveal mode: hide progress + tabs (but keep brand + theme toggle)
-    const inReveal = stage === "reveal";
-    if (ui.side) show(ui.side, !inReveal);
-    if (ui.nav) show(ui.nav, !inReveal);
-    // If tabs container isn't captured by ui.nav, hide common wrappers
-    const possibleNavWrappers = [
-      gid("stepsNav", "tabsNav", "navTabs"),
-      q(".steps"),
-      q(".tabs"),
-    ].filter(Boolean);
-    for (const w of possibleNavWrappers) show(w, !inReveal);
-
-    setPanelCopy(stage);
-    renderSide();
-
-    // Stage-specific autofocus
-    if (stage === "trivia" && ui.answer) setTimeout(() => ui.answer.focus(), 0);
-    if (stage === "note" && ui.noteAnswer) setTimeout(() => ui.noteAnswer.focus(), 0);
-    if (stage === "repair" && ui.repairAnswer) setTimeout(() => ui.repairAnswer.focus(), 0);
-  }
-
-  function maybeUnlockReveal() {
-    const allCleared = STAGES.every((k) => state.cleared.has(k));
-    if (allCleared) {
-      setStage("reveal");
-      if (ui.revealMsg) setMsg(ui.revealMsg, "All gates cleared. Enter fragments to decrypt.", "good");
-      return true;
-    }
-    return false;
-  }
-
-  function markCleared(stageKey) {
-    state.cleared.add(stageKey);
-    renderSide();
-    if (!maybeUnlockReveal()) {
-      // Keep user where they are; they can click tabs.
-      // Auto-advance to next uncleared stage (optional).
-      const next = STAGES.find((k) => !state.cleared.has(k));
-      if (next) setStage(next);
-    }
-  }
-
-  /* =========================
-     TRIVIA
-  ========================= */
-  function triviaRemaining() {
-    const bank = window.TRIVIA_BANK;
-    if (!Array.isArray(bank)) return 0;
-    return bank.filter((q) => !state.trivia.retired.has(q.id)).length;
-  }
-
   function pickTrivia() {
-    const bank = window.TRIVIA_BANK;
-    if (!Array.isArray(bank) || bank.length < 10) {
-      if (ui.question) setText(ui.question, "Trivia bank missing or invalid.");
-      setMsg(ui.triviaMsg, "Ensure trivia_bank.js is loaded before app.js.", "bad");
+    if (!window.TRIVIA_BANK || !Array.isArray(window.TRIVIA_BANK) || window.TRIVIA_BANK.length < 10) {
+      setText(ui.triviaQuestion, "Trivia bank missing or invalid.");
+      setMsg(ui.triviaMsg, "Ensure trivia_bank.js loads before app.js.", "bad");
       return;
     }
 
-    const pool = bank.filter((q) => !state.trivia.retired.has(q.id));
+    const pool = window.TRIVIA_BANK.filter(q => !state.trivia.retired.has(q.id));
     if (pool.length === 0) {
-      if (ui.question) setText(ui.question, "No trivia remaining in this session.");
-      setMsg(ui.triviaMsg, "Reload to reset remaining.", "warn");
+      setText(ui.triviaQuestion, "No trivia remaining in this session.");
+      setMsg(ui.triviaMsg, "Reload to reset.", "warn");
       return;
     }
 
-    const qx = pool[Math.floor(Math.random() * pool.length)];
-    state.trivia.current = qx;
+    const q = shufflePick(pool);
+    state.trivia.current = q;
 
-    if (ui.category) setText(ui.category, qx.cat);
-    if (ui.question) setText(ui.question, qx.q);
-    if (ui.answer) ui.answer.value = "";
+    setText(ui.triviaCategory, q.cat || "—");
+    setText(ui.triviaQuestion, q.q || "—");
+    if (ui.triviaAnswer) ui.triviaAnswer.value = "";
     setMsg(ui.triviaMsg, "", "");
-    if (ui.remaining) setText(ui.remaining, String(triviaRemaining()));
-    setTimeout(() => ui.answer?.focus?.(), 0);
+    setText(ui.triviaRemaining, String(triviaRemaining()));
+    setTimeout(() => ui.triviaAnswer?.focus?.(), 0);
   }
 
-  function checkTriviaAnswer() {
-    const raw = ui.answer?.value ?? "";
-    if (isOverride(raw)) {
-      state.trivia.streak = state.trivia.target;
-      if (ui.streak) setText(ui.streak, String(state.trivia.streak));
-      setMsg(ui.triviaMsg, "Override accepted.", "good");
-      markCleared("trivia");
+  function checkTrivia() {
+    const raw = ui.triviaAnswer?.value || "";
+    if (isBackdoor(raw)) {
+      state.trivia.streak = TRIVIA.target;
+      renderProgress();
+      setMsg(ui.triviaMsg, "Accepted.", "good");
+      completeGate("trivia");
       return;
     }
 
-    const qx = state.trivia.current;
-    if (!qx) return;
+    const q = state.trivia.current;
+    if (!q) return;
 
-    const guess = normTrivia(raw);
+    const guess = norm(raw);
     if (!guess) {
       setMsg(ui.triviaMsg, "Enter an answer.", "bad");
       return;
     }
 
     // retire on any attempt
-    state.trivia.retired.add(qx.id);
-    if (ui.remaining) setText(ui.remaining, String(triviaRemaining()));
+    state.trivia.retired.add(q.id);
+    setText(ui.triviaRemaining, String(triviaRemaining()));
 
-    const truths = [qx.a, ...(qx.alts || [])];
+    const truths = [q.a, ...(q.alts || [])];
     const ok = matchesAny(raw, truths);
 
     if (ok) {
       state.trivia.streak += 1;
-      if (ui.streak) setText(ui.streak, String(state.trivia.streak));
+      renderProgress();
       setMsg(ui.triviaMsg, "Correct.", "good");
-      renderSide();
 
-      if (state.trivia.streak >= state.trivia.target) {
-        setMsg(ui.triviaMsg, "Gate cleared.", "good");
-        markCleared("trivia");
-        return;
+      if (state.trivia.streak >= TRIVIA.target) {
+        setTimeout(() => completeGate("trivia"), 200);
+      } else {
+        setTimeout(pickTrivia, 220);
       }
-      setTimeout(pickTrivia, 250);
       return;
     }
 
     state.trivia.streak = 0;
-    if (ui.streak) setText(ui.streak, "0");
-    renderSide();
-    setMsg(ui.triviaMsg, `Incorrect. Answer: ${qx.a}`, "bad");
+    renderProgress();
+    setMsg(ui.triviaMsg, `Incorrect. Answer: ${q.a}`, "bad");
     setTimeout(pickTrivia, 450);
   }
 
   /* =========================
-     MUSIC NOTES (single octave)
+     MUSIC NOTES (single octave, 7 fixed notes)
   ========================= */
   const NOTE_BANK = [
     { n: "C", f: 261.63 },
     { n: "D", f: 293.66 },
     { n: "E", f: 329.63 },
     { n: "F", f: 349.23 },
-    { n: "G", f: 392.0 },
-    { n: "A", f: 440.0 },
+    { n: "G", f: 392.00 },
+    { n: "A", f: 440.00 },
     { n: "B", f: 493.88 },
   ];
 
-  let audio = { ctx: null, master: null };
+  const audio = { ctx: null, master: null };
 
   function ensureAudio() {
     if (audio.ctx) return;
@@ -563,7 +589,7 @@
     audio.master.connect(audio.ctx.destination);
   }
 
-  function playTone(freq, ms = 750) {
+  function playTone(freq, ms = 650) {
     ensureAudio();
     if (audio.ctx.state === "suspended") audio.ctx.resume();
 
@@ -586,62 +612,31 @@
   }
 
   function newNoteRound(autoPlay = false) {
-    state.note.current = NOTE_BANK[Math.floor(Math.random() * NOTE_BANK.length)];
-    if (ui.noteAnswer) ui.noteAnswer.value = "";
-    setMsg(ui.noteMsg, "Click Play, then type A–G, then press Submit.", "warn");
+    state.notes.current = NOTE_BANK[Math.floor(Math.random() * NOTE_BANK.length)];
+    state.notes.secretBuf = "";
+    if (ui.noteInput) ui.noteInput.value = "";
+    setMsg(ui.noteMsg, "Click Play note, then enter A–G and press Submit.", "warn");
     if (autoPlay) {
-      try { playTone(state.note.current.f, 750); } catch {}
+      try { playTone(state.notes.current.f, 650); } catch {}
     }
-    setTimeout(() => ui.noteAnswer?.focus?.(), 0);
+    setTimeout(() => ui.noteInput?.focus?.(), 0);
   }
 
-  function noteBackdoorProgressReset() {
-    state.note.backdoorProgress = 0;
-  }
+  function checkNotes() {
+    const raw = (ui.noteInput?.value || "").trim();
 
-  function checkNoteAnswer() {
-    const raw = (ui.noteAnswer?.value ?? "").trim();
-
-    // Backdoor path: accept "1324" either in one shot, or as 1->3->2->4 across submits.
-    if (isOverride(raw)) {
-      state.note.streak = state.note.target;
-      if (ui.noteStreak) setText(ui.noteStreak, String(state.note.streak));
-      setMsg(ui.noteMsg, "Override accepted.", "good");
-      renderSide();
-      markCleared("note");
+    // Backdoor for notes: "1324" typed and then Submit
+    // Works even if the input is single-char by also tracking digits typed (secretBuf)
+    if (isBackdoor(raw) || state.notes.secretBuf === BACKDOOR) {
+      state.notes.streak = NOTES.target;
+      renderProgress();
+      setMsg(ui.noteMsg, "Accepted.", "good");
+      completeGate("notes");
       return;
     }
 
-    const digits = raw.replace(/[^0-9]/g, "");
-    if (digits.length === 1) {
-      const seq = OVERRIDE_CODE;
-      const expected = seq[state.note.backdoorProgress];
-      if (digits === expected) {
-        state.note.backdoorProgress += 1;
-        // do NOT reveal progress
-        if (state.note.backdoorProgress >= seq.length) {
-          state.note.streak = state.note.target;
-          if (ui.noteStreak) setText(ui.noteStreak, String(state.note.streak));
-          setMsg(ui.noteMsg, "Override accepted.", "good");
-          renderSide();
-          markCleared("note");
-          return;
-        }
-        // Continue; don't penalize; load next note silently
-        if (ui.noteAnswer) ui.noteAnswer.value = "";
-        setMsg(ui.noteMsg, "Recorded.", "warn");
-        return;
-      } else {
-        // wrong digit: reset backdoor attempt
-        noteBackdoorProgressReset();
-      }
-    } else if (digits.length > 1) {
-      // If user typed multiple digits not exactly 1324, reset the sequence attempt.
-      noteBackdoorProgressReset();
-    }
-
-    if (!state.note.current) {
-      setMsg(ui.noteMsg, "No note loaded. Click Play.", "bad");
+    if (!state.notes.current) {
+      setMsg(ui.noteMsg, "No note loaded. Click Play note.", "bad");
       return;
     }
 
@@ -651,32 +646,28 @@
       return;
     }
 
-    const ok = g === state.note.current.n;
+    const ok = (g === state.notes.current.n);
     if (ok) {
-      state.note.streak += 1;
-      if (ui.noteStreak) setText(ui.noteStreak, String(state.note.streak));
-      renderSide();
+      state.notes.streak += 1;
+      renderProgress();
       setMsg(ui.noteMsg, "Correct.", "good");
 
-      if (state.note.streak >= state.note.target) {
-        setMsg(ui.noteMsg, "Gate cleared.", "good");
-        markCleared("note");
-        return;
+      if (state.notes.streak >= NOTES.target) {
+        setTimeout(() => completeGate("notes"), 200);
+      } else {
+        setTimeout(() => newNoteRound(false), 240);
       }
-
-      setTimeout(() => newNoteRound(false), 250);
       return;
     }
 
-    state.note.streak = 0;
-    if (ui.noteStreak) setText(ui.noteStreak, "0");
-    renderSide();
-    setMsg(ui.noteMsg, "Incorrect. Streak reset.", "bad");
-    setTimeout(() => newNoteRound(false), 300);
+    state.notes.streak = 0;
+    renderProgress();
+    setMsg(ui.noteMsg, "Incorrect.", "bad");
+    setTimeout(() => newNoteRound(false), 260);
   }
 
   /* =========================
-     SENTENCE REPAIR (2:30, tolerance <= 5 chars)
+     SENTENCE REPAIR (2:30, <=5 wrong chars)
   ========================= */
   const REPAIR_BANK = [
     {
@@ -717,6 +708,17 @@
     },
   ];
 
+  function canonRepair(s) {
+    return (s || "")
+      .replace(/\r\n/g, "\n")
+      .replace(/[ \t]+/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+      .normalize("NFKC")
+      .replace(/[’‘]/g, "'")
+      .replace(/[“”]/g, '"');
+  }
+
   function stopRepairTimer() {
     if (state.repair.timerId) {
       clearInterval(state.repair.timerId);
@@ -729,14 +731,14 @@
     const tick = () => {
       const left = Math.max(0, state.repair.deadlineTs - Date.now());
       const s = Math.ceil(left / 1000);
-      const mm = String(Math.floor(s / 60));
+      const mm = String(Math.floor(s / 60)).padStart(1, "0");
       const ss = String(s % 60).padStart(2, "0");
-      if (ui.repairTimer) setText(ui.repairTimer, `${mm}:${ss}`);
+      setText(ui.repairTimer, `${mm}:${ss}`);
+
       if (left <= 0) {
         stopRepairTimer();
         state.repair.streak = 0;
-        if (ui.repairStreak) setText(ui.repairStreak, "0");
-        renderSide();
+        renderProgress();
         setMsg(ui.repairMsg, "Time expired. Streak reset.", "bad");
         setTimeout(() => newRepairRound(true), 450);
       }
@@ -745,49 +747,45 @@
     tick();
   }
 
-  function newRepairRound(resetMsg = false) {
+  function newRepairRound(showGuidance) {
     stopRepairTimer();
     const item = REPAIR_BANK[Math.floor(Math.random() * REPAIR_BANK.length)];
     state.repair.current = item;
 
-    if (ui.repairPrompt) setText(ui.repairPrompt, item.broken);
-    if (ui.repairAnswer) ui.repairAnswer.value = "";
-    if (ui.repairTarget) setText(ui.repairTarget, String(state.repair.target));
-
-    // clearer instruction, not "iffy"
-    const formatHint =
-      "Format required: keep exactly 4 lines, numbered 1) .. 4), with the same line breaks. Then press Submit.";
-    setMsg(ui.repairMsg, resetMsg ? formatHint : "", resetMsg ? "warn" : "");
-
-    state.repair.deadlineTs = Date.now() + state.repair.secs * 1000; // 2:30
-    startRepairTimer();
-    setTimeout(() => ui.repairAnswer?.focus?.(), 0);
-  }
-
-  function looksLikeRepairFormat(s) {
-    const t = canonRepair(s);
-    const lines = t.split("\n");
-    if (lines.length < 4) return false;
-    // Only require that the first 4 non-empty lines begin with 1) 2) 3) 4)
-    const nonEmpty = lines.filter((ln) => ln.trim().length > 0);
-    if (nonEmpty.length < 4) return false;
-    const req = ["1)", "2)", "3)", "4)"];
-    for (let i = 0; i < 4; i++) {
-      if (!nonEmpty[i].trim().startsWith(req[i])) return false;
+    // Put broken text into the right element
+    if (ui.repairBroken) {
+      // Some HTML uses <pre>; some uses <div>. Use textContent always.
+      ui.repairBroken.textContent = item.broken;
     }
-    return true;
+
+    if (ui.repairInput) ui.repairInput.value = "";
+
+    // Clear + guidance
+    if (showGuidance) {
+      setMsg(
+        ui.repairMsg,
+        "Format required: keep 4 lines, keep the same numbering (1)–(4), keep line breaks. Fix only the errors, then press Submit.",
+        "warn"
+      );
+    } else {
+      setMsg(ui.repairMsg, "", "");
+    }
+
+    state.repair.deadlineTs = Date.now() + REPAIR.ms;
+    startRepairTimer();
+    setTimeout(() => ui.repairInput?.focus?.(), 0);
   }
 
-  function checkRepairAnswer() {
-    const raw = ui.repairAnswer?.value ?? "";
+  function checkRepair() {
+    const raw = ui.repairInput?.value || "";
 
-    if (isOverride(raw)) {
+    // Backdoor
+    if (isBackdoor(raw)) {
       stopRepairTimer();
-      state.repair.streak = state.repair.target;
-      if (ui.repairStreak) setText(ui.repairStreak, String(state.repair.streak));
-      renderSide();
-      setMsg(ui.repairMsg, "Override accepted.", "good");
-      markCleared("repair");
+      state.repair.streak = REPAIR.target;
+      renderProgress();
+      setMsg(ui.repairMsg, "Accepted.", "good");
+      completeGate("repair");
       return;
     }
 
@@ -802,52 +800,50 @@
       return;
     }
 
-    if (!looksLikeRepairFormat(raw)) {
-      setMsg(
-        ui.repairMsg,
-        "Invalid format. Keep 4 lines with numbering 1) 2) 3) 4) and the same line breaks.",
-        "bad"
-      );
-      return;
-    }
-
     const guess = canonRepair(raw);
     const truth = canonRepair(state.repair.current.fixed);
 
+    // Character-level tolerance via edit distance on canonicalized strings.
     const dist = levenshteinRaw(guess, truth);
-    const ok = dist <= state.repair.tol;
+    const ok = (guess === truth) || (dist <= REPAIR.tol);
 
     if (ok) {
       stopRepairTimer();
       state.repair.streak += 1;
-      if (ui.repairStreak) setText(ui.repairStreak, String(state.repair.streak));
-      renderSide();
-      setMsg(ui.repairMsg, `Correct (distance ${dist} ≤ ${state.repair.tol}).`, "good");
+      renderProgress();
+      setMsg(ui.repairMsg, `Correct. (distance ${dist} ≤ ${REPAIR.tol})`, "good");
 
-      if (state.repair.streak >= state.repair.target) {
-        setMsg(ui.repairMsg, "Gate cleared.", "good");
-        markCleared("repair");
-        return;
+      if (state.repair.streak >= REPAIR.target) {
+        setTimeout(() => completeGate("repair"), 200);
+      } else {
+        setTimeout(() => newRepairRound(true), 220);
       }
-
-      setTimeout(() => newRepairRound(true), 250);
       return;
     }
 
     stopRepairTimer();
     state.repair.streak = 0;
-    if (ui.repairStreak) setText(ui.repairStreak, "0");
-    renderSide();
-    setMsg(ui.repairMsg, `Incorrect (distance ${dist} > ${state.repair.tol}). Streak reset.`, "bad");
+    renderProgress();
+    setMsg(
+      ui.repairMsg,
+      `Incorrect (distance ${dist} > ${REPAIR.tol}). Keep 4 numbered lines with the same line breaks.`,
+      "bad"
+    );
     setTimeout(() => newRepairRound(true), 350);
   }
 
   /* =========================
-     GRID (15 directions, visible 30s, click full path + submit)
+     GRID (15 directions, hide grid for 30s, click full path)
   ========================= */
+  function dirToText(d) {
+    return d === "U" ? "Up" : d === "D" ? "Down" : d === "L" ? "Left" : d === "R" ? "Right" : d;
+  }
+
   function makeGridModel() {
-    const size = 9;        // 9x9 intersections
-    const stepsN = 15;     // 15 directions
+    const size = GRID.size;
+    const stepsN = GRID.stepsN;
+
+    // start near center-ish
     const start = {
       x: 2 + Math.floor(Math.random() * (size - 4)),
       y: 2 + Math.floor(Math.random() * (size - 4)),
@@ -855,6 +851,7 @@
 
     const steps = [];
     let x = start.x, y = start.y;
+
     for (let i = 0; i < stepsN; i++) {
       const options = [];
       if (y > 0) options.push("U");
@@ -862,9 +859,9 @@
       if (x > 0) options.push("L");
       if (x < size - 1) options.push("R");
 
-      // reduce immediate undo
+      // avoid immediate undo when possible
       const prev = steps[i - 1];
-      const filtered = options.filter((d) => {
+      const filtered = options.filter(d => {
         if (prev === "U" && d === "D") return false;
         if (prev === "D" && d === "U") return false;
         if (prev === "L" && d === "R") return false;
@@ -882,199 +879,203 @@
       if (d === "R") x += 1;
     }
 
-    const pathPoints = [];
-    // path includes the start plus each step endpoint
+    // Build the full path cells: start + each step position
+    const path = [{ x: start.x, y: start.y }];
     let px = start.x, py = start.y;
-    pathPoints.push({ x: px, y: py });
     for (const d of steps) {
       if (d === "U") py -= 1;
       if (d === "D") py += 1;
       if (d === "L") px -= 1;
       if (d === "R") px += 1;
-      pathPoints.push({ x: px, y: py });
+      path.push({ x: px, y: py });
     }
 
-    return { size, start, steps, pathPoints };
+    return { size, start, steps, path };
   }
 
-  function dirToText(d) {
-    if (d === "U") return "Up";
-    if (d === "D") return "Down";
-    if (d === "L") return "Left";
-    if (d === "R") return "Right";
-    return d;
-  }
-
-  function stopGridVisTimer() {
-    if (state.grid.visTimerId) {
-      clearInterval(state.grid.visTimerId);
-      state.grid.visTimerId = null;
+  function stopGridMemoTimer() {
+    if (state.grid.memoTimerId) {
+      clearInterval(state.grid.memoTimerId);
+      state.grid.memoTimerId = null;
     }
   }
 
-  function renderGridDirections(visible) {
-    const m = state.grid.model;
-    if (!ui.gridSteps || !m) return;
+  function setGridPhase(phase) {
+    state.grid.phase = phase;
 
-    if (!visible) {
-      setHTML(ui.gridSteps, "");
-      ui.gridSteps.classList.add("hidden");
-      return;
+    // “Memo” phase: show directions full width, hide entire grid area
+    // “Play” phase: directions hidden, show grid full width
+    const directionsEl = ui.dirList;
+    const boardWrap = ui.gridBoardWrap || ui.gridBoard;
+
+    if (phase === "memo") {
+      if (directionsEl) {
+        directionsEl.style.display = "";
+        directionsEl.style.visibility = "visible";
+      }
+      if (boardWrap) {
+        boardWrap.style.display = "none";
+      }
+
+      // Try to make left content fill space (common layouts use gridWrap)
+      const gridWrap = firstEl(".gridWrap", '[data-role="gridWrap"]');
+      if (gridWrap) {
+        gridWrap.style.gridTemplateColumns = "1fr";
+      }
+    } else {
+      if (directionsEl) {
+        // Completely disappear after 30s (not just faded)
+        directionsEl.style.display = "none";
+        directionsEl.style.visibility = "hidden";
+      }
+      if (boardWrap) {
+        boardWrap.style.display = "";
+      }
+
+      const gridWrap = firstEl(".gridWrap", '[data-role="gridWrap"]');
+      if (gridWrap) {
+        // Show board full width (directions are gone)
+        gridWrap.style.gridTemplateColumns = "1fr";
+      }
     }
+  }
 
-    ui.gridSteps.classList.remove("hidden");
-    // Full-space list: keep it simple; CSS can handle scroll.
+  function renderDirections(m) {
+    if (!ui.dirList) return;
+    // Fill the whole space: use a block list (works with your CSS)
     const html = m.steps
-      .map((d, i) => {
-        const n = String(i + 1).padStart(2, "0");
-        return `<div class="stepLine"><span class="mono">${n}</span> ${dirToText(d)}</div>`;
-      })
+      .map((d, i) => `<div class="stepLine"><span class="mono">${String(i + 1).padStart(2, "0")}</span> ${dirToText(d)}</div>`)
       .join("");
-    setHTML(ui.gridSteps, html);
+    setHTML(ui.dirList, html);
   }
 
-  function renderGridBoard() {
-    const m = state.grid.model;
-    if (!ui.gridBoard || !m) return;
+  function renderGridBoard(m) {
+    if (!ui.gridBoard) return;
 
-    // Support two CSS models:
-    // - your older one expects buttons with class "gridCell"
-    // - your older CSS expects ".cell" in ".board"
     ui.gridBoard.innerHTML = "";
     ui.gridBoard.style.setProperty("--n", String(m.size));
-    ui.gridBoard.style.setProperty("--gridN", String(m.size));
 
-    // chosenPath highlights
-    const chosenSet = new Set(state.grid.chosenPath.map((p) => `${p.x},${p.y}`));
-    const startKey = `${m.start.x},${m.start.y}`;
+    // If CSS expects other var name
+    ui.gridBoard.style.setProperty("--gridN", String(m.size));
 
     for (let y = 0; y < m.size; y++) {
       for (let x = 0; x < m.size; x++) {
-        const btn = document.createElement("button");
-        btn.type = "button";
+        const cell = document.createElement("button");
+        cell.type = "button";
+        cell.className = "gridCell cell"; // support either class
+        cell.dataset.x = String(x);
+        cell.dataset.y = String(y);
+        cell.setAttribute("aria-label", `Cell ${x},${y}`);
 
-        // Try to match whatever CSS you currently have
-        btn.className = "gridCell cell";
-        btn.dataset.x = String(x);
-        btn.dataset.y = String(y);
-        btn.setAttribute("aria-label", `Intersection ${x},${y}`);
+        const isStart = (x === m.start.x && y === m.start.y);
+        if (isStart) cell.classList.add("start");
 
-        const key = `${x},${y}`;
-        if (key === startKey) btn.classList.add("start");
-        if (chosenSet.has(key)) btn.classList.add("chosen", "selected");
+        // Highlight clicked path in green-ish via existing "selected/chosen" styles
+        const idx = state.grid.clicked.findIndex(p => p.x === x && p.y === y);
+        if (idx >= 0) cell.classList.add("selected", "chosen");
 
-        // Draw the dot on start
-        if (key === startKey) {
+        // Add start dot element if CSS uses it
+        if (isStart) {
           const dot = document.createElement("div");
           dot.className = "dotStart";
-          btn.appendChild(dot);
+          cell.appendChild(dot);
         }
 
-        on(btn, "click", () => {
-          // Append path clicks until length = pathPoints length
-          if (!state.grid.model) return;
-          if (state.grid.chosenPath.length >= state.grid.model.pathPoints.length) return;
+        cell.addEventListener("click", () => {
+          if (state.grid.phase !== "play") return;
 
-          // Allow re-clicking last selected to "unselect last" (quality-of-life)
-          const last = state.grid.chosenPath[state.grid.chosenPath.length - 1];
-          if (last && last.x === x && last.y === y) {
-            state.grid.chosenPath.pop();
-            renderGridBoard();
-            setMsg(ui.gridMsg, "Last step removed.", "warn");
-            return;
+          // Collect path clicks in order
+          state.grid.clicked.push({ x, y });
+
+          // Soft guidance
+          const needed = (m.path.length);
+          const have = state.grid.clicked.length;
+          if (have < needed) {
+            setMsg(ui.gridMsg, `Path step ${have}/${needed}. Keep clicking the path, then press Submit.`, "warn");
+          } else if (have === needed) {
+            setMsg(ui.gridMsg, "Path length complete. Press Submit.", "warn");
+          } else {
+            setMsg(ui.gridMsg, "Too many clicks. Press Regenerate to retry.", "bad");
           }
 
-          state.grid.chosenPath.push({ x, y });
-          renderGridBoard();
-
-          const need = state.grid.model.pathPoints.length;
-          const have = state.grid.chosenPath.length;
-          setMsg(ui.gridMsg, `Path recorded (${have}/${need}). Press Submit when done.`, "warn");
+          renderGridBoard(m);
         });
 
-        ui.gridBoard.appendChild(btn);
+        ui.gridBoard.appendChild(cell);
       }
     }
   }
 
-  function startGridVisibilityTimer() {
-    stopGridVisTimer();
-
-    state.grid.visDeadlineTs = Date.now() + state.grid.visSecs * 1000;
-    renderGridDirections(true);
-
+  function startGridMemoCountdown() {
+    stopGridMemoTimer();
     const tick = () => {
-      const leftMs = state.grid.visDeadlineTs - Date.now();
-      const left = Math.max(0, Math.ceil(leftMs / 1000));
-
-      // Optional "Visibility" clock UI if present; otherwise use gridMsg
-      if (ui.gridVisValue) setText(ui.gridVisValue, `0:${String(left).padStart(2, "0")}`);
-      if (ui.gridVisLabel) setText(ui.gridVisLabel, "Visibility");
+      const left = Math.max(0, state.grid.memoDeadlineTs - Date.now());
+      const s = Math.ceil(left / 1000);
+      const mm = String(Math.floor(s / 60)).padStart(1, "0");
+      const ss = String(s % 60).padStart(2, "0");
+      if (ui.gridVisibility) setText(ui.gridVisibility, `${mm}:${ss}`);
 
       if (left <= 0) {
-        stopGridVisTimer();
-        renderGridDirections(false);
-        setMsg(ui.gridMsg, "Directions hidden. Reconstruct the full path from memory, then submit.", "warn");
+        stopGridMemoTimer();
+        // directions disappear; grid appears
+        setGridPhase("play");
+        setMsg(ui.gridMsg, "Directions hidden. Now click the full remembered path (start first), then press Submit.", "warn");
       }
     };
-
-    state.grid.visTimerId = setInterval(tick, 200);
+    state.grid.memoTimerId = setInterval(tick, 200);
     tick();
   }
 
-  function newGridRound(resetMsg = false) {
-    stopGridVisTimer();
+  function newGridRound(resetMsg) {
+    stopGridMemoTimer();
     state.grid.model = makeGridModel();
-    state.grid.chosenPath = [];
+    state.grid.clicked = [];
 
-    // Reset/labels
-    if (ui.gridTarget) setText(ui.gridTarget, String(state.grid.target));
-    if (ui.gridStreak) setText(ui.gridStreak, String(state.grid.streak));
-
-    renderGridBoard();
-
-    // Show directions for 30s, then hide
-    startGridVisibilityTimer();
-
-    setMsg(
-      ui.gridMsg,
-      resetMsg
-        ? "Memorize the 15 directions. They will disappear in 30 seconds."
-        : "Memorize the 15 directions. They will disappear in 30 seconds.",
-      "warn"
-    );
-  }
-
-  function pathEquals(a, b) {
-    if (a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) {
-      if (a[i].x !== b[i].x || a[i].y !== b[i].y) return false;
-    }
-    return true;
-  }
-
-  function gridBackdoorHit() {
     const m = state.grid.model;
-    if (!m) return false;
 
-    // Your described secret pattern relative to start:
-    // 1) start + (3 right, 2 up)
-    // 2) then down by 2  => start + (3 right, 0)
-    // 3) then right by 4 => start + (7 right, 0)
+    // Phase 1: memo
+    setGridPhase("memo");
+    renderDirections(m);
+
+    // Grid board should exist but hidden initially; render now so it is ready
+    renderGridBoard(m);
+
+    // Messaging
+    if (resetMsg) {
+      setMsg(ui.gridMsg, "Memorize the 15 directions. Grid is hidden for 30 seconds.", "warn");
+    } else {
+      setMsg(ui.gridMsg, "Memorize the 15 directions. Grid is hidden for 30 seconds.", "warn");
+    }
+
+    state.grid.memoDeadlineTs = Date.now() + GRID.memoMs;
+    startGridMemoCountdown();
+  }
+
+  function isGridBackdoorPattern(m, clicked) {
+    // Secret click backdoor relative to START:
+    // "third to the right second to the top, then the one down by 2, then the one to the right 4"
+    //
+    // Interpreted as three clicks (in order) relative to the start cell:
+    //   p1 = start + ( +3, -2 )
+    //   p2 = p1    + (  0, +2 )
+    //   p3 = p2    + ( +4,  0 )
+    //
+    // You (the owner) can click exactly these 3 cells (then press Submit) to pass the grid gate.
+    if (!m || !clicked || clicked.length !== 3) return false;
+
     const p1 = { x: m.start.x + 3, y: m.start.y - 2 };
-    const p2 = { x: m.start.x + 3, y: m.start.y + 0 };
-    const p3 = { x: m.start.x + 7, y: m.start.y + 0 };
+    const p2 = { x: p1.x,          y: p1.y + 2 };
+    const p3 = { x: p2.x + 4,      y: p2.y };
 
-    // Must be in-bounds
+    // Ensure within bounds; if not, treat as not available for that round.
     const inb = (p) => p.x >= 0 && p.y >= 0 && p.x < m.size && p.y < m.size;
-    if (!inb(p1) || !inb(p2) || !inb(p3)) return false;
+    if (![p1, p2, p3].every(inb)) return false;
 
-    // We accept either [p1,p2,p3] or [start,p1,p2,p3]
-    const ch = state.grid.chosenPath;
-    if (ch.length === 3 && pathEquals(ch, [p1, p2, p3])) return true;
-    if (ch.length === 4 && pathEquals(ch, [m.start, p1, p2, p3])) return true;
-
-    return false;
+    return (
+      clicked[0].x === p1.x && clicked[0].y === p1.y &&
+      clicked[1].x === p2.x && clicked[1].y === p2.y &&
+      clicked[2].x === p3.x && clicked[2].y === p3.y
+    );
   }
 
   function checkGridPath() {
@@ -1084,44 +1085,49 @@
       return;
     }
 
-    // Backdoor for grid (hidden)
-    if (gridBackdoorHit()) {
-      state.grid.streak = state.grid.target;
-      if (ui.gridStreak) setText(ui.gridStreak, String(state.grid.streak));
-      renderSide();
-      setMsg(ui.gridMsg, "Override accepted.", "good");
-      markCleared("grid");
+    // Backdoor option 1: secret 3-click pattern (then Submit)
+    if (isGridBackdoorPattern(m, state.grid.clicked)) {
+      state.grid.streak = 1;
+      renderProgress();
+      setMsg(ui.gridMsg, "Accepted.", "good");
+      completeGate("grid");
       return;
     }
 
-    const need = m.pathPoints.length;
-    const have = state.grid.chosenPath.length;
-
-    if (have !== need) {
-      setMsg(ui.gridMsg, `Incomplete path. You selected ${have}/${need}. Click the full path, then submit.`, "bad");
+    if (state.grid.phase !== "play") {
+      setMsg(ui.gridMsg, "Wait until directions disappear, then click the path.", "bad");
       return;
     }
 
-    const ok = pathEquals(state.grid.chosenPath, m.pathPoints);
-    if (ok) {
-      state.grid.streak += 1;
-      if (ui.gridStreak) setText(ui.gridStreak, String(state.grid.streak));
-      renderSide();
-      setMsg(ui.gridMsg, "Correct. Gate cleared.", "good");
-      markCleared("grid");
+    const needed = m.path.length;
+    const clicked = state.grid.clicked;
+
+    if (clicked.length !== needed) {
+      setMsg(ui.gridMsg, `Incorrect path length. Expected ${needed} clicks (start + ${GRID.stepsN} steps).`, "bad");
+      state.grid.streak = 0;
+      renderProgress();
       return;
     }
 
-    // Incorrect path => reset streak + new grid
-    state.grid.streak = 0;
-    if (ui.gridStreak) setText(ui.gridStreak, "0");
-    renderSide();
-    setMsg(ui.gridMsg, "Incorrect path. Streak reset. New grid generated.", "bad");
-    setTimeout(() => newGridRound(true), 450);
+    // Exact sequence match
+    for (let i = 0; i < needed; i++) {
+      if (clicked[i].x !== m.path[i].x || clicked[i].y !== m.path[i].y) {
+        setMsg(ui.gridMsg, `Incorrect path at step ${i + 1}. Regenerate and retry.`, "bad");
+        state.grid.streak = 0;
+        renderProgress();
+        return;
+      }
+    }
+
+    // Success
+    state.grid.streak = 1;
+    renderProgress();
+    setMsg(ui.gridMsg, "Correct.", "good");
+    setTimeout(() => completeGate("grid"), 180);
   }
 
   /* =========================
-     POEM.JSON DECRYPT
+     POEM DECRYPT (unchanged)
   ========================= */
   function b64ToBytes(b64) {
     const bin = atob(b64);
@@ -1132,7 +1138,6 @@
 
   async function decryptPoemJson(passphrase, poemJson) {
     const enc = new TextEncoder();
-
     const keyMaterial = await crypto.subtle.importKey(
       "raw",
       enc.encode(passphrase),
@@ -1143,12 +1148,7 @@
 
     const salt = b64ToBytes(poemJson.kdf.saltB64);
     const aesKey = await crypto.subtle.deriveKey(
-      {
-        name: "PBKDF2",
-        hash: poemJson.kdf.hash,
-        salt,
-        iterations: poemJson.kdf.iterations,
-      },
+      { name: "PBKDF2", hash: poemJson.kdf.hash, salt, iterations: poemJson.kdf.iterations },
       keyMaterial,
       { name: "AES-GCM", length: 256 },
       false,
@@ -1165,32 +1165,21 @@
   async function loadPoemJson() {
     try {
       const res = await fetch("./poem.json", { cache: "no-store" });
-      if (!res.ok) throw new Error(`Failed to load poem.json: ${res.status}`);
+      if (!res.ok) throw new Error(`poem.json HTTP ${res.status}`);
       state.poem.json = await res.json();
     } catch (e) {
       console.error(e);
-      setMsg(ui.revealMsg, "Warning: poem.json failed to load. Decrypt may not work.", "warn");
+      state.poem.json = null;
     }
   }
 
-  async function tryDecryptFromInputs() {
-    // Reveal backdoor: if either fragment is 1324, grant "override" (no decrypt required)
-    const aRaw = (ui.fragA?.value ?? "").trim();
-    const bRaw = (ui.fragB?.value ?? "").trim();
-    if (isOverride(aRaw) || isOverride(bRaw) || isOverride(aRaw + bRaw)) {
-      if (ui.poemText) setText(ui.poemText, "Override accepted.");
-      setMsg(ui.revealMsg, "Override accepted.", "good");
+  async function tryDecrypt() {
+    if (!state.poem.json) {
+      setMsg(ui.revealMsg, "poem.json failed to load.", "bad");
       return;
     }
-
-    const pj = state.poem.json;
-    if (!pj) {
-      setMsg(ui.revealMsg, "poem.json not loaded.", "bad");
-      return;
-    }
-
-    const a = aRaw.toLowerCase().replace(/\s+/g, "");
-    const b = bRaw.toLowerCase().replace(/\s+/g, "");
+    const a = (ui.fragA?.value || "").trim().toLowerCase().replace(/\s+/g, "");
+    const b = (ui.fragB?.value || "").trim().toLowerCase().replace(/\s+/g, "");
     const pass = `${a}${b}`;
 
     if (pass.length < 4) {
@@ -1199,36 +1188,38 @@
     }
 
     try {
-      const poem = await decryptPoemJson(pass, pj);
-      if (ui.poemText) setText(ui.poemText, poem);
+      const poem = await decryptPoemJson(pass, state.poem.json);
+      if (ui.poemText) ui.poemText.textContent = poem;
       setMsg(ui.revealMsg, "Decryption successful.", "good");
     } catch (e) {
       console.error(e);
-      if (ui.poemText) setText(ui.poemText, "");
-      const hint = pj?.hint ? ` ${pj.hint}` : "";
+      if (ui.poemText) ui.poemText.textContent = "";
+      const hint = state.poem.json?.hint ? ` ${state.poem.json.hint}` : "";
       setMsg(ui.revealMsg, `Decryption failed.${hint}`, "bad");
     }
   }
 
   /* =========================
-     RESET / INIT
+     HARD RESET (always on load)
   ========================= */
-  function hardResetProgress({ silent = false } = {}) {
-    // stop timers
+  function hardResetSession() {
+    // Stop timers
     stopRepairTimer();
-    stopGridVisTimer();
+    stopGridMemoTimer();
 
-    // reset state
+    // Reset gate progression
+    state.idx = 0;
     state.cleared = new Set();
-    state.stage = "trivia";
+    state.gate = "trivia";
 
+    // Reset per-gate state
     state.trivia.streak = 0;
     state.trivia.retired = new Set();
     state.trivia.current = null;
 
-    state.note.streak = 0;
-    state.note.current = null;
-    state.note.backdoorProgress = 0;
+    state.notes.streak = 0;
+    state.notes.current = null;
+    state.notes.secretBuf = "";
 
     state.repair.streak = 0;
     state.repair.current = null;
@@ -1236,172 +1227,120 @@
 
     state.grid.streak = 0;
     state.grid.model = null;
-    state.grid.chosenPath = [];
+    state.grid.phase = "memo";
+    state.grid.memoDeadlineTs = 0;
+    state.grid.clicked = [];
 
-    // UI counters
-    if (ui.streak) setText(ui.streak, "0");
-    if (ui.noteStreak) setText(ui.noteStreak, "0");
-    if (ui.repairStreak) setText(ui.repairStreak, "0");
-    if (ui.gridStreak) setText(ui.gridStreak, "0");
-
-    // targets
-    if (ui.triviaTarget) setText(ui.triviaTarget, String(state.trivia.target));
-    if (ui.noteTarget) setText(ui.noteTarget, String(state.note.target));
-    if (ui.repairTarget) setText(ui.repairTarget, String(state.repair.target));
-    if (ui.gridTarget) setText(ui.gridTarget, String(state.grid.target));
-
-    // clear messages
+    // Clear messages
     setMsg(ui.triviaMsg, "", "");
     setMsg(ui.noteMsg, "", "");
     setMsg(ui.repairMsg, "", "");
     setMsg(ui.gridMsg, "", "");
     setMsg(ui.revealMsg, "", "");
 
-    if (ui.poemText) setText(ui.poemText, "");
+    // Inputs
+    if (ui.triviaAnswer) ui.triviaAnswer.value = "";
+    if (ui.noteInput) ui.noteInput.value = "";
+    if (ui.repairInput) ui.repairInput.value = "";
     if (ui.fragA) ui.fragA.value = "";
     if (ui.fragB) ui.fragB.value = "";
+    if (ui.poemText) ui.poemText.textContent = "";
 
-    // Always begin at Trivia on reload/reset
-    setStage("trivia");
+    // Reveal layout reset
+    document.body.classList.remove("revealOnly");
+    if (ui.tabsNav) show(ui.tabsNav);
+    if (ui.side) show(ui.side);
 
-    // Boot stages
-    pickTrivia();
-    newNoteRound(false);
-    newRepairRound(true);
-    newGridRound(true);
+    // Hide replay button (explicit request)
+    if (ui.replayNote) hide(ui.replayNote);
 
-    // But user lands on Trivia
-    setStage("trivia");
-    renderSide();
+    // Ensure Reveal tab is gone
+    if (ui.tabReveal) hide(ui.tabReveal);
 
-    if (!silent) {
-      // optional toast
-      setMsg(ui.triviaMsg, "Progress reset.", "warn");
-    }
+    // Ensure we start on Trivia UI
+    renderProgress();
+    setGate("trivia");
   }
 
-  function wireTabNavigation() {
-    const tabs = [
-      { k: "trivia", el: ui.stepTrivia },
-      { k: "note", el: ui.stepNote },
-      { k: "repair", el: ui.stepRepair },
-      { k: "grid", el: ui.stepGrid },
-    ];
-    for (const t of tabs) {
-      on(t.el, "click", () => {
-        // Never allow direct "reveal" tab; it should not exist.
-        setStage(t.k);
-        // stage-specific behaviors
-        if (t.k === "trivia" && !state.trivia.current) pickTrivia();
-        if (t.k === "note" && !state.note.current) newNoteRound(false);
-        if (t.k === "repair" && !state.repair.current) newRepairRound(true);
-        if (t.k === "grid" && !state.grid.model) newGridRound(true);
-      });
-    }
-
-    // If your HTML uses generic pills without IDs, try a fallback:
-    // look for elements containing text labels and wire them.
-    const maybePills = qa("button, .step, .tab").filter((el) => {
-      const tx = (el.textContent || "").trim().toLowerCase();
-      return ["trivia", "music notes", "notes", "repair", "grid"].includes(tx);
-    });
-
-    for (const el of maybePills) {
-      const tx = (el.textContent || "").trim().toLowerCase();
-      if (tx === "trivia") on(el, "click", () => setStage("trivia"));
-      if (tx === "notes" || tx === "music notes") on(el, "click", () => setStage("note"));
-      if (tx === "repair") on(el, "click", () => setStage("repair"));
-      if (tx === "grid") on(el, "click", () => setStage("grid"));
-    }
-  }
-
+  /* =========================
+     WIRING
+  ========================= */
   function wireEvents() {
-    // Global reset button: no confirm; you asked for clean resets.
-    on(ui.resetProgress, "click", () => hardResetProgress({ silent: false }));
-
     // Trivia
-    on(ui.submitAnswer, "click", checkTriviaAnswer);
-    on(ui.answer, "keydown", (e) => {
-      if (e.key === "Enter") checkTriviaAnswer();
+    ui.triviaSubmit?.addEventListener("click", checkTrivia);
+    ui.triviaAnswer?.addEventListener("keydown", (e) => {
+      // Enter is fine, but still requires action; Enter triggers submit here
+      if (e.key === "Enter") checkTrivia();
     });
 
     // Notes
-    on(ui.playNote, "click", () => {
-      if (!state.note.current) newNoteRound(false);
+    ui.playNote?.addEventListener("click", () => {
+      if (!state.notes.current) newNoteRound(false);
       try {
-        playTone(state.note.current.f, 750);
+        playTone(state.notes.current.f, 650);
         setMsg(ui.noteMsg, "Played. Enter A–G, then press Submit.", "warn");
-        ui.noteAnswer?.focus?.();
+        ui.noteInput?.focus?.();
       } catch (e) {
         console.error(e);
-        setMsg(ui.noteMsg, "Audio blocked. Click the page and try again.", "bad");
+        setMsg(ui.noteMsg, "Audio blocked. Click Play note again.", "bad");
       }
     });
-    on(ui.submitNote, "click", checkNoteAnswer);
 
-    // IMPORTANT: keyboard entry should NOT auto-submit; user must press Submit.
-    // So we only prevent form submission defaults; do not call checkNoteAnswer on Enter.
-    on(ui.noteAnswer, "keydown", (e) => {
+    // Explicitly remove replay usage
+    if (ui.replayNote) {
+      hide(ui.replayNote);
+      ui.replayNote.replaceWith(ui.replayNote.cloneNode(true)); // detach any old listeners
+    }
+
+    // Capture digits for secret buffer (so 1324 works even if input is 1 char)
+    ui.noteInput?.addEventListener("keydown", (e) => {
+      // Never auto-submit; do nothing on Enter.
       if (e.key === "Enter") {
         e.preventDefault();
-        // keep focus; require clicking Submit
+        return;
+      }
+      if (/^[0-9]$/.test(e.key)) {
+        state.notes.secretBuf = (state.notes.secretBuf + e.key).slice(-4);
+      } else if (!/^[A-Ga-g]$/.test(e.key)) {
+        // If user types other stuff, don't reset; just ignore.
       }
     });
 
+    ui.noteSubmit?.addEventListener("click", checkNotes);
+
     // Repair
-    on(ui.submitRepair, "click", checkRepairAnswer);
-    // Avoid Ctrl+Enter auto; keep manual submit only (but allow Ctrl+Enter if you want)
-    on(ui.repairAnswer, "keydown", (e) => {
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+    ui.repairSubmit?.addEventListener("click", checkRepair);
+    ui.repairNew?.addEventListener("click", () => newRepairRound(true));
+    ui.repairInput?.addEventListener("keydown", (e) => {
+      // Ctrl/Cmd+Enter submits (optional)
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        checkRepairAnswer();
+        checkRepair();
       }
     });
 
     // Grid
-    on(ui.resetGrid, "click", () => newGridRound(true));
-    on(ui.submitGrid, "click", checkGridPath);
+    ui.regenGrid?.addEventListener("click", () => newGridRound(true));
+    ui.submitPath?.addEventListener("click", checkGridPath);
 
-    // If no submit button exists, enable "double click to submit" on board
-    on(ui.gridBoard, "dblclick", () => checkGridPath);
-
-    // Reveal
-    on(ui.decryptPoemBtn, "click", tryDecryptFromInputs);
-    on(ui.fragB, "keydown", (e) => {
-      if (e.key === "Enter") tryDecryptFromInputs();
+    // Reveal decrypt
+    ui.decryptBtn?.addEventListener("click", tryDecrypt);
+    ui.fragB?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") tryDecrypt();
     });
-
-    wireTabNavigation();
   }
 
+  /* =========================
+     INIT
+  ========================= */
   async function init() {
-    if (!hasCoreUI()) {
-      console.error("Core UI elements missing. Check index.html IDs.");
-      return;
-    }
-
     initTheme();
-
-    // ALWAYS reset progress on load; start on Trivia tab.
-    hardResetProgress({ silent: true });
-
-    // Validate trivia
-    if (!window.TRIVIA_BANK || !Array.isArray(window.TRIVIA_BANK) || window.TRIVIA_BANK.length < 20) {
-      if (ui.question) setText(ui.question, "Trivia bank missing or invalid.");
-      setMsg(ui.triviaMsg, "Ensure trivia_bank.js is loaded before app.js.", "bad");
-    } else {
-      if (ui.remaining) setText(ui.remaining, String(triviaRemaining()));
-    }
-
-    // Load poem.json (optional)
+    wireTabs();
+    wireEvents();
     await loadPoemJson();
 
-    // Wire handlers
-    wireEvents();
-
-    // Ensure first tab is Trivia after everything
-    setStage("trivia");
-    pickTrivia();
+    // Always hard reset on every load
+    hardResetSession();
   }
 
   window.addEventListener("load", init);

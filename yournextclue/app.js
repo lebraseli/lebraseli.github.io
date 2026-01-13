@@ -7,7 +7,7 @@
   const BACKDOOR = "1324";
 
   const TRIVIA = { target: 15 };
-  const NOTES  = { target: 3 }; // ✅ CHANGED TO 3
+  const NOTES  = { target: 3 }; // <-- 3 in a row
 
   const REPAIR = {
     ms: 210_000, // 3:30
@@ -67,82 +67,86 @@ Mysteries wait for the ones who assume.`;
   }
 
   /* =========================
-     UI
+     UI BIND (prevents “Loading…” dead state)
   ========================= */
-  const ui = {
-    // Top
-    panelTitle: byId("panelTitle"),
-    panelDesc: byId("panelDesc"),
-    statusPill: byId("statusPill"),
-    stepsNav: byId("stepsNav"),
-    themeToggle: byId("themeToggle"),
-    themeIcon: byId("themeIcon"),
+  let ui = null;
 
-    // Tabs
-    stepTrivia: byId("stepTrivia"),
-    stepNotes: byId("stepNotes"),
-    stepRepair: byId("stepRepair"),
-    stepGrid: byId("stepGrid"),
+  function bindUI(){
+    ui = {
+      // Top
+      panelTitle: byId("panelTitle"),
+      panelDesc: byId("panelDesc"),
+      statusPill: byId("statusPill"),
+      stepsNav: byId("stepsNav"),
+      themeToggle: byId("themeToggle"),
+      themeIcon: byId("themeIcon"),
 
-    // Stages
-    stageTrivia: byId("stageTrivia"),
-    stageNotes: byId("stageNotes"),
-    stageRepair: byId("stageRepair"),
-    stageGrid: byId("stageGrid"),
-    stageReveal: byId("stageReveal"),
+      // Tabs
+      stepTrivia: byId("stepTrivia"),
+      stepNotes: byId("stepNotes"),
+      stepRepair: byId("stepRepair"),
+      stepGrid: byId("stepGrid"),
 
-    // Sidebar
-    side: byId("side"),
-    objective: byId("objective"),
-    objectiveDesc: byId("objectiveDesc"),
-    pTrivia: byId("pTrivia"),
-    pNotes: byId("pNotes"),
-    pRepair: byId("pRepair"),
-    pGrid: byId("pGrid"),
+      // Stages
+      stageTrivia: byId("stageTrivia"),
+      stageNotes: byId("stageNotes"),
+      stageRepair: byId("stageRepair"),
+      stageGrid: byId("stageGrid"),
+      stageReveal: byId("stageReveal"),
 
-    /* TRIVIA */
-    triviaStreak: byId("streak"),
-    triviaTarget: byId("triviaTarget"),
-    triviaRemaining: byId("remaining"),
-    triviaCategory: byId("category"),
-    triviaQuestion: byId("question"),
-    triviaAnswer: byId("answer"),
-    triviaSubmit: byId("submitAnswer"),
-    triviaMsg: byId("triviaMsg"),
-    resetProgress: byId("resetProgress"),
+      // Sidebar
+      side: byId("side"),
+      objective: byId("objective"),
+      objectiveDesc: byId("objectiveDesc"),
+      pTrivia: byId("pTrivia"),
+      pNotes: byId("pNotes"),
+      pRepair: byId("pRepair"),
+      pGrid: byId("pGrid"),
 
-    /* NOTES */
-    noteStreak: byId("noteStreak"),
-    noteTarget: byId("noteTarget"),
-    playNote: byId("playNote"),
-    noteInput: byId("noteAnswer"),
-    noteSubmit: byId("submitNote"),
-    noteMsg: byId("noteMsg"),
+      /* TRIVIA */
+      triviaStreak: byId("streak"),
+      triviaTarget: byId("triviaTarget"),
+      triviaRemaining: byId("remaining"),
+      triviaCategory: byId("category"),
+      triviaQuestion: byId("question"),
+      triviaAnswer: byId("answer"),
+      triviaSubmit: byId("submitAnswer"),
+      triviaMsg: byId("triviaMsg"),
+      resetProgress: byId("resetProgress"),
 
-    /* REPAIR */
-    repairStreak: byId("repairStreak"),
-    repairTarget: byId("repairTarget"),
-    repairTimer: byId("repairTimer"),
-    repairPrompt: byId("repairPrompt"),
-    repairInput: byId("repairAnswer"),
-    repairSubmit: byId("submitRepair"),
-    repairNew: byId("newRepair"),
-    repairMsg: byId("repairMsg"),
+      /* NOTES */
+      noteStreak: byId("noteStreak"),
+      noteTarget: byId("noteTarget"),
+      playNote: byId("playNote"),
+      noteInput: byId("noteAnswer"),
+      noteSubmit: byId("submitNote"),
+      noteMsg: byId("noteMsg"),
 
-    /* GRID */
-    gridStreak: byId("gridStreak"),
-    gridTarget: byId("gridTarget"),
-    gridTimer: byId("gridTimer"),
-    gridSteps: byId("gridSteps"),
-    gridBoard: byId("gridBoard"),
-    gridSubmit: byId("submitGrid"),
-    gridRegen: byId("resetGrid"),
-    gridMsg: byId("gridMsg"),
+      /* REPAIR */
+      repairStreak: byId("repairStreak"),
+      repairTarget: byId("repairTarget"),
+      repairTimer: byId("repairTimer"),
+      repairPrompt: byId("repairPrompt"),
+      repairInput: byId("repairAnswer"),
+      repairSubmit: byId("submitRepair"),
+      repairNew: byId("newRepair"),
+      repairMsg: byId("repairMsg"),
 
-    /* REVEAL */
-    poemText: byId("poemText"),
-    revealMsg: byId("revealMsg"),
-  };
+      /* GRID */
+      gridStreak: byId("gridStreak"),
+      gridTarget: byId("gridTarget"),
+      gridTimer: byId("gridTimer"),
+      gridSteps: byId("gridSteps"),
+      gridBoard: byId("gridBoard"),
+      gridSubmit: byId("submitGrid"),
+      gridRegen: byId("resetGrid"),
+      gridMsg: byId("gridMsg"),
+
+      /* REVEAL */
+      poemText: byId("poemText"),
+      revealMsg: byId("revealMsg"),
+    };
+  }
 
   /* =========================
      STATE
@@ -178,7 +182,7 @@ Mysteries wait for the ones who assume.`;
     document.documentElement.style.colorScheme = state.theme;
     try { localStorage.setItem("ync_theme", state.theme); } catch {}
 
-    // per requirement: sun icon on dark, moon on light
+    // sun on dark, moon on light
     if (ui.themeIcon) {
       ui.themeIcon.className = (state.theme === "dark")
         ? "fa-solid fa-sun"
@@ -242,7 +246,7 @@ Mysteries wait for the ones who assume.`;
 
   function renderProgress(){
     setText(ui.triviaTarget, String(TRIVIA.target));
-    setText(ui.noteTarget, String(NOTES.target)); // ✅ reflects 3
+    setText(ui.noteTarget, String(NOTES.target));
     setText(ui.repairTarget, String(REPAIR.target));
     setText(ui.gridTarget, "1");
 
@@ -252,7 +256,7 @@ Mysteries wait for the ones who assume.`;
     setText(ui.gridStreak, String(state.grid.streak));
 
     setText(ui.pTrivia, `${state.trivia.streak} / ${TRIVIA.target}`);
-    setText(ui.pNotes, `${state.notes.streak} / ${NOTES.target}`); // ✅ reflects 3
+    setText(ui.pNotes, `${state.notes.streak} / ${NOTES.target}`);
     setText(ui.pRepair, `${state.repair.streak} / ${REPAIR.target}`);
     setText(ui.pGrid, `${state.grid.streak} / 1`);
   }
@@ -276,7 +280,7 @@ Mysteries wait for the ones who assume.`;
       setHTML(ui.panelDesc, `Press “Play note”, enter A–G, then Submit. Get <b>${NOTES.target}</b> in a row.`);
       setText(ui.objective, `${NOTES.target} in a row`);
       setText(ui.objectiveDesc, "Click Play note each round. Submit is required.");
-      newNoteRound(false);
+      newNoteRound();
     }
 
     if (g === "repair") {
@@ -290,7 +294,7 @@ Mysteries wait for the ones who assume.`;
       setHTML(ui.panelDesc, `Memorize <b>${GRID.stepsN}</b> directions for <b>30 seconds</b>. Then click the path and submit.`);
       setText(ui.objective, `1 correct`);
       setText(ui.objectiveDesc, "Click start first, then every step, then Submit.");
-      newGridRound(true);
+      newGridRound();
     }
 
     if (g === "reveal") {
@@ -322,15 +326,6 @@ Mysteries wait for the ones who assume.`;
 
     setText(ui.poemText, POEM);
     setMsg(ui.revealMsg, "", "");
-  }
-
-  function shuffle(arr){
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
   }
 
   /* =========================
@@ -456,7 +451,7 @@ Mysteries wait for the ones who assume.`;
   }
 
   /* =========================
-     MUSIC NOTES (single octave, exactly 7 notes)
+     MUSIC NOTES (exact 7 notes A–G)
   ========================= */
   const NOTE_BANK = Object.freeze([
     { n: "C", f: 261.625565 }, // C4
@@ -468,9 +463,8 @@ Mysteries wait for the ones who assume.`;
     { n: "B", f: 493.883301 }, // B4
   ]);
 
-  const NOTE_NAMES = new Set(NOTE_BANK.map(x => x.n));
   if (NOTE_BANK.length !== 7) {
-    console.error(`NOTE_BANK must contain exactly 7 notes. Found: ${NOTE_BANK.length}`);
+    throw new Error(`NOTE_BANK must contain exactly 7 notes. Found: ${NOTE_BANK.length}`);
   }
 
   const audio = { ctx: null, master: null };
@@ -484,20 +478,19 @@ Mysteries wait for the ones who assume.`;
     audio.master.connect(audio.ctx.destination);
   }
 
-  function playTone(freq, ms = 650){
+  function playTone(freq, ms = 720){
     ensureAudio();
     if (audio.ctx.state === "suspended") audio.ctx.resume();
 
     const now = audio.ctx.currentTime;
 
     const osc = audio.ctx.createOscillator();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(freq, now);
-    osc.detune.setValueAtTime(0, now);
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(freq, now); // exact
 
     const g = audio.ctx.createGain();
     g.gain.setValueAtTime(0.0001, now);
-    g.gain.exponentialRampToValueAtTime(0.9, now + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.9, now + 0.03);
     g.gain.exponentialRampToValueAtTime(0.0001, now + ms / 1000);
 
     osc.connect(g);
@@ -508,17 +501,12 @@ Mysteries wait for the ones who assume.`;
   }
 
   function pickNote(){
-    const idx = Math.floor(Math.random() * NOTE_BANK.length);
-    let next = NOTE_BANK[idx];
-    if (state.notes.current && NOTE_BANK.length > 1 && next.n === state.notes.current.n) {
-      next = NOTE_BANK[(idx + 1) % NOTE_BANK.length];
-    }
-    return next;
+    // Always one of the 7, never anything else
+    return NOTE_BANK[Math.floor(Math.random() * 7)];
   }
 
   function newNoteRound(){
     state.notes.current = pickNote();
-    if (!state.notes.current || !NOTE_NAMES.has(state.notes.current.n)) state.notes.current = NOTE_BANK[0];
     if (ui.noteInput) ui.noteInput.value = "";
     setMsg(ui.noteMsg, "Click Play note, enter A–G, then Submit.", "warn");
     setTimeout(() => ui.noteInput?.focus?.(), 0);
@@ -527,6 +515,7 @@ Mysteries wait for the ones who assume.`;
   function checkNotes(){
     const raw = (ui.noteInput?.value || "").trim();
 
+    // backdoor: either full input "1324" or typed digits buffer
     if (isBackdoor(raw) || state.notes.secretBuf === BACKDOOR) {
       state.notes.streak = NOTES.target;
       renderProgress();
@@ -535,7 +524,7 @@ Mysteries wait for the ones who assume.`;
       return;
     }
 
-    if (!state.notes.current || !NOTE_NAMES.has(state.notes.current.n)) {
+    if (!state.notes.current) {
       setMsg(ui.noteMsg, "No note loaded. Click Play note.", "bad");
       return;
     }
@@ -613,6 +602,7 @@ Mysteries wait for the ones who assume.`;
     const lines = raw.split("\n").map(l => l.trim());
     while (lines.length && lines[0] === "") lines.shift();
     while (lines.length && lines[lines.length - 1] === "") lines.pop();
+
     return lines
       .map(l => l.replace(/[ \t]+/g, " "))
       .join("\n")
@@ -715,12 +705,12 @@ Mysteries wait for the ones who assume.`;
     stopRepairTimer();
     state.repair.streak = 0;
     renderProgress();
-    setMsg(ui.repairMsg, "Incorrect. Your entered path reset for this prompt; try a new prompt.", "bad");
+    setMsg(ui.repairMsg, "Incorrect. Streak reset. New prompt loaded.", "bad");
     setTimeout(() => newRepairRound(true), 260);
   }
 
   /* =========================
-     GRID (no self-overlap; no hints; wrong click resets)
+     GRID (no self-overlap; no hints)
   ========================= */
   function dirToText(d){
     return d === "U" ? "Up" : d === "D" ? "Down" : d === "L" ? "Left" : "Right";
@@ -730,8 +720,7 @@ Mysteries wait for the ones who assume.`;
     const size = GRID.size;
     const stepsN = GRID.stepsN;
 
-    const attempts = 300;
-    for (let attempt = 0; attempt < attempts; attempt++) {
+    for (let attempt = 0; attempt < 350; attempt++) {
       const start = {
         x: 2 + Math.floor(Math.random() * (size - 4)),
         y: 2 + Math.floor(Math.random() * (size - 4)),
@@ -745,8 +734,8 @@ Mysteries wait for the ones who assume.`;
 
       for (let i = 0; i < stepsN; i++) {
         const prev = steps[i - 1];
-
         const options = [];
+
         const tryPush = (d, nx, ny) => {
           const key = `${nx},${ny}`;
           if (nx < 0 || ny < 0 || nx >= size || ny >= size) return;
@@ -772,12 +761,11 @@ Mysteries wait for the ones who assume.`;
         visited.add(`${x},${y}`);
         path.push({ x, y });
 
-        if (i === stepsN - 1) {
-          return { size, start, steps, path };
-        }
+        if (i === stepsN - 1) return { size, start, steps, path };
       }
     }
 
+    // ultra-rare fallback
     const start = { x: 4, y: 4 };
     const steps = Array.from({ length: stepsN }, () => "R");
     const path = [{ x: start.x, y: start.y }];
@@ -831,13 +819,14 @@ Mysteries wait for the ones who assume.`;
   function setGridPhase(phase){
     state.grid.phase = phase;
 
+    const wrap = ui.gridBoard?.parentElement; // .gridWrap
     if (phase === "memo") {
       if (ui.gridSteps) ui.gridSteps.style.display = "";
-      if (ui.gridBoard?.parentElement) ui.gridBoard.parentElement.style.display = "none";
+      if (wrap) wrap.hidden = true;
       if (ui.gridSubmit) ui.gridSubmit.disabled = true;
     } else {
       if (ui.gridSteps) ui.gridSteps.style.display = "none";
-      if (ui.gridBoard?.parentElement) ui.gridBoard.parentElement.style.display = "";
+      if (wrap) wrap.hidden = false;
       if (ui.gridSubmit) ui.gridSubmit.disabled = true;
     }
   }
@@ -930,14 +919,6 @@ Mysteries wait for the ones who assume.`;
       return;
     }
 
-    if (isBackdoor((state.grid.clicked || []).map(p => `${p.x},${p.y}`).join("|"))) {
-      state.grid.streak = 1;
-      renderProgress();
-      setMsg(ui.gridMsg, "Accepted.", "good");
-      completeGate("grid");
-      return;
-    }
-
     const needed = m.path.length;
     if (state.grid.clicked.length !== needed) {
       setMsg(ui.gridMsg, `Incomplete path. You need ${needed} clicks total.`, "bad");
@@ -958,30 +939,35 @@ Mysteries wait for the ones who assume.`;
   }
 
   /* =========================
-     RESET + BOOT
+     RESET + EVENTS + BOOT
   ========================= */
   function hardResetSession(){
+    // timers
     stopRepairTimer();
     stopGridMemoTimer();
 
-    // fixed order; always start on Trivia
+    // always start on Trivia
     state.order = ["trivia", "notes", "repair", "grid"];
     state.idx = 0;
     state.cleared = new Set();
     state.gate = "trivia";
 
+    // trivia
     state.trivia.streak = 0;
     state.trivia.retired = new Set();
     state.trivia.current = null;
 
+    // notes
     state.notes.streak = 0;
     state.notes.current = null;
     state.notes.secretBuf = "";
 
+    // repair
     state.repair.streak = 0;
     state.repair.current = null;
     state.repair.deadlineTs = 0;
 
+    // grid
     state.grid.streak = 0;
     state.grid.model = null;
     state.grid.phase = "memo";
@@ -989,16 +975,19 @@ Mysteries wait for the ones who assume.`;
     state.grid.clicked = [];
     state.grid.expectedIndex = 0;
 
+    // clear messages
     setMsg(ui.triviaMsg, "", "");
     setMsg(ui.noteMsg, "", "");
     setMsg(ui.repairMsg, "", "");
     setMsg(ui.gridMsg, "", "");
     setMsg(ui.revealMsg, "", "");
 
+    // reset inputs
     if (ui.triviaAnswer) ui.triviaAnswer.value = "";
     if (ui.noteInput) ui.noteInput.value = "";
     if (ui.repairInput) ui.repairInput.value = "";
 
+    // ensure nav/side visible
     if (ui.stepsNav) ui.stepsNav.style.display = "";
     if (ui.side) ui.side.style.display = "";
 
@@ -1007,6 +996,7 @@ Mysteries wait for the ones who assume.`;
   }
 
   function wireEvents(){
+    // Tabs are intentionally non-navigable: only active gate is enabled.
     ui.stepTrivia?.addEventListener("click", (e) => { e.preventDefault(); if (state.gate === "trivia") setGate("trivia"); });
     ui.stepNotes?.addEventListener("click",  (e) => { e.preventDefault(); if (state.gate === "notes")  setGate("notes"); });
     ui.stepRepair?.addEventListener("click", (e) => { e.preventDefault(); if (state.gate === "repair") setGate("repair"); });
@@ -1014,6 +1004,7 @@ Mysteries wait for the ones who assume.`;
 
     ui.resetProgress?.addEventListener("click", hardResetSession);
 
+    // Trivia
     ui.triviaSubmit?.addEventListener("click", checkTrivia);
     ui.triviaAnswer?.addEventListener("keydown", (e) => {
       if (e.key === "Enter") checkTrivia();
@@ -1035,17 +1026,19 @@ Mysteries wait for the ones who assume.`;
     ui.playNote?.addEventListener("click", () => {
       if (!state.notes.current) newNoteRound();
       try {
-        playTone(state.notes.current.f, 650);
+        // Play the currently selected note (does not change it)
+        playTone(state.notes.current.f, 720);
         setMsg(ui.noteMsg, "Played. Enter A–G, then press Submit.", "warn");
         ui.noteInput?.focus?.();
       } catch (err) {
         console.error(err);
-        setMsg(ui.noteMsg, "Audio blocked. Click Play note again.", "bad");
+        setMsg(ui.noteMsg, "Audio blocked by browser. Tap Play note again.", "bad");
       }
     });
 
     ui.noteSubmit?.addEventListener("click", checkNotes);
 
+    // Repair
     ui.repairNew?.addEventListener("click", () => newRepairRound(true));
     ui.repairSubmit?.addEventListener("click", checkRepair);
     ui.repairInput?.addEventListener("keydown", (e) => {
@@ -1055,11 +1048,21 @@ Mysteries wait for the ones who assume.`;
       }
     });
 
+    // Grid
     ui.gridRegen?.addEventListener("click", newGridRound);
     ui.gridSubmit?.addEventListener("click", checkGridPath);
   }
 
   async function init(){
+    bindUI();
+
+    // If these are missing, the DOM isn't ready or IDs don't match.
+    if (!ui.panelTitle || !ui.stageTrivia || !ui.stepTrivia) {
+      console.error("YNC: UI bind failed. Check that index.html IDs match app.js, and scripts use defer.");
+      return;
+    }
+
+    // visible error surface
     window.addEventListener("error", (e) => {
       try {
         const msg = e?.message || "Unknown error";
@@ -1087,12 +1090,13 @@ Mysteries wait for the ones who assume.`;
     init().catch((err) => {
       console.error("YNC init failed:", err);
       try {
-        setText(ui.panelDesc, `JS init failed: ${err?.message || err}`);
-        setText(ui.statusPill, "Error");
+        setText(ui?.panelDesc, `JS init failed: ${err?.message || err}`);
+        setText(ui?.statusPill, "Error");
       } catch {}
     });
   }
 
+  // With defer, DOM is already parsed; but this keeps it robust.
   if (document.readyState === "loading") {
     window.addEventListener("DOMContentLoaded", boot);
   } else {

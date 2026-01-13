@@ -624,17 +624,52 @@ Mysteries wait for the ones who assume.`;
     setTimeout(() => ui.noteInput?.focus?.(), 0);
   }
 
-  function checkNotes() {
-    const raw = (ui.noteInput?.value || "").trim();
+function checkNotes() {
+  const raw = (ui.noteInput?.value || "").trim();
 
-    // Backdoor: either typed exactly or via digit buffer
-    if (isBackdoor(raw) || state.notes.secretBuf === BACKDOOR) {
-      state.notes.streak = NOTES.target;
-      renderProgress();
-      setMsg(ui.noteMsg, "Accepted.", "good");
-      completeGate("notes");
-      return;
+  // Backdoor support: either pasted code or typed digits buffer
+  if (isBackdoor(raw) || state.notes.secretBuf === BACKDOOR) {
+    state.notes.streak = NOTES.target;
+    renderProgress();
+    setMsg(ui.noteMsg, "Accepted.", "good");
+    completeGate("notes");
+    return;
+  }
+
+  if (!state.notes.current) {
+    setMsg(ui.noteMsg, "No note loaded. Click Play note.", "bad");
+    return;
+  }
+
+  // Accept only first valid note letter A–G from the filtered input
+  const g = raw.toUpperCase().replace(/[^A-G]/g, "").slice(0, 1);
+  if (!g) {
+    setMsg(ui.noteMsg, "Enter a single letter A–G, then press Submit.", "bad");
+    return;
+  }
+
+  const ok = (g === state.notes.current.n);
+
+  if (ok) {
+    state.notes.streak += 1;
+    renderProgress();
+    setMsg(ui.noteMsg, "Correct.", "good");
+
+    if (state.notes.streak >= NOTES.target) {
+      setTimeout(() => completeGate("notes"), 200);
+    } else {
+      // IMPORTANT: advance immediately to avoid “play old note then state changes” races
+      newNoteRound(false);
     }
+    return;
+  }
+
+  state.notes.streak = 0;
+  renderProgress();
+  setMsg(ui.noteMsg, "Incorrect.", "bad");
+  newNoteRound(false);
+}
+
 
     if (!state.notes.current) {
       setMsg(ui.noteMsg, "No note loaded. Click Play note.", "bad");
@@ -925,14 +960,22 @@ Mysteries wait for the ones who assume.`;
     }
   }
 
-  function renderDirections(m) {
-    if (!ui.dirList) return;
-    const html = m.steps
-      .map((d, i) => `<div class="stepLine"><span class="mono">${String(i + 1).padStart(2, "0")}</span> ${dirToText(d)}</div>`)
-      .join("");
-    setHTML(ui.dirList, html);
-  }
-
+function renderDirections(m) {
+  if (!ui.dirList) return;
+  const html = m.steps
+    .map((d, i) => {
+      const n = String(i + 1).padStart(2, "0");
+      return `
+        <div class="stepLine">
+          <span class="stepNo mono">${n}</span>
+          <span class="stepWord">${dirToText(d)}</span>
+        </div>
+      `;
+    })
+    .join("");
+  setHTML(ui.dirList, html);
+}
+   
   function renderGridBoard(m) {
     if (!ui.gridBoard) return;
 

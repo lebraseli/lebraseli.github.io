@@ -7,7 +7,7 @@
   const BACKDOOR = "1324";
 
   const TRIVIA = { target: 15 };
-  const NOTES  = { target: 5 };
+  const NOTES  = { target: 3 };
 
   const REPAIR = {
     ms: 210_000, // 3:30
@@ -456,10 +456,10 @@ Mysteries wait for the ones who assume.`;
   }
 
   /* =========================
-     MUSIC NOTES (stable tuning)
+     MUSIC NOTES (single octave, exactly 7 notes)
   ========================= */
-  // One octave, equal temperament, standard reference
-  const NOTE_BANK = [
+  // One octave, equal temperament, standard reference (C4–B4)
+  const NOTE_BANK = Object.freeze([
     { n: "C", f: 261.625565 }, // C4
     { n: "D", f: 293.664768 }, // D4
     { n: "E", f: 329.627557 }, // E4
@@ -467,12 +467,13 @@ Mysteries wait for the ones who assume.`;
     { n: "G", f: 391.995436 }, // G4
     { n: "A", f: 440.000000 }, // A4
     { n: "B", f: 493.883301 }, // B4
-  ];
+  ]);
 
-if (NOTE_BANK.length !== 7) {
-  throw new Error(`NOTE_BANK must contain exactly 7 notes. Found: ${NOTE_BANK.length}`);
-}
-  
+  const NOTE_NAMES = new Set(NOTE_BANK.map(x => x.n));
+  if (NOTE_BANK.length !== 7) {
+    console.error(`NOTE_BANK must be exactly 7 notes (A–G). Found: ${NOTE_BANK.length}`);
+  }
+
   const audio = { ctx: null, master: null };
 
   function ensureAudio(){
@@ -484,19 +485,21 @@ if (NOTE_BANK.length !== 7) {
     audio.master.connect(audio.ctx.destination);
   }
 
-  function playTone(freq, ms = 700){
+  // Use sine for clearer pitch identification (less harmonic confusion)
+  function playTone(freq, ms = 650){
     ensureAudio();
     if (audio.ctx.state === "suspended") audio.ctx.resume();
 
     const now = audio.ctx.currentTime;
 
     const osc = audio.ctx.createOscillator();
-    osc.type = "triangle";
+    osc.type = "sine";
     osc.frequency.setValueAtTime(freq, now);
+    osc.detune.setValueAtTime(0, now);
 
     const g = audio.ctx.createGain();
     g.gain.setValueAtTime(0.0001, now);
-    g.gain.exponentialRampToValueAtTime(0.9, now + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.9, now + 0.02);
     g.gain.exponentialRampToValueAtTime(0.0001, now + ms / 1000);
 
     osc.connect(g);
@@ -506,8 +509,25 @@ if (NOTE_BANK.length !== 7) {
     osc.stop(now + ms / 1000 + 0.05);
   }
 
+  function pickNote(){
+    const idx = Math.floor(Math.random() * NOTE_BANK.length);
+    let next = NOTE_BANK[idx];
+
+    // Avoid immediate repeats (keeps it feeling intentional)
+    if (state.notes.current && NOTE_BANK.length > 1 && next.n === state.notes.current.n) {
+      next = NOTE_BANK[(idx + 1) % NOTE_BANK.length];
+    }
+    return next;
+  }
+
   function newNoteRound(){
-    state.notes.current = NOTE_BANK[Math.floor(Math.random() * NOTE_BANK.length)];
+    state.notes.current = pickNote();
+
+    if (!state.notes.current || !NOTE_NAMES.has(state.notes.current.n)) {
+      // Hard failsafe: force into valid range
+      state.notes.current = NOTE_BANK[0];
+    }
+
     if (ui.noteInput) ui.noteInput.value = "";
     setMsg(ui.noteMsg, "Click Play note, enter A–G, then Submit.", "warn");
     setTimeout(() => ui.noteInput?.focus?.(), 0);
@@ -524,6 +544,38 @@ if (NOTE_BANK.length !== 7) {
       completeGate("notes");
       return;
     }
+
+    if (!state.notes.current || !NOTE_NAMES.has(state.notes.current.n)) {
+      setMsg(ui.noteMsg, "No note loaded. Click Play note.", "bad");
+      return;
+    }
+
+    const g = raw.toUpperCase().replace(/[^A-G]/g, "").slice(0, 1);
+    if (!g) {
+      setMsg(ui.noteMsg, "Enter a single letter A–G, then press Submit.", "bad");
+      return;
+    }
+
+    const ok = (g === state.notes.current.n);
+    if (ok) {
+      state.notes.streak += 1;
+      renderProgress();
+      setMsg(ui.noteMsg, "Correct.", "good");
+
+      if (state.notes.streak >= NOTES.target) {
+        setTimeout(() => completeGate("notes"), 200);
+      } else {
+        setTimeout(newNoteRound, 220);
+      }
+      return;
+    }
+
+    state.notes.streak = 0;
+    renderProgress();
+    setMsg(ui.noteMsg, "Incorrect.", "bad");
+    setTimeout(newNoteRound, 240);
+  }
+
 
     if (!state.notes.current) {
       setMsg(ui.noteMsg, "No note loaded. Click Play note.", "bad");
@@ -1015,12 +1067,19 @@ state.gate = "trivia";
     setGate(state.gate);
   }
 
-  function wireEvents(){
-    // Tabs are intentionally non-navigable: only active gate is enabled.
-    ui.stepTrivia?.addEventListener("click", (e) => { e.preventDefault(); if (state.gate === "trivia") setGate("trivia"); });
-    ui.stepNotes?.addEventListener("click",  (e) => { e.preventDefault(); if (state.gate === "notes")  setGate("notes"); });
-    ui.stepRepair?.addEventListener("click", (e) => { e.preventDefault(); if (state.gate === "repair") setGate("repair"); });
-    ui.stepGrid?.addEventListener("click",   (e) => { e.preventDefault(); if (state.gate === "grid")   setGate("grid"); });
+    // Notes: restrict input to A–G (visible) and digits (backdoor)
+    ui.noteInput?.addEventListener("input", () => {
+      const v = ui.noteInput.value || "";
+      // Keep it short on mobile keyboards; still allows typing/pasting BACKDOOR digits
+      const cleaned = v.toUpperCase().replace(/[^A-G0-9]/g, "").slice(0, 4);
+      if (cleaned !== v) ui.noteInput.value = cleaned;
+    });
+
+    ui.noteInput?.addEventListener("keydown", (e) => {
+      if (/^[0-9]$/.test(e.key)) {
+        state.notes.secretBuf = (state.notes.secretBuf + e.key).slice(-4);
+      }
+    });
 
     // Reset progress
     ui.resetProgress?.addEventListener("click", hardResetSession);

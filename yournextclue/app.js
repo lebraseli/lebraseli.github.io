@@ -7,7 +7,7 @@
   const BACKDOOR = "1324";
 
   const TRIVIA = { target: 15 };
-  const NOTES  = { target: 3 };
+  const NOTES  = { target: 3 }; // ✅ CHANGED TO 3
 
   const REPAIR = {
     ms: 210_000, // 3:30
@@ -242,7 +242,7 @@ Mysteries wait for the ones who assume.`;
 
   function renderProgress(){
     setText(ui.triviaTarget, String(TRIVIA.target));
-    setText(ui.noteTarget, String(NOTES.target));
+    setText(ui.noteTarget, String(NOTES.target)); // ✅ reflects 3
     setText(ui.repairTarget, String(REPAIR.target));
     setText(ui.gridTarget, "1");
 
@@ -252,7 +252,7 @@ Mysteries wait for the ones who assume.`;
     setText(ui.gridStreak, String(state.grid.streak));
 
     setText(ui.pTrivia, `${state.trivia.streak} / ${TRIVIA.target}`);
-    setText(ui.pNotes, `${state.notes.streak} / ${NOTES.target}`);
+    setText(ui.pNotes, `${state.notes.streak} / ${NOTES.target}`); // ✅ reflects 3
     setText(ui.pRepair, `${state.repair.streak} / ${REPAIR.target}`);
     setText(ui.pGrid, `${state.grid.streak} / 1`);
   }
@@ -458,7 +458,6 @@ Mysteries wait for the ones who assume.`;
   /* =========================
      MUSIC NOTES (single octave, exactly 7 notes)
   ========================= */
-  // One octave, equal temperament, standard reference (C4–B4)
   const NOTE_BANK = Object.freeze([
     { n: "C", f: 261.625565 }, // C4
     { n: "D", f: 293.664768 }, // D4
@@ -471,7 +470,7 @@ Mysteries wait for the ones who assume.`;
 
   const NOTE_NAMES = new Set(NOTE_BANK.map(x => x.n));
   if (NOTE_BANK.length !== 7) {
-    console.error(`NOTE_BANK must be exactly 7 notes (A–G). Found: ${NOTE_BANK.length}`);
+    console.error(`NOTE_BANK must contain exactly 7 notes. Found: ${NOTE_BANK.length}`);
   }
 
   const audio = { ctx: null, master: null };
@@ -485,7 +484,6 @@ Mysteries wait for the ones who assume.`;
     audio.master.connect(audio.ctx.destination);
   }
 
-  // Use sine for clearer pitch identification (less harmonic confusion)
   function playTone(freq, ms = 650){
     ensureAudio();
     if (audio.ctx.state === "suspended") audio.ctx.resume();
@@ -512,8 +510,6 @@ Mysteries wait for the ones who assume.`;
   function pickNote(){
     const idx = Math.floor(Math.random() * NOTE_BANK.length);
     let next = NOTE_BANK[idx];
-
-    // Avoid immediate repeats (keeps it feeling intentional)
     if (state.notes.current && NOTE_BANK.length > 1 && next.n === state.notes.current.n) {
       next = NOTE_BANK[(idx + 1) % NOTE_BANK.length];
     }
@@ -522,12 +518,7 @@ Mysteries wait for the ones who assume.`;
 
   function newNoteRound(){
     state.notes.current = pickNote();
-
-    if (!state.notes.current || !NOTE_NAMES.has(state.notes.current.n)) {
-      // Hard failsafe: force into valid range
-      state.notes.current = NOTE_BANK[0];
-    }
-
+    if (!state.notes.current || !NOTE_NAMES.has(state.notes.current.n)) state.notes.current = NOTE_BANK[0];
     if (ui.noteInput) ui.noteInput.value = "";
     setMsg(ui.noteMsg, "Click Play note, enter A–G, then Submit.", "warn");
     setTimeout(() => ui.noteInput?.focus?.(), 0);
@@ -536,7 +527,6 @@ Mysteries wait for the ones who assume.`;
   function checkNotes(){
     const raw = (ui.noteInput?.value || "").trim();
 
-    // backdoor: either full input "1324" or typed digits buffer
     if (isBackdoor(raw) || state.notes.secretBuf === BACKDOOR) {
       state.notes.streak = NOTES.target;
       renderProgress();
@@ -546,38 +536,6 @@ Mysteries wait for the ones who assume.`;
     }
 
     if (!state.notes.current || !NOTE_NAMES.has(state.notes.current.n)) {
-      setMsg(ui.noteMsg, "No note loaded. Click Play note.", "bad");
-      return;
-    }
-
-    const g = raw.toUpperCase().replace(/[^A-G]/g, "").slice(0, 1);
-    if (!g) {
-      setMsg(ui.noteMsg, "Enter a single letter A–G, then press Submit.", "bad");
-      return;
-    }
-
-    const ok = (g === state.notes.current.n);
-    if (ok) {
-      state.notes.streak += 1;
-      renderProgress();
-      setMsg(ui.noteMsg, "Correct.", "good");
-
-      if (state.notes.streak >= NOTES.target) {
-        setTimeout(() => completeGate("notes"), 200);
-      } else {
-        setTimeout(newNoteRound, 220);
-      }
-      return;
-    }
-
-    state.notes.streak = 0;
-    renderProgress();
-    setMsg(ui.noteMsg, "Incorrect.", "bad");
-    setTimeout(newNoteRound, 240);
-  }
-
-
-    if (!state.notes.current) {
       setMsg(ui.noteMsg, "No note loaded. Click Play note.", "bad");
       return;
     }
@@ -651,14 +609,10 @@ Mysteries wait for the ones who assume.`;
   ];
 
   function canonRepair(s){
-    // Keep line breaks meaningful; normalize whitespace within lines.
     const raw = (s || "").replace(/\r\n/g, "\n");
     const lines = raw.split("\n").map(l => l.trim());
-
-    // Drop empty leading/trailing lines only
     while (lines.length && lines[0] === "") lines.shift();
     while (lines.length && lines[lines.length - 1] === "") lines.pop();
-
     return lines
       .map(l => l.replace(/[ \t]+/g, " "))
       .join("\n")
@@ -797,7 +751,6 @@ Mysteries wait for the ones who assume.`;
           const key = `${nx},${ny}`;
           if (nx < 0 || ny < 0 || nx >= size || ny >= size) return;
           if (visited.has(key)) return;
-          // avoid immediate backtrack (redundant since visited blocks it, but keep clean)
           if (prev === "U" && d === "D") return;
           if (prev === "D" && d === "U") return;
           if (prev === "L" && d === "R") return;
@@ -823,11 +776,8 @@ Mysteries wait for the ones who assume.`;
           return { size, start, steps, path };
         }
       }
-      // fallthrough -> retry
     }
 
-    // Worst-case fallback: allow overlap (should be extremely rare)
-    // but still keep app functional.
     const start = { x: 4, y: 4 };
     const steps = Array.from({ length: stepsN }, () => "R");
     const path = [{ x: start.x, y: start.y }];
@@ -882,7 +832,6 @@ Mysteries wait for the ones who assume.`;
     state.grid.phase = phase;
 
     if (phase === "memo") {
-      // show directions, hide board
       if (ui.gridSteps) ui.gridSteps.style.display = "";
       if (ui.gridBoard?.parentElement) ui.gridBoard.parentElement.style.display = "none";
       if (ui.gridSubmit) ui.gridSubmit.disabled = true;
@@ -945,7 +894,6 @@ Mysteries wait for the ones who assume.`;
     const isCorrect = expected && expected.x === x && expected.y === y;
 
     if (!isCorrect) {
-      // reset without leaking expected location
       state.grid.clicked = [];
       state.grid.expectedIndex = 0;
       if (ui.gridSubmit) ui.gridSubmit.disabled = true;
@@ -996,7 +944,6 @@ Mysteries wait for the ones who assume.`;
       return;
     }
 
-    // already enforced during clicking; this is a final integrity check
     for (let i = 0; i < needed; i++) {
       if (state.grid.clicked[i].x !== m.path[i].x || state.grid.clicked[i].y !== m.path[i].y) {
         setMsg(ui.gridMsg, "Incorrect path. Regenerate and retry.", "bad");
@@ -1014,32 +961,27 @@ Mysteries wait for the ones who assume.`;
      RESET + BOOT
   ========================= */
   function hardResetSession(){
-    // timers
     stopRepairTimer();
     stopGridMemoTimer();
 
-// fixed order; always start on Trivia
-state.order = ["trivia", "notes", "repair", "grid"];
-state.idx = 0;
-state.cleared = new Set();
-state.gate = "trivia";
+    // fixed order; always start on Trivia
+    state.order = ["trivia", "notes", "repair", "grid"];
+    state.idx = 0;
+    state.cleared = new Set();
+    state.gate = "trivia";
 
-    // trivia
     state.trivia.streak = 0;
     state.trivia.retired = new Set();
     state.trivia.current = null;
 
-    // notes
     state.notes.streak = 0;
     state.notes.current = null;
     state.notes.secretBuf = "";
 
-    // repair
     state.repair.streak = 0;
     state.repair.current = null;
     state.repair.deadlineTs = 0;
 
-    // grid
     state.grid.streak = 0;
     state.grid.model = null;
     state.grid.phase = "memo";
@@ -1047,19 +989,16 @@ state.gate = "trivia";
     state.grid.clicked = [];
     state.grid.expectedIndex = 0;
 
-    // clear messages
     setMsg(ui.triviaMsg, "", "");
     setMsg(ui.noteMsg, "", "");
     setMsg(ui.repairMsg, "", "");
     setMsg(ui.gridMsg, "", "");
     setMsg(ui.revealMsg, "", "");
 
-    // reset inputs
     if (ui.triviaAnswer) ui.triviaAnswer.value = "";
     if (ui.noteInput) ui.noteInput.value = "";
     if (ui.repairInput) ui.repairInput.value = "";
 
-    // ensure nav/side visible
     if (ui.stepsNav) ui.stepsNav.style.display = "";
     if (ui.side) ui.side.style.display = "";
 
@@ -1067,24 +1006,14 @@ state.gate = "trivia";
     setGate(state.gate);
   }
 
-    // Notes: restrict input to A–G (visible) and digits (backdoor)
-    ui.noteInput?.addEventListener("input", () => {
-      const v = ui.noteInput.value || "";
-      // Keep it short on mobile keyboards; still allows typing/pasting BACKDOOR digits
-      const cleaned = v.toUpperCase().replace(/[^A-G0-9]/g, "").slice(0, 4);
-      if (cleaned !== v) ui.noteInput.value = cleaned;
-    });
+  function wireEvents(){
+    ui.stepTrivia?.addEventListener("click", (e) => { e.preventDefault(); if (state.gate === "trivia") setGate("trivia"); });
+    ui.stepNotes?.addEventListener("click",  (e) => { e.preventDefault(); if (state.gate === "notes")  setGate("notes"); });
+    ui.stepRepair?.addEventListener("click", (e) => { e.preventDefault(); if (state.gate === "repair") setGate("repair"); });
+    ui.stepGrid?.addEventListener("click",   (e) => { e.preventDefault(); if (state.gate === "grid")   setGate("grid"); });
 
-    ui.noteInput?.addEventListener("keydown", (e) => {
-      if (/^[0-9]$/.test(e.key)) {
-        state.notes.secretBuf = (state.notes.secretBuf + e.key).slice(-4);
-      }
-    });
-
-    // Reset progress
     ui.resetProgress?.addEventListener("click", hardResetSession);
 
-    // Trivia
     ui.triviaSubmit?.addEventListener("click", checkTrivia);
     ui.triviaAnswer?.addEventListener("keydown", (e) => {
       if (e.key === "Enter") checkTrivia();
@@ -1106,7 +1035,7 @@ state.gate = "trivia";
     ui.playNote?.addEventListener("click", () => {
       if (!state.notes.current) newNoteRound();
       try {
-        playTone(state.notes.current.f, 720);
+        playTone(state.notes.current.f, 650);
         setMsg(ui.noteMsg, "Played. Enter A–G, then press Submit.", "warn");
         ui.noteInput?.focus?.();
       } catch (err) {
@@ -1117,7 +1046,6 @@ state.gate = "trivia";
 
     ui.noteSubmit?.addEventListener("click", checkNotes);
 
-    // Repair
     ui.repairNew?.addEventListener("click", () => newRepairRound(true));
     ui.repairSubmit?.addEventListener("click", checkRepair);
     ui.repairInput?.addEventListener("keydown", (e) => {
@@ -1127,13 +1055,11 @@ state.gate = "trivia";
       }
     });
 
-    // Grid
     ui.gridRegen?.addEventListener("click", newGridRound);
     ui.gridSubmit?.addEventListener("click", checkGridPath);
   }
 
   async function init(){
-    // visible error surface (prevents silent “Loading…”)
     window.addEventListener("error", (e) => {
       try {
         const msg = e?.message || "Unknown error";

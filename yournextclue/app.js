@@ -1,11 +1,19 @@
 /* app.js (patched)
    Drop-in replacement for /yournextclue/app.js
 
-   Tweaks in this patch:
-   - Repair gate now accepts “good” corrections like your screenshot by:
-     (1) increasing tolerance, and
-     (2) normalizing per-line whitespace + removing blank lines.
-   - firstEl() hardened so an invalid selector candidate won’t crash the script.
+   Patch objectives implemented:
+   - Theme toggle works (matches #themeToggle and #themeToggleReveal) and is icon-only:
+     - Sun icon when in DARK mode
+     - Moon icon when in LIGHT mode
+   - Repair gate made WAY easier:
+     - Timer is 3:30 (210s)
+     - Higher tolerance + more forgiving canonicalization
+     - Wrong submissions do NOT reset streak; user can keep editing until timer expires
+   - Grid gate "works" and looks good:
+     - Play phase shows board; submit button enabled appropriately
+     - Wrong clicks are ignored (no path reset); brief assist highlight shows next required cell
+     - Better board rendering hooks for styling: .assist/.mistake on cells
+   - Reveal/final page styling now used by updated HTML (see index.html patch)
 */
 
 (() => {
@@ -25,8 +33,8 @@
   };
 
   const REPAIR = {
-    ms: 150_000,       // 2:30
-    tol: 15,           // <= 15 wrong characters (more forgiving for "good" corrections)
+    ms: 210_000,       // 3:30  ✅
+    tol: 35,           // WAY easier ✅
     target: 3,         // 3 wins in a row
   };
 
@@ -116,6 +124,7 @@
     panelTitle: firstEl("panelTitle", "#panelTitle", '[data-role="panelTitle"]'),
     panelDesc:  firstEl("panelDesc", "#panelDesc",  '[data-role="panelDesc"]'),
     statusPill: firstEl("statusPill", "#statusPill", '[data-role="statusPill"]'),
+    subtitle:   firstEl("#subtitle", '[data-role="subtitle"]'),
 
     // Tabs container (new UI) or steps nav (older UI)
     tabsNav: firstEl("#tabsNav", "#stepsNav", '[data-role="tabs"]', '[aria-label="progress"]'),
@@ -146,8 +155,12 @@
     pGrid:   firstEl("#pGrid", "#p3Val", '[data-progress="grid"]'),
     implNote: firstEl("#implNote", '[data-role="implNote"]'),
 
-    // Theme toggle (works as long as your HTML has #toggleTheme or data-action)
-    toggleTheme: firstEl("#toggleTheme", '[data-action="toggle-theme"]', 'button:has-text("Toggle theme")'),
+    // Theme toggle buttons (main + reveal)
+    toggleThemeMain: firstEl("#themeToggle", "#toggleTheme", '[data-action="toggle-theme"]'),
+    toggleThemeReveal: firstEl("#themeToggleReveal", '[data-action="toggle-theme-reveal"]'),
+
+    // Reset progress (optional)
+    resetProgress: firstEl("#resetProgress", '[data-action="reset-progress"]'),
 
     /* TRIVIA */
     triviaStreak: firstEl("#streak", '[data-role="triviaStreak"]'),
@@ -217,6 +230,9 @@
       memoDeadlineTs: 0,
       memoTimerId: null,
       clicked: [],             // clicked cell sequence in play phase
+
+      assist: null,            // {x,y} brief highlight of next required cell
+      mistake: null,           // {x,y} brief highlight of wrong click
     },
 
     poem: { json: null },
@@ -225,26 +241,56 @@
   };
 
   /* =========================
-     THEME (persist theme only)
+     THEME (persist theme only) + ICON RENDER
   ========================= */
+  function svgSun() {
+    return `
+      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path fill="currentColor"
+          d="M12 18a6 6 0 1 1 0-12a6 6 0 0 1 0 12m0-14a1 1 0 0 1 1-1h0a1 1 0 0 1 1 1v1a1 1 0 0 1-2 0V4m0 16a1 1 0 0 1 1-1h0a1 1 0 0 1 1 1v1a1 1 0 0 1-2 0v-1M4 11a1 1 0 0 1 1-1h1a1 1 0 0 1 0 2H5a1 1 0 0 1-1-1m14 0a1 1 0 0 1 1-1h1a1 1 0 0 1 0 2h-1a1 1 0 0 1-1-1M6.3 6.3a1 1 0 0 1 1.4 0l.7.7a1 1 0 1 1-1.4 1.4l-.7-.7a1 1 0 0 1 0-1.4m10.6 10.6a1 1 0 0 1 1.4 0l.7.7a1 1 0 1 1-1.4 1.4l-.7-.7a1 1 0 0 1 0-1.4M17.7 6.3a1 1 0 0 1 0 1.4l-.7.7a1 1 0 1 1-1.4-1.4l.7-.7a1 1 0 0 1 1.4 0M8.4 17a1 1 0 0 1 0 1.4l-.7.7a1 1 0 1 1-1.4-1.4l.7-.7a1 1 0 0 1 1.4 0" />
+      </svg>
+    `;
+  }
+
+  function svgMoon() {
+    return `
+      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path fill="currentColor"
+          d="M21 14.3A8.3 8.3 0 0 1 9.7 3a7.5 7.5 0 1 0 11.3 11.3" />
+      </svg>
+    `;
+  }
+
+  function paintThemeButtons() {
+    const icon = (state.theme === "dark") ? svgSun() : svgMoon(); // ✅ requirement
+    const targets = [ui.toggleThemeMain, ui.toggleThemeReveal].filter(Boolean);
+    for (const b of targets) {
+      b.innerHTML = icon;
+    }
+  }
+
   function applyTheme(t) {
     state.theme = (t === "light") ? "light" : "dark";
     document.documentElement.dataset.theme = state.theme;
     document.documentElement.style.colorScheme = state.theme;
     try { localStorage.setItem("ync_theme", state.theme); } catch {}
+    paintThemeButtons();
   }
 
   function initTheme() {
     let t = "dark";
-    try {
-      t = localStorage.getItem("ync_theme") || "dark";
-    } catch {}
+    try { t = localStorage.getItem("ync_theme") || "dark"; } catch {}
     applyTheme(t);
-    if (ui.toggleTheme) {
-      ui.toggleTheme.addEventListener("click", () => {
+
+    const wire = (btn) => {
+      if (!btn) return;
+      btn.addEventListener("click", () => {
         applyTheme(state.theme === "dark" ? "light" : "dark");
       });
-    }
+    };
+
+    wire(ui.toggleThemeMain);
+    wire(ui.toggleThemeReveal);
   }
 
   /* =========================
@@ -364,18 +410,18 @@
       if (ui.implNote) setText(ui.implNote, "Music Notes: WebAudio single octave; submit is mandatory; backdoor exists.");
     } else if (g === "repair") {
       setText(ui.panelTitle, "Test — Sentence Repair");
-      setHTML(ui.panelDesc, `Fix the text. <b>2:30</b> limit. Get <b>${REPAIR.target}</b> wins in a row. Tolerance: ≤ <b>${REPAIR.tol}</b> wrong characters.`);
+      setHTML(ui.panelDesc, `Fix the text. <b>3:30</b> limit. Get <b>${REPAIR.target}</b> wins in a row. Tolerance: ≤ <b>${REPAIR.tol}</b> wrong characters.`);
       setText(ui.statusPill, "In progress");
       setText(ui.objective, `${REPAIR.target} wins in a row`);
       setText(ui.objectiveDesc, "Keep the same numbering and line breaks. Submit is required.");
-      if (ui.implNote) setText(ui.implNote, `Repair: strict format (line breaks + numbering). ≤ ${REPAIR.tol} wrong characters allowed. Backdoor exists.`);
+      if (ui.implNote) setText(ui.implNote, `Repair: strict-ish format (line breaks + numbering). ≤ ${REPAIR.tol} wrong characters allowed. Backdoor exists.`);
     } else if (g === "grid") {
       setText(ui.panelTitle, "Test — Grid Memory Path");
       setHTML(ui.panelDesc, `Memorize <b>${GRID.stepsN}</b> directions for <b>30 seconds</b> (grid hidden). Then directions disappear and you must click the full path and submit.`);
       setText(ui.statusPill, "In progress");
       setText(ui.objective, `1 correct`);
       setText(ui.objectiveDesc, "During memo phase: directions only. After 30s: click start, then each step, then submit.");
-      if (ui.implNote) setText(ui.implNote, "Grid: directions visible 30s; grid hidden; then click full remembered path + submit. Backdoor exists.");
+      if (ui.implNote) setText(ui.implNote, "Grid: directions visible 30s; grid hidden; then click full remembered path + submit. Misclicks are ignored (assist highlight).");
     }
 
     renderProgress();
@@ -413,6 +459,7 @@
     setText(ui.panelDesc, "");
 
     setMsg(ui.revealMsg, "All gates cleared. Enter fragmentA + fragmentB, then decrypt.", "good");
+    paintThemeButtons();
 
     if (ui.fragA) setTimeout(() => ui.fragA.focus(), 0);
   }
@@ -644,7 +691,7 @@
   }
 
   /* =========================
-     SENTENCE REPAIR (2:30, <= tol wrong chars)
+     SENTENCE REPAIR (3:30, WAY easier)
   ========================= */
   const REPAIR_BANK = [
     {
@@ -691,15 +738,24 @@
     // - trim each line
     // - drop blank lines
     // - normalize quotes and spacing
+    // - normalize numbering prefix variants: "1)" vs "1)." vs "1 )" -> "1)"
     const raw = (s || "").replace(/\r\n/g, "\n");
     const lines = raw
       .split("\n")
       .map(l => l.trim())
-      .filter(l => l.length > 0);
+      .filter(l => l.length > 0)
+      .map(l => {
+        // normalize numbering at start if present
+        const m = l.match(/^(\d)\s*[\)\.\:]\s*(.*)$/);
+        if (m) return `${m[1]}) ${m[2].trim()}`;
+        return l;
+      });
 
     return lines
       .join("\n")
       .replace(/[ \t]+/g, " ")
+      .replace(/\s+([,;:.!?])/g, "$1")  // remove spaces before punctuation
+      .replace(/([,;:.!?])([A-Za-z])/g, "$1 $2") // ensure space after punctuation when letter follows
       .trim()
       .normalize("NFKC")
       .replace(/[’‘]/g, "'")
@@ -748,7 +804,7 @@
     if (showGuidance) {
       setMsg(
         ui.repairMsg,
-        "Format required: keep 4 lines, keep the same numbering (1)–(4), keep line breaks. Fix only the errors, then press Submit.",
+        "Format required: keep 4 lines, keep the same numbering (1)–(4), keep line breaks. Fix only the errors, then press Submit. Wrong attempts do NOT reset streak.",
         "warn"
       );
     } else {
@@ -803,19 +859,16 @@
       return;
     }
 
-    stopRepairTimer();
-    state.repair.streak = 0;
-    renderProgress();
+    // ✅ WAY easier: do NOT reset streak; do NOT change prompt; allow resubmits until timer ends
     setMsg(
       ui.repairMsg,
-      `Incorrect (distance ${dist} > ${REPAIR.tol}). Keep 4 numbered lines with the same line breaks.`,
-      "bad"
+      `Not quite (distance ${dist} > ${REPAIR.tol}). Keep editing and resubmit — your streak stays at ${state.repair.streak}.`,
+      "warn"
     );
-    setTimeout(() => newRepairRound(true), 350);
   }
 
   /* =========================
-     GRID (unchanged)
+     GRID (improved usability)
   ========================= */
   function dirToText(d) {
     return d === "U" ? "Up" : d === "D" ? "Down" : d === "L" ? "Left" : d === "R" ? "Right" : d;
@@ -879,11 +932,20 @@
     }
   }
 
+  function updateGridSubmitEnabled(m) {
+    if (!ui.submitPath) return;
+    const needed = m?.path?.length || 0;
+    const have = state.grid.clicked.length;
+    const enabled = (state.grid.phase === "play") && needed > 0 && have === needed;
+    ui.submitPath.disabled = !enabled;
+  }
+
   function setGridPhase(phase) {
     state.grid.phase = phase;
 
     const directionsEl = ui.dirList;
     const boardWrap = ui.gridBoardWrap || ui.gridBoard;
+    const gridWrap = firstEl(".gridWrap", '[data-role="gridWrap"]');
 
     if (phase === "memo") {
       if (directionsEl) {
@@ -894,10 +956,11 @@
         boardWrap.style.display = "none";
       }
 
-      const gridWrap = firstEl(".gridWrap", '[data-role="gridWrap"]');
       if (gridWrap) {
         gridWrap.style.gridTemplateColumns = "1fr";
       }
+
+      if (ui.submitPath) ui.submitPath.disabled = true;
     } else {
       if (directionsEl) {
         directionsEl.style.display = "none";
@@ -907,10 +970,12 @@
         boardWrap.style.display = "";
       }
 
-      const gridWrap = firstEl(".gridWrap", '[data-role="gridWrap"]');
       if (gridWrap) {
-        gridWrap.style.gridTemplateColumns = "1fr";
+        gridWrap.style.gridTemplateColumns = "1.15fr .85fr";
       }
+
+      // enabled once user completes full path
+      updateGridSubmitEnabled(state.grid.model);
     }
   }
 
@@ -926,14 +991,13 @@
     if (!ui.gridBoard) return;
 
     ui.gridBoard.innerHTML = "";
-    ui.gridBoard.style.setProperty("--n", String(m.size));
     ui.gridBoard.style.setProperty("--gridN", String(m.size));
 
     for (let y = 0; y < m.size; y++) {
       for (let x = 0; x < m.size; x++) {
         const cell = document.createElement("button");
         cell.type = "button";
-        cell.className = "gridCell cell";
+        cell.className = "gridCell";
         cell.dataset.x = String(x);
         cell.dataset.y = String(y);
         cell.setAttribute("aria-label", `Cell ${x},${y}`);
@@ -942,7 +1006,14 @@
         if (isStart) cell.classList.add("start");
 
         const idx = state.grid.clicked.findIndex(p => p.x === x && p.y === y);
-        if (idx >= 0) cell.classList.add("selected", "chosen");
+        if (idx >= 0) cell.classList.add("selected");
+
+        if (state.grid.assist && state.grid.assist.x === x && state.grid.assist.y === y) {
+          cell.classList.add("assist");
+        }
+        if (state.grid.mistake && state.grid.mistake.x === x && state.grid.mistake.y === y) {
+          cell.classList.add("mistake");
+        }
 
         if (isStart) {
           const dot = document.createElement("div");
@@ -953,19 +1024,50 @@
         cell.addEventListener("click", () => {
           if (state.grid.phase !== "play") return;
 
+          const needed = m.path.length;
+          const have = state.grid.clicked.length;
+          if (have >= needed) {
+            setMsg(ui.gridMsg, "Path length complete. Press Submit.", "warn");
+            updateGridSubmitEnabled(m);
+            return;
+          }
+
+          const next = m.path[have]; // expected next cell in sequence
+          const ok = (x === next.x && y === next.y);
+
+          if (!ok) {
+            // ✅ easier: ignore wrong clicks; show brief feedback + assist highlight on correct next
+            state.grid.mistake = { x, y };
+            state.grid.assist = { x: next.x, y: next.y };
+            renderGridBoard(m);
+
+            setMsg(ui.gridMsg, `Wrong step. Try again (your progress is kept).`, "warn");
+
+            setTimeout(() => {
+              state.grid.mistake = null;
+              renderGridBoard(m);
+            }, 450);
+
+            setTimeout(() => {
+              state.grid.assist = null;
+              renderGridBoard(m);
+            }, 900);
+
+            return;
+          }
+
+          // correct step
           state.grid.clicked.push({ x, y });
 
-          const needed = (m.path.length);
-          const have = state.grid.clicked.length;
-          if (have < needed) {
-            setMsg(ui.gridMsg, `Path step ${have}/${needed}. Keep clicking the path, then press Submit.`, "warn");
-          } else if (have === needed) {
-            setMsg(ui.gridMsg, "Path length complete. Press Submit.", "warn");
+          const nowHave = state.grid.clicked.length;
+          if (nowHave < needed) {
+            setMsg(ui.gridMsg, `Step ${nowHave}/${needed}. Keep going.`, "warn");
           } else {
-            setMsg(ui.gridMsg, "Too many clicks. Press Regenerate to retry.", "bad");
+            setMsg(ui.gridMsg, "Path complete. Press Submit.", "good");
           }
 
           renderGridBoard(m);
+          updateGridSubmitEnabled(m);
         });
 
         ui.gridBoard.appendChild(cell);
@@ -985,7 +1087,8 @@
       if (left <= 0) {
         stopGridMemoTimer();
         setGridPhase("play");
-        setMsg(ui.gridMsg, "Directions hidden. Now click the full remembered path (start first), then press Submit.", "warn");
+        setMsg(ui.gridMsg, "Directions hidden. Click the full remembered path (start first), then press Submit.", "warn");
+        updateGridSubmitEnabled(state.grid.model);
       }
     };
     state.grid.memoTimerId = setInterval(tick, 200);
@@ -996,6 +1099,8 @@
     stopGridMemoTimer();
     state.grid.model = makeGridModel();
     state.grid.clicked = [];
+    state.grid.assist = null;
+    state.grid.mistake = null;
 
     const m = state.grid.model;
 
@@ -1007,6 +1112,7 @@
 
     state.grid.memoDeadlineTs = Date.now() + GRID.memoMs;
     startGridMemoCountdown();
+    updateGridSubmitEnabled(m);
   }
 
   function isGridBackdoorPattern(m, clicked) {
@@ -1050,17 +1156,20 @@
     const clicked = state.grid.clicked;
 
     if (clicked.length !== needed) {
-      setMsg(ui.gridMsg, `Incorrect path length. Expected ${needed} clicks (start + ${GRID.stepsN} steps).`, "bad");
+      setMsg(ui.gridMsg, `Incomplete. Expected ${needed} clicks (start + ${GRID.stepsN} steps).`, "bad");
       state.grid.streak = 0;
       renderProgress();
+      updateGridSubmitEnabled(m);
       return;
     }
 
+    // With the new click logic, this should already be correct.
     for (let i = 0; i < needed; i++) {
       if (clicked[i].x !== m.path[i].x || clicked[i].y !== m.path[i].y) {
         setMsg(ui.gridMsg, `Incorrect path at step ${i + 1}. Regenerate and retry.`, "bad");
         state.grid.streak = 0;
         renderProgress();
+        updateGridSubmitEnabled(m);
         return;
       }
     }
@@ -1172,6 +1281,8 @@
     state.grid.phase = "memo";
     state.grid.memoDeadlineTs = 0;
     state.grid.clicked = [];
+    state.grid.assist = null;
+    state.grid.mistake = null;
 
     setMsg(ui.triviaMsg, "", "");
     setMsg(ui.noteMsg, "", "");
@@ -1251,6 +1362,8 @@
     ui.fragB?.addEventListener("keydown", (e) => {
       if (e.key === "Enter") tryDecrypt();
     });
+
+    ui.resetProgress?.addEventListener("click", hardResetSession);
   }
 
   /* =========================

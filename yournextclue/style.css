@@ -1,7 +1,7 @@
 :root{
   --radius: 22px;
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  --shadow: 0 18px 70px rgba(0,0,0,.35);
+  --shadow: 0 18px 70px rgba(0,0,0,.30);
 }
 
 /* Theme tokens */
@@ -16,9 +16,15 @@ html[data-theme="dark"]{
   --good: rgba(78, 255, 170, .95);
   --bad: rgba(255, 105, 140, .95);
   --warn: rgba(255, 210, 120, .95);
-  --accent: rgba(110,140,255,.85);
-  --accentSoft: rgba(110,140,255,.18);
-  --panel: rgba(0,0,0,.16);
+  --accent: rgba(110,140,255,.80);
+  --accentSoft: rgba(110,140,255,.14);
+  --panel: rgba(0,0,0,.14);
+
+  --gridLine: rgba(255,255,255,.08);
+  --gridCell: rgba(255,255,255,.04);
+  --gridCellHover: rgba(255,255,255,.06);
+  --gridStart: rgba(95, 140, 255, .95);
+  --gridPath: rgba(40, 200, 130, .95);
 }
 
 html[data-theme="light"]{
@@ -32,9 +38,15 @@ html[data-theme="light"]{
   --good: rgba(16, 140, 90, .95);
   --bad: rgba(200, 40, 80, .95);
   --warn: rgba(170, 115, 0, .95);
-  --accent: rgba(55, 90, 240, .88);
-  --accentSoft: rgba(55, 90, 240, .12);
+  --accent: rgba(55, 90, 240, .86);
+  --accentSoft: rgba(55, 90, 240, .10);
   --panel: rgba(255,255,255,.70);
+
+  --gridLine: rgba(10,14,22,.10);
+  --gridCell: rgba(10,14,22,.04);
+  --gridCellHover: rgba(10,14,22,.06);
+  --gridStart: rgba(55, 90, 240, .92);
+  --gridPath: rgba(16, 140, 90, .92);
 }
 
 *{ box-sizing:border-box; }
@@ -45,9 +57,9 @@ body{
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   color: var(--text);
   background:
-    radial-gradient(1100px 720px at 14% 12%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 55%),
-    radial-gradient(900px 650px at 85% 15%, rgba(120,255,195,.10), transparent 60%),
-    radial-gradient(900px 900px at 55% 85%, rgba(255,165,210,.10), transparent 60%),
+    radial-gradient(1100px 720px at 14% 12%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%),
+    radial-gradient(900px 650px at 85% 18%, rgba(255,210,120,.06), transparent 62%),
+    radial-gradient(900px 900px at 55% 85%, rgba(120,255,195,.06), transparent 62%),
     linear-gradient(180deg, var(--bg0), var(--bg1));
   overflow-x:hidden;
 }
@@ -56,9 +68,9 @@ body{
   pointer-events:none;
   position:fixed; inset:0;
   background:
-    radial-gradient(1000px 700px at 50% 0%, rgba(255,255,255,.05), transparent 60%),
-    radial-gradient(900px 900px at 50% 120%, rgba(255,255,255,.04), transparent 60%);
-  opacity:.9;
+    radial-gradient(1000px 700px at 50% 0%, rgba(255,255,255,.04), transparent 62%),
+    radial-gradient(900px 900px at 50% 120%, rgba(255,255,255,.03), transparent 62%);
+  opacity:.85;
 }
 
 .noise{
@@ -66,7 +78,7 @@ body{
   position:fixed; inset:0;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.18'/%3E%3C/svg%3E");
   mix-blend-mode: overlay;
-  opacity:.14;
+  opacity:.12;
 }
 
 .wrap{
@@ -130,11 +142,11 @@ body{
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--muted) 12%, transparent);
 }
 .step.active{ color: var(--text); border-color: color-mix(in srgb, var(--stroke) 100%, transparent); }
-.step.active .dot{ background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent); }
-.step.done .dot{ background: var(--good); box-shadow: 0 0 0 4px color-mix(in srgb, var(--good) 22%, transparent); }
+.step.active .dot{ background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+.step.done .dot{ background: var(--good); box-shadow: 0 0 0 4px color-mix(in srgb, var(--good) 18%, transparent); }
 .step.locked{ filter:saturate(.9); }
 
-/* Icon-only theme button */
+/* Theme icon button */
 .iconBtn{
   width: 40px;
   height: 40px;
@@ -149,7 +161,7 @@ body{
   transition: transform .12s ease, background .12s ease, border-color .12s ease, opacity .12s ease;
   user-select:none;
 }
-.iconBtn svg{ width: 18px; height: 18px; }
+.iconBtn i{ font-size: 16px; line-height: 1; }
 .iconBtn:hover{
   transform: translateY(-1px);
   border-color: color-mix(in srgb, var(--stroke) 100%, transparent);
@@ -283,15 +295,15 @@ body{
 .qText.small{ font-size: 15px; font-weight: 650; color: color-mix(in srgb, var(--text) 88%, transparent); line-height:1.45; }
 
 .answerRow{
-  margin-top: 12px;
+  margin-top: 14px;
   display:flex;
-  gap:10px;
+  gap:12px;
   flex-wrap:wrap;
   align-items:center;
 }
 
 input[type="text"]{
-  width: min(600px, 100%);
+  width: min(620px, 100%);
   padding: 11px 12px;
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--stroke) 85%, transparent);
@@ -304,6 +316,13 @@ input[type="text"]{
 input[type="text"]:focus{
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+/* Note input: visually signal uppercase */
+#noteAnswer{
+  text-transform: uppercase;
+  letter-spacing: .18em;
+  max-width: 220px;
 }
 
 textarea{
@@ -325,7 +344,7 @@ textarea:focus{
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
-.btnRow{ display:flex; gap:10px; flex-wrap:wrap; }
+.btnRow{ display:flex; gap:12px; flex-wrap:wrap; margin-top: 10px; }
 .btn{
   border: 1px solid color-mix(in srgb, var(--stroke) 85%, transparent);
   background: color-mix(in srgb, var(--glass) 80%, transparent);
@@ -356,7 +375,7 @@ textarea:focus{
 }
 
 .msg{
-  margin-top: 10px;
+  margin-top: 12px;
   font-size: 12.5px;
   line-height: 1.45;
   color: var(--muted);
@@ -367,10 +386,10 @@ textarea:focus{
 .msg.warn{ color: var(--warn); }
 
 .rules{
-  margin-top: 12px;
+  margin-top: 14px;
   display:flex;
   flex-direction:column;
-  gap: 6px;
+  gap: 8px;
   color: var(--muted);
   font-size: 12.5px;
 }
@@ -385,7 +404,7 @@ textarea:focus{
 
 /* Repair block */
 .repairBlock{
-  margin-top: 10px;
+  margin-top: 12px;
   border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--stroke) 70%, transparent);
   background: color-mix(in srgb, var(--panel) 85%, transparent);
@@ -402,111 +421,144 @@ textarea:focus{
   padding: 12px;
   font-family: var(--mono);
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.55;
   white-space: pre-wrap;
 }
 
 /* =========================
-   GRID (NEW/IMPROVED)
+   GRID (NEW, FIXED)
 ========================= */
 
 .gridWrap{
+  margin-top: 12px;
   display:grid;
+  grid-template-columns: 1fr 1fr;
   gap: 14px;
   align-items:start;
 }
 @media (max-width: 900px){
-  .gridWrap{ grid-template-columns: 1fr !important; }
+  .gridWrap{ grid-template-columns: 1fr; }
+}
+
+.dirList{
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--stroke) 70%, transparent);
+  background: color-mix(in srgb, var(--panel) 80%, transparent);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.stepLine{
+  display:flex;
+  gap:10px;
+  align-items:baseline;
+  padding: 2px 0;
+}
+.stepLine .mono{
+  opacity: .85;
 }
 
 .gridBoard{
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--stroke) 70%, transparent);
   background: color-mix(in srgb, var(--panel) 88%, transparent);
-  padding: 14px;
+  padding: 12px;
 }
 
 .gridLegend{
   display:flex;
-  gap: 8px;
+  gap:10px;
   flex-wrap:wrap;
+  align-items:center;
   margin-bottom: 10px;
 }
-
 .pill{
-  font-size: 12px;
+  display:inline-flex;
+  gap:8px;
+  align-items:center;
   padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--stroke) 70%, transparent);
-  color: var(--muted);
-  background: color-mix(in srgb, var(--panel) 70%, transparent);
+  background: color-mix(in srgb, var(--glass) 70%, transparent);
+  color: color-mix(in srgb, var(--text) 88%, transparent);
+  font-size: 12px;
 }
-
-.grid{
-  --gridN: 9;
-  display:grid;
-  grid-template-columns: repeat(var(--gridN), minmax(0, 1fr));
-  gap: 10px;
-}
-
-.gridCell{
-  appearance:none;
-  border: 1px solid color-mix(in srgb, var(--stroke) 70%, transparent);
-  background: color-mix(in srgb, var(--panel) 65%, transparent);
-  border-radius: 14px;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  cursor:pointer;
-  transition: transform .12s ease, border-color .12s ease, background .12s ease, box-shadow .12s ease;
-  position: relative;
-  outline: none;
-}
-.gridCell:hover{
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--stroke) 100%, transparent);
-}
-.gridCell:active{ transform: translateY(0px) scale(.99); }
-.gridCell:focus-visible{
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 15%, transparent);
-}
-
-.gridCell.start{
-  border-color: color-mix(in srgb, var(--accent) 85%, transparent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
-}
-
-.dotStart{
+.swatch{
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  background: var(--accent);
+  display:inline-block;
+}
+.swatch.start{ background: var(--gridStart); box-shadow: 0 0 0 4px color-mix(in srgb, var(--gridStart) 18%, transparent); }
+.swatch.path{ background: var(--gridPath); box-shadow: 0 0 0 4px color-mix(in srgb, var(--gridPath) 18%, transparent); }
+
+.grid{
+  --n: 9;
+  display:grid;
+  grid-template-columns: repeat(var(--n), 1fr);
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--gridLine);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--panel) 70%, transparent),
+    color-mix(in srgb, var(--panel) 88%, transparent)
+  );
+}
+
+.gridCell{
+  aspect-ratio: 1 / 1;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--stroke) 55%, transparent);
+  background: var(--gridCell);
+  cursor:pointer;
+  transition: transform .08s ease, background .12s ease, border-color .12s ease, box-shadow .12s ease, opacity .12s ease;
+  position:relative;
+}
+.gridCell:hover{
+  background: var(--gridCellHover);
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--stroke) 75%, transparent);
+}
+.gridCell:active{ transform: translateY(0px) scale(.99); }
+
+.gridCell.start{
+  border-color: color-mix(in srgb, var(--gridStart) 60%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--gridStart) 16%, transparent);
+}
+.dotStart{
   position:absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  inset: 50% auto auto 50%;
+  transform: translate(-50%,-50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--gridStart);
 }
 
 .gridCell.selected{
-  border-color: color-mix(in srgb, var(--good) 80%, transparent);
-  background: color-mix(in srgb, var(--good) 18%, transparent);
+  border-color: color-mix(in srgb, var(--gridPath) 70%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--gridPath) 14%, transparent);
 }
-
-.gridCell.assist{
-  border-color: color-mix(in srgb, var(--warn) 85%, transparent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--warn) 18%, transparent);
-}
-
-.gridCell.mistake{
-  border-color: color-mix(in srgb, var(--bad) 85%, transparent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--bad) 18%, transparent);
+.gridCell.selected::after{
+  content:"";
+  position:absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%,-50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--gridPath);
+  opacity: .95;
 }
 
 /* =========================
-   REVEAL (ALREADY PRESENT; NOW USED)
+   REVEAL (POLISHED)
 ========================= */
 
-/* No top header on reveal */
 body.revealOnly .topbar,
 body.revealOnly .footer{
   display:none;

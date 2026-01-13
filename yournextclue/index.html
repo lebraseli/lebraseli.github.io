@@ -9,10 +9,10 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650;750&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650;750;850&display=swap" rel="stylesheet">
 
-  <!-- Font Awesome (icons only) -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <!-- Font Awesome (free CDN) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
   <link rel="stylesheet" href="./style.css" />
 </head>
@@ -32,14 +32,13 @@
         <div class="topbarRight">
           <nav class="steps" aria-label="sections" id="stepsNav">
             <button class="step" id="stepTrivia" type="button"><span class="dot"></span>Trivia</button>
-            <button class="step" id="stepNote" type="button"><span class="dot"></span>Music Notes</button>
+            <button class="step" id="stepNotes" type="button"><span class="dot"></span>Music Notes</button>
             <button class="step" id="stepRepair" type="button"><span class="dot"></span>Repair</button>
             <button class="step" id="stepGrid" type="button"><span class="dot"></span>Grid</button>
           </nav>
 
-          <!-- Theme toggle: icon only -->
-          <button class="iconBtn" id="themeToggle" type="button" data-action="toggle-theme" aria-label="Toggle theme" title="Toggle theme">
-            <i class="fa-solid fa-sun" aria-hidden="true"></i>
+          <button class="iconBtn" id="themeToggle" type="button" aria-label="Toggle theme" title="Toggle theme">
+            <i id="themeIcon" class="fa-solid fa-sun" aria-hidden="true"></i>
           </button>
         </div>
       </header>
@@ -51,7 +50,6 @@
               <h1 class="panelTitle" id="panelTitle">Gate</h1>
               <p class="panelDesc" id="panelDesc">Loading…</p>
             </div>
-
             <div class="statusPill" id="statusPill">Locked</div>
           </div>
 
@@ -94,14 +92,14 @@
                 </div>
 
                 <div class="rules">
-                  <div class="rule"><span class="dotMini"></span>Answers are case-insensitive. Minor punctuation/spacing differences don’t matter.</div>
-                  <div class="rule"><span class="dotMini"></span>Miss = streak reset to 0.</div>
+                  <div class="rule"><span class="dotMini"></span>Case-insensitive. Minor punctuation/spacing differences are tolerated.</div>
+                  <div class="rule"><span class="dotMini"></span>Miss = streak reset.</div>
                 </div>
               </div>
             </section>
 
             <!-- MUSIC NOTES -->
-            <section class="stage" id="stageNote" aria-label="Music notes gate">
+            <section class="stage" id="stageNotes" aria-label="Music notes gate">
               <div class="arena">
                 <div class="arenaTop">
                   <div class="kpis">
@@ -111,7 +109,7 @@
                     </div>
                     <div class="kpi">
                       <div class="kLabel">Allowed</div>
-                      <div class="kValue mono">A B C D E F G</div>
+                      <div class="kValue mono">A–G</div>
                     </div>
                     <div class="kpi">
                       <div class="kLabel">Policy</div>
@@ -122,14 +120,15 @@
 
                 <div class="qCard">
                   <div class="qLabel">Audio</div>
-                  <div class="qText small">Press “Play note”, then type the note letter (A–G) and press Submit.</div>
+                  <div class="qText small">Click “Play note”, then type the letter (A–G) and press Submit.</div>
 
                   <div class="btnRow">
                     <button class="btn primary" id="playNote" type="button">Play note</button>
                   </div>
 
                   <div class="answerRow">
-                    <input id="noteAnswer" type="text" autocomplete="off" spellcheck="false" maxlength="4" placeholder="A–G" />
+                    <input id="noteAnswer" type="text" autocomplete="off" spellcheck="false" maxlength="4"
+                      inputmode="text" placeholder="A–G" />
                     <button class="btn primary" id="submitNote" type="button">Submit</button>
                   </div>
 
@@ -137,9 +136,8 @@
                 </div>
 
                 <div class="rules">
-                  <div class="rule"><span class="dotMini"></span>Input is constrained to A–G (plus digits for the backdoor).</div>
-                  <div class="rule"><span class="dotMini"></span>Keyboard entry never auto-submits. Submit is mandatory.</div>
-                  <div class="rule"><span class="dotMini"></span>Miss = streak reset to 0.</div>
+                  <div class="rule"><span class="dotMini"></span>Input is restricted to A–G (digits allowed for backdoor).</div>
+                  <div class="rule"><span class="dotMini"></span>Miss = streak reset.</div>
                 </div>
               </div>
             </section>
@@ -162,13 +160,16 @@
                       <div class="kValue mono">≤ 20 wrong chars</div>
                     </div>
                   </div>
+
+                  <div class="btnRow">
+                    <button class="btn ghost" id="newRepair" type="button">New prompt</button>
+                  </div>
                 </div>
 
                 <div class="qCard">
                   <div class="qLabel">Fix the text</div>
                   <div class="qText small">
-                    Correct the four lines below. <b>Keep the same numbering and line breaks</b>:
-                    <span class="mono">1)</span> … newline <span class="mono">2)</span> … newline <span class="mono">3)</span> … newline <span class="mono">4)</span> …
+                    Correct the four lines below. Keep the numbering and line breaks.
                   </div>
 
                   <div class="repairBlock">
@@ -177,7 +178,8 @@
                   </div>
 
                   <div class="answerRow">
-                    <textarea id="repairAnswer" class="repairInput" spellcheck="false" placeholder="Paste the corrected version here (4 lines, 1)–4))…"></textarea>
+                    <textarea id="repairAnswer" class="repairInput" spellcheck="false"
+                      placeholder="Paste the corrected version here (4 lines, 1)–4))…"></textarea>
                   </div>
 
                   <div class="btnRow">
@@ -188,8 +190,8 @@
                 </div>
 
                 <div class="rules">
-                  <div class="rule"><span class="dotMini"></span>Timer is strict. Timeout resets streak.</div>
-                  <div class="rule"><span class="dotMini"></span>Up to 20 character-level mistakes are tolerated for fat-finger errors.</div>
+                  <div class="rule"><span class="dotMini"></span>Timeout resets streak.</div>
+                  <div class="rule"><span class="dotMini"></span>Minor fat-finger errors tolerated (≤ 20 char distance).</div>
                 </div>
               </div>
             </section>
@@ -204,8 +206,8 @@
                       <div class="kValue"><span id="gridStreak">0</span> / <span id="gridTarget">1</span></div>
                     </div>
                     <div class="kpi">
-                      <div class="kLabel">Directions</div>
-                      <div class="kValue mono">15 steps</div>
+                      <div class="kLabel">Steps</div>
+                      <div class="kValue mono">15</div>
                     </div>
                     <div class="kpi">
                       <div class="kLabel">Visibility</div>
@@ -221,7 +223,9 @@
                 <div class="gridWrap">
                   <div class="qCard">
                     <div class="qLabel">Directions</div>
-                    <div class="qText small">Click start first, then every step, then press Submit.</div>
+                    <div class="qText small">
+                      Memorize the directions. When they disappear: <b>click start first</b>, then every step, then press Submit.
+                    </div>
 
                     <div class="dirList" id="gridSteps">Loading…</div>
 
@@ -232,17 +236,17 @@
                     <div class="msg" id="gridMsg" aria-live="polite"></div>
                   </div>
 
-                  <div class="gridBoard">
+                  <div class="gridBoard" aria-label="Grid board">
                     <div class="gridLegend">
-                      <span class="pill"><span class="swatch start"></span>Start</span>
-                      <span class="pill"><span class="swatch path"></span>Your path</span>
+                      <span class="pill">Start is blue</span>
+                      <span class="pill">Your path is green</span>
                     </div>
                     <div class="grid" id="gridBoard"></div>
                   </div>
                 </div>
 
                 <div class="rules">
-                  <div class="rule"><span class="dotMini"></span>Wrong click resets your entered path. No hints.</div>
+                  <div class="rule"><span class="dotMini"></span>Wrong click resets your entered path. No hints are provided.</div>
                 </div>
               </div>
             </section>
@@ -250,50 +254,47 @@
             <!-- REVEAL -->
             <section class="stage" id="stageReveal" aria-label="Reveal stage">
               <div class="revealFull">
-                <button class="iconBtn revealTheme" id="themeToggleReveal" type="button" data-action="toggle-theme" aria-label="Toggle theme" title="Toggle theme">
-                  <i class="fa-solid fa-sun" aria-hidden="true"></i>
-                </button>
-
                 <div class="revealHero">
-                  <div class="revealKicker">Unlocked</div>
-                  <h2 class="revealHeadline">Access Granted</h2>
-                  <p class="revealLead">Proceed to the next location using the poem below.</p>
+                  <div class="revealKicker">ACCESS GRANTED</div>
+                  <div class="revealHeadline">Final Clue</div>
+                  <div class="revealLead">
+                    Echoes carry forward. Don’t overthink it—read carefully.
+                  </div>
                 </div>
 
                 <div class="revealCard">
                   <div class="revealCardHead">
                     <div class="revealCardTitle">Poem</div>
                   </div>
-
                   <pre class="revealPoem" id="poemText"></pre>
                 </div>
 
-                <div class="msg good" id="revealMsg" aria-live="polite"></div>
+                <div class="msg" id="revealMsg" aria-live="polite"></div>
               </div>
             </section>
 
           </div>
         </section>
 
-        <aside class="side">
+        <aside class="side" id="side">
           <div class="sideCard">
             <div class="sideLabel">Objective</div>
             <div class="sideValue" id="objective">Clear all gates</div>
             <div class="divider"></div>
-            <div class="sideText">
-              Gate order is randomized on each page load. Misses reset the active gate’s streak.
+            <div class="sideText" id="objectiveDesc">
+              Misses reset the active gate’s streak.
             </div>
           </div>
 
           <div class="sideCard">
             <div class="sideLabel">Progress</div>
             <div class="fragLine"><span class="fragKey">Trivia gate</span><span class="fragVal" id="pTrivia">0 / 15</span></div>
-            <div class="fragLine"><span class="fragKey">Music Notes gate</span><span class="fragVal" id="pNote">0 / 5</span></div>
+            <div class="fragLine"><span class="fragKey">Music Notes gate</span><span class="fragVal" id="pNotes">0 / 5</span></div>
             <div class="fragLine"><span class="fragKey">Repair gate</span><span class="fragVal" id="pRepair">0 / 3</span></div>
             <div class="fragLine"><span class="fragKey">Grid gate</span><span class="fragVal" id="pGrid">0 / 1</span></div>
             <div class="divider"></div>
             <div class="sideText muted">
-              Grid directions hide after 30 seconds. Then you must click the full remembered path and submit.
+              Grid directions hide after 30 seconds. Then click the full remembered path and submit.
             </div>
           </div>
         </aside>

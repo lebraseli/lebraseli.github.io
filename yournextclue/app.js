@@ -469,6 +469,10 @@ Mysteries wait for the ones who assume.`;
     { n: "B", f: 493.883301 }, // B4
   ];
 
+if (NOTE_BANK.length !== 7) {
+  throw new Error(`NOTE_BANK must contain exactly 7 notes. Found: ${NOTE_BANK.length}`);
+}
+  
   const audio = { ctx: null, master: null };
 
   function ensureAudio(){
@@ -962,11 +966,11 @@ Mysteries wait for the ones who assume.`;
     stopRepairTimer();
     stopGridMemoTimer();
 
-    // order randomized every load
-    state.order = shuffle(["trivia","notes","repair","grid"]);
-    state.idx = 0;
-    state.cleared = new Set();
-    state.gate = state.order[0];
+// fixed order; always start on Trivia
+state.order = ["trivia", "notes", "repair", "grid"];
+state.idx = 0;
+state.cleared = new Set();
+state.gate = "trivia";
 
     // trivia
     state.trivia.streak = 0;

@@ -134,7 +134,7 @@ body{
 .step.done .dot{ background: var(--good); box-shadow: 0 0 0 4px color-mix(in srgb, var(--good) 22%, transparent); }
 .step.locked{ filter:saturate(.9); }
 
-/* Sun icon theme button */
+/* Icon-only theme button */
 .iconBtn{
   width: 40px;
   height: 40px;
@@ -407,7 +407,103 @@ textarea:focus{
 }
 
 /* =========================
-   REVEAL (NEW)
+   GRID (NEW/IMPROVED)
+========================= */
+
+.gridWrap{
+  display:grid;
+  gap: 14px;
+  align-items:start;
+}
+@media (max-width: 900px){
+  .gridWrap{ grid-template-columns: 1fr !important; }
+}
+
+.gridBoard{
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--stroke) 70%, transparent);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  padding: 14px;
+}
+
+.gridLegend{
+  display:flex;
+  gap: 8px;
+  flex-wrap:wrap;
+  margin-bottom: 10px;
+}
+
+.pill{
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--stroke) 70%, transparent);
+  color: var(--muted);
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
+}
+
+.grid{
+  --gridN: 9;
+  display:grid;
+  grid-template-columns: repeat(var(--gridN), minmax(0, 1fr));
+  gap: 10px;
+}
+
+.gridCell{
+  appearance:none;
+  border: 1px solid color-mix(in srgb, var(--stroke) 70%, transparent);
+  background: color-mix(in srgb, var(--panel) 65%, transparent);
+  border-radius: 14px;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  cursor:pointer;
+  transition: transform .12s ease, border-color .12s ease, background .12s ease, box-shadow .12s ease;
+  position: relative;
+  outline: none;
+}
+.gridCell:hover{
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--stroke) 100%, transparent);
+}
+.gridCell:active{ transform: translateY(0px) scale(.99); }
+.gridCell:focus-visible{
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.gridCell.start{
+  border-color: color-mix(in srgb, var(--accent) 85%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.dotStart{
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  position:absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.gridCell.selected{
+  border-color: color-mix(in srgb, var(--good) 80%, transparent);
+  background: color-mix(in srgb, var(--good) 18%, transparent);
+}
+
+.gridCell.assist{
+  border-color: color-mix(in srgb, var(--warn) 85%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--warn) 18%, transparent);
+}
+
+.gridCell.mistake{
+  border-color: color-mix(in srgb, var(--bad) 85%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--bad) 18%, transparent);
+}
+
+/* =========================
+   REVEAL (ALREADY PRESENT; NOW USED)
 ========================= */
 
 /* No top header on reveal */

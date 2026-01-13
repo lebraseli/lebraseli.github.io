@@ -1158,41 +1158,84 @@ function renderDirections(m) {
      WIRING
   ========================= */
   function wireEvents() {
-    ui.triviaSubmit?.addEventListener("click", checkTrivia);
-    ui.triviaAnswer?.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") checkTrivia();
-    });
+  /* -------------------------
+     TRIVIA
+  ------------------------- */
+  ui.triviaSubmit?.addEventListener("click", checkTrivia);
+  ui.triviaAnswer?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") checkTrivia();
+  });
 
-    ui.playNote?.addEventListener("click", () => {
-      if (!state.notes.current) newNoteRound(false);
-      try {
-        playTone(state.notes.current.f, 650);
-        setMsg(ui.noteMsg, "Played. Enter A–G, then press Submit.", "warn");
-        ui.noteInput?.focus?.();
-      } catch (e) {
-        console.error(e);
-        setMsg(ui.noteMsg, "Audio blocked. Click Play note again.", "bad");
-      }
-    });
+  /* -------------------------
+     MUSIC NOTES (race-safe)
+  ------------------------- */
+  ui.playNote?.addEventListener("click", () => {
+    // If somehow no round exists yet, create one first.
+    if (!state.notes.current) newNoteRound(false);
 
-    ui.noteSubmit?.addEventListener("click", checkNotes);
+    try {
+      // Play the CURRENT note (this is what checkNotes will validate against).
+      playTone(state.notes.current.f, 650);
+      setMsg(ui.noteMsg, "Played. Enter A–G, then press Submit.", "warn");
+      ui.noteInput?.focus?.();
+    } catch (e) {
+      console.error(e);
+      setMsg(ui.noteMsg, "Audio blocked. Click Play note again.", "bad");
+    }
+  });
 
-    ui.repairSubmit?.addEventListener("click", checkRepair);
-    ui.repairNew?.addEventListener("click", () => newRepairRound(true));
-    ui.repairInput?.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        checkRepair();
-      }
-    });
-
-    ui.regenGrid?.addEventListener("click", () => newGridRound());
-    ui.submitPath?.addEventListener("click", checkGridPath);
-
-    ui.resetProgress?.addEventListener("click", hardResetSession);
-
-    constrainNotesInput();
+  // Hide and disable any legacy replay button if present
+  if (ui.replayNote) {
+    hide(ui.replayNote);
+    ui.replayNote.replaceWith(ui.replayNote.cloneNode(true));
   }
+
+  // Only allow A–G and digits (digits support the backdoor).
+  ui.noteInput?.addEventListener("input", () => {
+    const raw = (ui.noteInput.value || "").toUpperCase();
+    const filtered = raw.replace(/[^A-G0-9]/g, "").slice(0, 4);
+    if (ui.noteInput.value !== filtered) ui.noteInput.value = filtered;
+  });
+
+  // No Enter-to-submit; track digit backdoor entry
+  ui.noteInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      return;
+    }
+    if (/^[0-9]$/.test(e.key)) {
+      state.notes.secretBuf = (state.notes.secretBuf + e.key).slice(-4);
+    }
+  });
+
+  ui.noteSubmit?.addEventListener("click", checkNotes);
+
+  /* -------------------------
+     REPAIR
+  ------------------------- */
+  ui.repairSubmit?.addEventListener("click", checkRepair);
+  ui.repairNew?.addEventListener("click", () => newRepairRound(true));
+  ui.repairInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      checkRepair();
+    }
+  });
+
+  /* -------------------------
+     GRID
+  ------------------------- */
+  ui.regenGrid?.addEventListener("click", () => newGridRound(true));
+  ui.submitPath?.addEventListener("click", checkGridPath);
+
+  /* -------------------------
+     REVEAL (legacy; harmless if present)
+  ------------------------- */
+  ui.decryptBtn?.addEventListener("click", tryDecrypt);
+  ui.fragB?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") tryDecrypt();
+  });
+}
 
   /* =========================
      INIT

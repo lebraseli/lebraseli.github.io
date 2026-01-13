@@ -568,3 +568,68 @@ textarea:focus{
   font-family: var(--mono);
   color: color-mix(in srgb, var(--text) 92%, transparent);
 }
+
+/* =========================
+   Mobile hardening
+========================= */
+@media (max-width: 860px) {
+  /* allow tabs to scroll instead of crushing */
+  #stepsNav {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+    gap: 8px;
+  }
+  #stepsNav > * {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  /* stack columns if your layout is split */
+  .layout,
+  .shellLayout,
+  .mainLayout {
+    flex-direction: column;
+  }
+
+  #side {
+    width: 100%;
+  }
+
+  /* prevent “glued” controls on narrow widths */
+  .row,
+  .fieldRow,
+  .formRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .row > * ,
+  .fieldRow > *,
+  .formRow > * {
+    width: 100%;
+  }
+
+  button,
+  .btn {
+    width: 100%;
+  }
+
+  input[type="text"],
+  textarea {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  textarea {
+    min-height: 160px;
+  }
+
+  /* grid should never overflow viewport */
+  #gridBoard {
+    max-width: 100%;
+  }
+  .gridWrap,
+  .gridBoardWrap {
+    overflow-x: auto;
+  }
+}

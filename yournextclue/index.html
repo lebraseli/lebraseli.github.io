@@ -5,10 +5,15 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="light dark" />
   <title>Your Next Clue</title>
-  <meta name="description" content="Multi-gate puzzle: trivia, music notes, repair, grid — randomized order." />
+  <meta name="description" content="Multi-gate puzzle: trivia, music notes, repair, grid." />
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650;750&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome (icons only) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
   <link rel="stylesheet" href="./style.css" />
 </head>
 
@@ -32,8 +37,10 @@
             <button class="step" id="stepGrid" type="button"><span class="dot"></span>Grid</button>
           </nav>
 
-          <!-- ✅ icon-only theme toggle; JS injects Sun/Moon SVG -->
-          <button class="iconBtn" id="themeToggle" type="button" aria-label="Toggle theme" title="Toggle theme"></button>
+          <!-- Theme toggle: icon only -->
+          <button class="iconBtn" id="themeToggle" type="button" data-action="toggle-theme" aria-label="Toggle theme" title="Toggle theme">
+            <i class="fa-solid fa-sun" aria-hidden="true"></i>
+          </button>
         </div>
       </header>
 
@@ -130,6 +137,7 @@
                 </div>
 
                 <div class="rules">
+                  <div class="rule"><span class="dotMini"></span>Input is constrained to A–G (plus digits for the backdoor).</div>
                   <div class="rule"><span class="dotMini"></span>Keyboard entry never auto-submits. Submit is mandatory.</div>
                   <div class="rule"><span class="dotMini"></span>Miss = streak reset to 0.</div>
                 </div>
@@ -151,7 +159,7 @@
                     </div>
                     <div class="kpi">
                       <div class="kLabel">Tolerance</div>
-                      <div class="kValue mono">≤ 35 wrong chars</div>
+                      <div class="kValue mono">≤ 20 wrong chars</div>
                     </div>
                   </div>
                 </div>
@@ -181,7 +189,7 @@
 
                 <div class="rules">
                   <div class="rule"><span class="dotMini"></span>Timer is strict. Timeout resets streak.</div>
-                  <div class="rule"><span class="dotMini"></span>Wrong submissions do not reset your streak — keep editing until it passes.</div>
+                  <div class="rule"><span class="dotMini"></span>Up to 20 character-level mistakes are tolerated for fat-finger errors.</div>
                 </div>
               </div>
             </section>
@@ -212,11 +220,8 @@
 
                 <div class="gridWrap">
                   <div class="qCard">
-                    <div class="qLabel">Directions (hide after 30s)</div>
-                    <div class="qText small">
-                      Memorize the 15 directions. After 30 seconds, they disappear and you must click the full path on the grid.
-                      <b>Click start first</b>, then every step, then press Submit.
-                    </div>
+                    <div class="qLabel">Directions</div>
+                    <div class="qText small">Click start first, then every step, then press Submit.</div>
 
                     <div class="dirList" id="gridSteps">Loading…</div>
 
@@ -229,55 +234,41 @@
 
                   <div class="gridBoard">
                     <div class="gridLegend">
-                      <span class="pill">Start is blue</span>
-                      <span class="pill">Your path is green</span>
+                      <span class="pill"><span class="swatch start"></span>Start</span>
+                      <span class="pill"><span class="swatch path"></span>Your path</span>
                     </div>
                     <div class="grid" id="gridBoard"></div>
                   </div>
                 </div>
 
                 <div class="rules">
-                  <div class="rule"><span class="dotMini"></span>Misclicks are ignored (your progress is kept). The next required cell briefly highlights.</div>
+                  <div class="rule"><span class="dotMini"></span>Wrong click resets your entered path. No hints.</div>
                 </div>
               </div>
             </section>
 
-            <!-- REVEAL (REDESIGNED) -->
+            <!-- REVEAL -->
             <section class="stage" id="stageReveal" aria-label="Reveal stage">
               <div class="revealFull">
-                <div class="revealTheme">
-                  <!-- ✅ icon-only theme toggle on reveal -->
-                  <button class="iconBtn" id="themeToggleReveal" type="button" aria-label="Toggle theme" title="Toggle theme"></button>
-                </div>
+                <button class="iconBtn revealTheme" id="themeToggleReveal" type="button" data-action="toggle-theme" aria-label="Toggle theme" title="Toggle theme">
+                  <i class="fa-solid fa-sun" aria-hidden="true"></i>
+                </button>
 
                 <div class="revealHero">
-                  <div class="revealKicker">Access Granted</div>
-                  <div class="revealHeadline">Payload unlocked</div>
-                  <div class="revealLead">
-                    You cleared all gates. Enter your passphrase fragments to decrypt the final payload.
-                    Passphrase = <span class="mono">fragmentA + fragmentB</span> (lowercase, no spaces).
-                  </div>
-                </div>
-
-                <div class="qCard">
-                  <div class="qLabel">Passphrase</div>
-                  <div class="qText small">Enter both fragments, then decrypt.</div>
-
-                  <div class="answerRow">
-                    <input id="fragA" type="text" autocomplete="off" spellcheck="false" placeholder="fragmentA" />
-                    <input id="fragB" type="text" autocomplete="off" spellcheck="false" placeholder="fragmentB" />
-                    <button class="btn primary" id="decryptPoemBtn" type="button">Decrypt</button>
-                  </div>
-
-                  <div class="msg" id="revealMsg" aria-live="polite"></div>
+                  <div class="revealKicker">Unlocked</div>
+                  <h2 class="revealHeadline">Access Granted</h2>
+                  <p class="revealLead">Proceed to the next location using the poem below.</p>
                 </div>
 
                 <div class="revealCard">
                   <div class="revealCardHead">
-                    <div class="revealCardTitle">Decrypted payload</div>
+                    <div class="revealCardTitle">Poem</div>
                   </div>
+
                   <pre class="revealPoem" id="poemText"></pre>
                 </div>
+
+                <div class="msg good" id="revealMsg" aria-live="polite"></div>
               </div>
             </section>
 
@@ -302,7 +293,7 @@
             <div class="fragLine"><span class="fragKey">Grid gate</span><span class="fragVal" id="pGrid">0 / 1</span></div>
             <div class="divider"></div>
             <div class="sideText muted">
-              Grid directions hide after 30 seconds. You must click the full remembered path and then submit.
+              Grid directions hide after 30 seconds. Then you must click the full remembered path and submit.
             </div>
           </div>
         </aside>

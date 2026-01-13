@@ -32,9 +32,8 @@
             <button class="step" id="stepGrid" type="button"><span class="dot"></span>Grid</button>
           </nav>
 
-          <button class="btn ghost themeBtn" id="themeToggle" type="button" aria-label="Toggle theme">
-            Toggle theme
-          </button>
+          <!-- ✅ icon-only theme toggle; JS injects Sun/Moon SVG -->
+          <button class="iconBtn" id="themeToggle" type="button" aria-label="Toggle theme" title="Toggle theme"></button>
         </div>
       </header>
 
@@ -148,11 +147,11 @@
                     </div>
                     <div class="kpi">
                       <div class="kLabel">Timer</div>
-                      <div class="kValue"><span id="repairTimer">2:30</span></div>
+                      <div class="kValue"><span id="repairTimer">3:30</span></div>
                     </div>
                     <div class="kpi">
                       <div class="kLabel">Tolerance</div>
-                      <div class="kValue mono">≤ 15 wrong chars</div>
+                      <div class="kValue mono">≤ 35 wrong chars</div>
                     </div>
                   </div>
                 </div>
@@ -182,7 +181,7 @@
 
                 <div class="rules">
                   <div class="rule"><span class="dotMini"></span>Timer is strict. Timeout resets streak.</div>
-                  <div class="rule"><span class="dotMini"></span>Up to 15 character-level mistakes are tolerated for fat-finger errors.</div>
+                  <div class="rule"><span class="dotMini"></span>Wrong submissions do not reset your streak — keep editing until it passes.</div>
                 </div>
               </div>
             </section>
@@ -238,20 +237,31 @@
                 </div>
 
                 <div class="rules">
-                  <div class="rule"><span class="dotMini"></span>Wrong step resets your entered path (and streak on submit failure).</div>
+                  <div class="rule"><span class="dotMini"></span>Misclicks are ignored (your progress is kept). The next required cell briefly highlights.</div>
                 </div>
               </div>
             </section>
 
-            <!-- REVEAL -->
+            <!-- REVEAL (REDESIGNED) -->
             <section class="stage" id="stageReveal" aria-label="Reveal stage">
-              <div class="reveal">
-                <div class="revealTitle">Access Granted</div>
-                <div class="revealSub">All gates cleared. Enter the passphrase fragments to decrypt.</div>
+              <div class="revealFull">
+                <div class="revealTheme">
+                  <!-- ✅ icon-only theme toggle on reveal -->
+                  <button class="iconBtn" id="themeToggleReveal" type="button" aria-label="Toggle theme" title="Toggle theme"></button>
+                </div>
 
-                <div class="qCard" style="margin-top:12px;">
+                <div class="revealHero">
+                  <div class="revealKicker">Access Granted</div>
+                  <div class="revealHeadline">Payload unlocked</div>
+                  <div class="revealLead">
+                    You cleared all gates. Enter your passphrase fragments to decrypt the final payload.
+                    Passphrase = <span class="mono">fragmentA + fragmentB</span> (lowercase, no spaces).
+                  </div>
+                </div>
+
+                <div class="qCard">
                   <div class="qLabel">Passphrase</div>
-                  <div class="qText small">Passphrase = fragmentA + fragmentB (lowercase, no spaces)</div>
+                  <div class="qText small">Enter both fragments, then decrypt.</div>
 
                   <div class="answerRow">
                     <input id="fragA" type="text" autocomplete="off" spellcheck="false" placeholder="fragmentA" />
@@ -262,11 +272,11 @@
                   <div class="msg" id="revealMsg" aria-live="polite"></div>
                 </div>
 
-                <div class="poemWrap">
-                  <div class="poemHead">
-                    <div class="poemTitle">Payload</div>
+                <div class="revealCard">
+                  <div class="revealCardHead">
+                    <div class="revealCardTitle">Decrypted payload</div>
                   </div>
-                  <pre class="poem" id="poemText"></pre>
+                  <pre class="revealPoem" id="poemText"></pre>
                 </div>
               </div>
             </section>

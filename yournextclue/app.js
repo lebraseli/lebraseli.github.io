@@ -169,9 +169,10 @@
     document.documentElement.style.colorScheme = state.theme;
     try { localStorage.setItem("ync_theme", state.theme); } catch {}
 
+    // Font Awesome icon toggle (sun on dark, moon on light)
     if (ui.themeIcon) {
-      // per earlier requirement: sun icon on dark, moon on light
-      ui.themeIcon.textContent = (state.theme === "dark") ? "☀" : "☾";
+      ui.themeIcon.classList.remove("fa-sun", "fa-moon");
+      ui.themeIcon.classList.add(state.theme === "dark" ? "fa-sun" : "fa-moon");
     }
   }
 
@@ -454,9 +455,6 @@
      MUSIC NOTES (ONLY 7, your pitch order)
      A highest -> ... -> G lowest
   ========================= */
-  // We intentionally use your requested ordering (not standard theory).
-  // Highest A, then step down in semitones until G.
-  // This is consistent and eliminates “it went higher than A” confusion.
   const NOTE_BANK = [
     { n: "A", f: 440.000000 }, // highest
     { n: "B", f: 415.304698 }, // -1 semitone
@@ -501,7 +499,6 @@
   }
 
   function newNoteRound(){
-    // Guaranteed one of the 7 A–G
     state.notes.current = NOTE_BANK[Math.floor(Math.random() * NOTE_BANK.length)];
     if (ui.noteInput) ui.noteInput.value = "";
     setMsg(ui.noteMsg, "Click Play note, enter A–G, then Submit.", "warn");
@@ -758,7 +755,6 @@
       }
     }
 
-    // fallback (should not happen)
     const start = { x: 4, y: 4 };
     const steps = Array.from({ length: GRID.stepsN }, () => "R");
     const path = [{ x: start.x, y: start.y }];
@@ -1030,7 +1026,6 @@
   }
 
   async function init(){
-    // If anything fails, we want it visible (not silent “Loading…”)
     window.addEventListener("error", (e) => {
       try {
         const msg = e?.message || "Unknown error";

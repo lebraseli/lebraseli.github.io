@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Your Next Clue</title>
 
   <!-- Font Awesome (sun/moon icons) -->
@@ -10,265 +10,228 @@
 
   <link rel="stylesheet" href="./style.css" />
 </head>
-
 <body>
-  <div class="appBg" aria-hidden="true"></div>
-
-  <!-- TOP BAR (full width) -->
   <header class="topbar">
-    <div class="topbarInner">
+    <div class="topbar-inner">
       <div class="brand">
-        <div class="brandTitle">Your Next Clue</div>
-        <div class="brandSub">Clear each gate. Misses reset streaks.</div>
+        <div class="brand-title">Your Next Clue</div>
+        <div class="brand-sub">Clear each gate. Misses reset streaks.</div>
       </div>
 
       <nav class="tabs" id="stepsNav" aria-label="Gates">
         <button class="tab" id="stepTrivia" type="button">
-          <span class="dot" aria-hidden="true"></span> Trivia
+          <span class="dot"></span> Trivia
         </button>
         <button class="tab" id="stepNotes" type="button">
-          <span class="dot" aria-hidden="true"></span> Music Notes
+          <span class="dot"></span> Music Notes
         </button>
         <button class="tab" id="stepRepair" type="button">
-          <span class="dot" aria-hidden="true"></span> Repair
+          <span class="dot"></span> Repair
         </button>
         <button class="tab" id="stepGrid" type="button">
-          <span class="dot" aria-hidden="true"></span> Grid
-        </button>
-
-        <button class="iconBtn" id="themeToggle" type="button" aria-label="Toggle theme">
-          <i id="themeIcon" class="fa-solid fa-sun" aria-hidden="true"></i>
+          <span class="dot"></span> Grid
         </button>
       </nav>
+
+      <button class="icon-btn" id="themeToggle" type="button" aria-label="Toggle theme">
+        <i id="themeIcon" class="fa-solid fa-sun"></i>
+      </button>
     </div>
   </header>
 
   <main class="shell">
-    <section class="panel">
-      <div class="panelHead">
-        <div class="panelHeadText">
-          <div class="panelTitleRow">
-            <h1 class="panelTitle" id="panelTitle">Gate</h1>
-            <span class="pill" id="statusPill">Loading…</span>
+    <div class="layout">
+      <!-- LEFT: main panel -->
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">Gate</div>
+            <h2 id="panelTitle" class="panel-title">Gate</h2>
+            <p id="panelDesc" class="panel-desc">Loading…</p>
           </div>
-          <div class="panelDesc" id="panelDesc"></div>
+          <div class="pill" id="statusPill">Loading…</div>
         </div>
-      </div>
 
-      <div class="panelBody">
         <!-- TRIVIA -->
         <section id="stageTrivia" class="stage" hidden>
-          <div class="stageCard">
-            <div class="metrics">
-              <div class="metric">
-                <div class="k">Streak</div>
-                <div class="v"><span id="streak">0</span> / <span id="triviaTarget">15</span></div>
-              </div>
-              <div class="metric">
-                <div class="k">Remaining</div>
-                <div class="v"><span id="remaining">—</span></div>
-              </div>
-              <div class="metric">
-                <div class="k">Category</div>
-                <div class="v" id="category">—</div>
-              </div>
+          <div class="stats">
+            <div class="stat">
+              <div class="k">Streak</div>
+              <div class="v"><span id="streak">0</span>/<span id="triviaTarget">15</span></div>
+            </div>
+            <div class="stat">
+              <div class="k">Remaining</div>
+              <div class="v" id="remaining">—</div>
+            </div>
+            <div class="stat">
+              <div class="k">Category</div>
+              <div class="v" id="category">—</div>
+            </div>
+          </div>
+
+          <div class="block">
+            <div class="k">Question</div>
+            <div class="question" id="question">—</div>
+
+            <div class="row">
+              <input id="answer" class="input" type="text" placeholder="Type your answer…" autocomplete="off" />
+              <button id="submitAnswer" class="btn primary" type="button">Submit</button>
             </div>
 
-            <div class="card">
-              <div class="k">Question</div>
-              <div class="q" id="question">—</div>
+            <div id="triviaMsg" class="msg" aria-live="polite"></div>
 
-              <div class="row">
-                <input id="answer" class="input" type="text" inputmode="text" autocomplete="off" placeholder="Type your answer…" />
-                <button id="submitAnswer" class="btn primary" type="button">Submit</button>
-              </div>
-
-              <div class="msg" id="triviaMsg"></div>
-
-              <div class="row rowTight">
-                <button id="resetProgress" class="btn ghost" type="button">Reset progress</button>
-              </div>
+            <div class="row split">
+              <button id="resetProgress" class="btn ghost" type="button">Reset progress</button>
             </div>
           </div>
         </section>
 
         <!-- NOTES -->
         <section id="stageNotes" class="stage" hidden>
-          <div class="stageCard">
-            <div class="metrics">
-              <div class="metric">
-                <div class="k">Streak</div>
-                <div class="v"><span id="noteStreak">0</span> / <span id="noteTarget">3</span></div>
-              </div>
-              <div class="metric">
-                <div class="k">Allowed</div>
-                <div class="v mono">A–G</div>
-              </div>
-              <div class="metric">
-                <div class="k">Policy</div>
-                <div class="v mono">Single octave</div>
-              </div>
+          <div class="stats">
+            <div class="stat">
+              <div class="k">Streak</div>
+              <div class="v"><span id="noteStreak">0</span>/<span id="noteTarget">3</span></div>
+            </div>
+            <div class="stat">
+              <div class="k">Allowed</div>
+              <div class="v">A–G</div>
+            </div>
+            <div class="stat">
+              <div class="k">Policy</div>
+              <div class="v mono">7 notes only</div>
+            </div>
+          </div>
+
+          <div class="block">
+            <div class="k">Audio</div>
+            <div class="help">Click “Play note”, type the letter (A–G), then press Submit.</div>
+
+            <div class="row">
+              <button id="playNote" class="btn primary" type="button">Play note</button>
             </div>
 
-            <div class="card">
-              <div class="k">Audio</div>
-              <div class="q">Click “Play note”, then type the letter (A–G) and press Submit.</div>
-
-              <div class="row">
-                <button id="playNote" class="btn primary" type="button">Play note</button>
-                <input id="noteAnswer" class="input" type="text" inputmode="text" autocomplete="off" placeholder="A–G" maxlength="4" />
-                <button id="submitNote" class="btn primary" type="button">Submit</button>
-              </div>
-
-              <div class="msg" id="noteMsg"></div>
-
-              <ul class="bullets">
-                <li>Input is restricted to A–G (digits allowed for backdoor).</li>
-                <li>Miss = streak reset.</li>
-              </ul>
+            <div class="row">
+              <input id="noteAnswer" class="input" type="text" placeholder="A–G" inputmode="text" autocomplete="off" />
+              <button id="submitNote" class="btn" type="button">Submit</button>
             </div>
+
+            <div id="noteMsg" class="msg" aria-live="polite"></div>
           </div>
         </section>
 
         <!-- REPAIR -->
         <section id="stageRepair" class="stage" hidden>
-          <div class="stageCard">
-            <div class="metrics">
-              <div class="metric">
-                <div class="k">Streak</div>
-                <div class="v"><span id="repairStreak">0</span> / <span id="repairTarget">3</span></div>
+          <div class="stats">
+            <div class="stat">
+              <div class="k">Streak</div>
+              <div class="v"><span id="repairStreak">0</span>/<span id="repairTarget">3</span></div>
+            </div>
+            <div class="stat">
+              <div class="k">Timer</div>
+              <div class="v mono" id="repairTimer">—</div>
+            </div>
+            <div class="stat">
+              <div class="k">Tolerance</div>
+              <div class="v mono">≤ 20 wrong chars</div>
+            </div>
+          </div>
+
+          <div class="block">
+            <div class="row split">
+              <div>
+                <div class="k">Broken text</div>
+                <div class="help">Correct the 4 lines. Keep numbering and line breaks.</div>
               </div>
-              <div class="metric">
-                <div class="k">Timer</div>
-                <div class="v mono" id="repairTimer">—</div>
-              </div>
-              <div class="metric">
-                <div class="k">Tolerance</div>
-                <div class="v mono">≤ 20 wrong chars</div>
-              </div>
-              <div class="metric right">
-                <button id="newRepair" class="btn ghost" type="button">New prompt</button>
-              </div>
+              <button id="newRepair" class="btn" type="button">New prompt</button>
             </div>
 
-            <div class="card">
-              <div class="k">Broken text</div>
-              <pre class="pre" id="repairPrompt">—</pre>
+            <pre id="repairPrompt" class="pre">—</pre>
 
-              <div class="k">Fix the text</div>
-              <textarea id="repairAnswer" class="textarea" rows="7" placeholder="Paste the corrected version here (4 lines, 1)–4))…"></textarea>
+            <textarea id="repairAnswer" class="textarea" rows="6" placeholder="Paste the corrected version here (4 lines, 1)–4))…"></textarea>
 
-              <div class="row">
-                <button id="submitRepair" class="btn primary" type="button">Submit</button>
-              </div>
-
-              <div class="msg" id="repairMsg"></div>
-
-              <ul class="bullets">
-                <li>Timeout resets streak.</li>
-                <li>Keep numbering and line breaks.</li>
-              </ul>
+            <div class="row">
+              <button id="submitRepair" class="btn primary" type="button">Submit</button>
             </div>
+
+            <div id="repairMsg" class="msg" aria-live="polite"></div>
           </div>
         </section>
 
         <!-- GRID -->
         <section id="stageGrid" class="stage" hidden>
-          <div class="stageCard">
-            <div class="metrics">
-              <div class="metric">
-                <div class="k">Streak</div>
-                <div class="v"><span id="gridStreak">0</span> / <span id="gridTarget">1</span></div>
+          <div class="stats">
+            <div class="stat">
+              <div class="k">Streak</div>
+              <div class="v"><span id="gridStreak">0</span>/<span id="gridTarget">1</span></div>
+            </div>
+            <div class="stat">
+              <div class="k">Steps</div>
+              <div class="v mono">15</div>
+            </div>
+            <div class="stat">
+              <div class="k">Visibility</div>
+              <div class="v mono" id="gridTimer">—</div>
+            </div>
+          </div>
+
+          <div class="block">
+            <div class="row split">
+              <div>
+                <div class="k">Directions</div>
+                <div class="help">Click start first, then every step, then press Submit.</div>
               </div>
-              <div class="metric">
-                <div class="k">Steps</div>
-                <div class="v mono" id="gridStepsCount">15</div>
-              </div>
-              <div class="metric">
-                <div class="k">Visibility</div>
-                <div class="v mono" id="gridTimer">—</div>
-              </div>
-              <div class="metric right">
-                <button id="resetGrid" class="btn ghost" type="button">Regenerate</button>
-              </div>
+              <button id="resetGrid" class="btn" type="button">Regenerate</button>
             </div>
 
-            <div class="card">
-              <div class="k">Directions</div>
-              <div class="q" id="gridDirectionsLead">
-                Memorize the directions. When they disappear: click start first, then every step, then press Submit.
-              </div>
+            <div id="gridSteps" class="stepsBox"></div>
 
-              <div id="gridSteps" class="stepsBox" aria-live="polite"></div>
-
-              <div class="gridWrap" hidden>
-                <div class="gridBoard" id="gridBoard" role="grid" aria-label="Memory grid"></div>
-              </div>
-
-              <div class="row">
-                <button id="submitGrid" class="btn primary" type="button" disabled>Submit Path</button>
-              </div>
-
-              <div class="msg" id="gridMsg"></div>
+            <div class="boardWrap">
+              <div id="gridBoard" class="gridBoard" aria-label="Grid"></div>
             </div>
+
+            <div class="row">
+              <button id="submitGrid" class="btn primary" type="button" disabled>Submit Path</button>
+            </div>
+
+            <div id="gridMsg" class="msg" aria-live="polite"></div>
           </div>
         </section>
 
         <!-- REVEAL -->
         <section id="stageReveal" class="stage" hidden>
-          <div class="stageCard">
-            <div class="card reveal">
-              <div class="revealTop">
-                <div class="revealTitle">Access Granted</div>
-                <div class="revealHint">Don’t overthink it—read carefully.</div>
-              </div>
-
-              <pre class="poem" id="poemText"></pre>
-              <div class="msg" id="revealMsg"></div>
-            </div>
+          <div class="block">
+            <div class="k">Don’t overthink it—read carefully.</div>
+            <pre id="poemText" class="pre"></pre>
+            <div id="revealMsg" class="msg" aria-live="polite"></div>
           </div>
         </section>
-      </div>
-    </section>
+      </section>
 
-    <!-- SIDEBAR -->
-    <aside class="side" id="side">
-      <div class="sideCard">
-        <div class="k">Objective</div>
-        <div class="sideTitle" id="objective">—</div>
-        <div class="sideDesc" id="objectiveDesc">—</div>
-      </div>
+      <!-- RIGHT: sidebar -->
+      <aside class="side" id="side">
+        <section class="card">
+          <div class="k">Objective</div>
+          <div class="big" id="objective">—</div>
+          <div class="muted" id="objectiveDesc">—</div>
+        </section>
 
-      <div class="sideCard">
-        <div class="k">Progress</div>
-        <div class="progressList">
-          <div class="progressRow">
-            <div>Trivia gate</div>
-            <div class="mono" id="pTrivia">0 / 15</div>
+        <section class="card">
+          <div class="k">Progress</div>
+          <div class="progressList">
+            <div class="prow"><span>Trivia gate</span><span id="pTrivia">0 / 15</span></div>
+            <div class="prow"><span>Music Notes gate</span><span id="pNotes">0 / 3</span></div>
+            <div class="prow"><span>Repair gate</span><span id="pRepair">0 / 3</span></div>
+            <div class="prow"><span>Grid gate</span><span id="pGrid">0 / 1</span></div>
           </div>
-          <div class="progressRow">
-            <div>Music Notes gate</div>
-            <div class="mono" id="pNotes">0 / 3</div>
-          </div>
-          <div class="progressRow">
-            <div>Repair gate</div>
-            <div class="mono" id="pRepair">0 / 3</div>
-          </div>
-          <div class="progressRow">
-            <div>Grid gate</div>
-            <div class="mono" id="pGrid">0 / 1</div>
-          </div>
-        </div>
-
-        <div class="fineprint">
-          Reload always resets progress.
-        </div>
-      </div>
-    </aside>
+          <div class="muted small">Reload always resets progress.</div>
+        </section>
+      </aside>
+    </div>
   </main>
 
   <!-- IMPORTANT: trivia_bank.js must load before app.js -->
   <script src="./trivia_bank.js"></script>
-  <script src="./app.js" defer></script>
+  <script src="./app.js"></script>
 </body>
 </html>

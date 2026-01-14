@@ -380,34 +380,61 @@ Mysteries wait for the ones who assume.`;
       setMsg(ui.triviaMsg, "Accepted.", "good");
       completeGate("trivia");
       return;
-    }
+    }function checkTrivia(){
+  const raw = ui.triviaAnswer?.value || "";
 
-    const q = state.trivia.current;
-    if (!q) return;
-
-    const guess = norm(raw);
-    if (!guess) { setMsg(ui.triviaMsg, "Enter an answer.", "bad"); return; }
-
-    state.trivia.retired.add(q.id);
-    setText(ui.triviaRemaining, String(triviaRemaining()));
-
-    const truths = [q.a, ...(q.alts || [])];
-    const ok = matchesAny(raw, truths);
-
-    if (ok) {
-      state.trivia.streak += 1;
-      renderProgress();
-      setMsg(ui.triviaMsg, "Correct.", "good");
-      if (state.trivia.streak >= TRIVIA.target) setTimeout(() => completeGate("trivia"), 200);
-      else setTimeout(pickTrivia, 220);
-      return;
-    }
-
-    state.trivia.streak = 0;
+  if (isBackdoor(raw)) {
+    state.trivia.streak = TRIVIA.target;
     renderProgress();
-    setMsg(ui.triviaMsg, `Incorrect. Answer: ${q.a}`, "bad");
-    setTimeout(pickTrivia, 450);
+    setMsg(ui.triviaMsg, "Accepted.", "good");
+    completeGate("trivia");
+    return;
   }
+
+  const q = state.trivia.current;
+  if (!q) return;
+
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    setMsg(ui.triviaMsg, "Enter an answer.", "bad");
+    return;
+  }
+
+  // MUST be > 1 character unless it's numeric-like
+  const numeric = isNumericLike(trimmed);
+  const normalized = norm(trimmed);
+  if (!numeric && normalized.length < 2) {
+    setMsg(ui.triviaMsg, "Use at least 2 characters (unless it’s a number).", "bad");
+    return;
+  }
+
+  // retire question after a real attempt
+  state.trivia.retired.add(q.id);
+  setText(ui.triviaRemaining, String(triviaRemaining()));
+
+  const truths = [q.a, ...(q.alts || [])];
+  const ok = matchesAny(trimmed, truths);
+
+  if (ok) {
+    state.trivia.streak += 1;
+    renderProgress();
+    setMsg(ui.triviaMsg, "Correct.", "good");
+
+    if (state.trivia.streak >= TRIVIA.target) {
+      setTimeout(() => completeGate("trivia"), 200);
+    } else {
+      setTimeout(pickTrivia, 220);
+    }
+    return;
+  }
+
+  state.trivia.streak = 0;
+  renderProgress();
+
+  // NO answer reveal
+  setMsg(ui.triviaMsg, "Incorrect. Streak reset.", "bad");
+  setTimeout(pickTrivia, 450);
+}
 
   /* =========================
      MUSIC NOTES (exactly 7 notes)

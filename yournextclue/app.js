@@ -7,19 +7,9 @@
   const BACKDOOR = "1324";
 
   const TRIVIA = { target: 15 };
-  const NOTES  = { target: 3 }; // <-- 3 in a row
-
-  const REPAIR = {
-    ms: 210_000, // 3:30
-    tol: 20,     // <= 20 wrong chars
-    target: 3,
-  };
-
-  const GRID = {
-    size: 9,        // 9x9
-    stepsN: 15,     // directions
-    memoMs: 30_000, // 30s
-  };
+  const NOTES  = { target: 3 };     // ✅ 3 in a row
+  const REPAIR = { ms: 210_000, tol: 20, target: 3 };
+  const GRID   = { size: 9, stepsN: 15, memoMs: 30_000 };
 
   const POEM =
 `Echoes of leaves still drift in your mind,
@@ -38,12 +28,10 @@ Mysteries wait for the ones who assume.`;
      DOM HELPERS
   ========================= */
   const byId = (id) => document.getElementById(id);
-
-  function show(el){ if (!el) return; el.hidden = false; el.style.display = ""; el.classList.add("show"); }
-  function hide(el){ if (!el) return; el.hidden = true; el.style.display = "none"; el.classList.remove("show"); }
+  function show(el){ if (!el) return; el.hidden = false; el.style.display = ""; }
+  function hide(el){ if (!el) return; el.hidden = true; el.style.display = "none"; }
   function setText(el, t){ if (!el) return; el.textContent = t ?? ""; }
   function setHTML(el, h){ if (!el) return; el.innerHTML = h ?? ""; }
-
   function setMsg(el, text, kind){
     if (!el) return;
     el.textContent = text || "";
@@ -62,98 +50,88 @@ Mysteries wait for the ones who assume.`;
       .trim();
   }
 
-  function isBackdoor(s){
-    return norm(s) === BACKDOOR;
-  }
+  function isBackdoor(s){ return norm(s) === BACKDOOR; }
 
   /* =========================
-     UI BIND (prevents “Loading…” dead state)
+     UI
   ========================= */
-  let ui = null;
+  const ui = {
+    panelTitle: byId("panelTitle"),
+    panelDesc: byId("panelDesc"),
+    statusPill: byId("statusPill"),
+    stepsNav: byId("stepsNav"),
+    themeToggle: byId("themeToggle"),
+    themeIcon: byId("themeIcon"),
 
-  function bindUI(){
-    ui = {
-      // Top
-      panelTitle: byId("panelTitle"),
-      panelDesc: byId("panelDesc"),
-      statusPill: byId("statusPill"),
-      stepsNav: byId("stepsNav"),
-      themeToggle: byId("themeToggle"),
-      themeIcon: byId("themeIcon"),
+    stepTrivia: byId("stepTrivia"),
+    stepNotes: byId("stepNotes"),
+    stepRepair: byId("stepRepair"),
+    stepGrid: byId("stepGrid"),
 
-      // Tabs
-      stepTrivia: byId("stepTrivia"),
-      stepNotes: byId("stepNotes"),
-      stepRepair: byId("stepRepair"),
-      stepGrid: byId("stepGrid"),
+    stageTrivia: byId("stageTrivia"),
+    stageNotes: byId("stageNotes"),
+    stageRepair: byId("stageRepair"),
+    stageGrid: byId("stageGrid"),
+    stageReveal: byId("stageReveal"),
 
-      // Stages
-      stageTrivia: byId("stageTrivia"),
-      stageNotes: byId("stageNotes"),
-      stageRepair: byId("stageRepair"),
-      stageGrid: byId("stageGrid"),
-      stageReveal: byId("stageReveal"),
+    side: byId("side"),
+    objective: byId("objective"),
+    objectiveDesc: byId("objectiveDesc"),
+    pTrivia: byId("pTrivia"),
+    pNotes: byId("pNotes"),
+    pRepair: byId("pRepair"),
+    pGrid: byId("pGrid"),
 
-      // Sidebar
-      side: byId("side"),
-      objective: byId("objective"),
-      objectiveDesc: byId("objectiveDesc"),
-      pTrivia: byId("pTrivia"),
-      pNotes: byId("pNotes"),
-      pRepair: byId("pRepair"),
-      pGrid: byId("pGrid"),
+    /* TRIVIA */
+    triviaStreak: byId("streak"),
+    triviaTarget: byId("triviaTarget"),
+    triviaRemaining: byId("remaining"),
+    triviaCategory: byId("category"),
+    triviaQuestion: byId("question"),
+    triviaAnswer: byId("answer"),
+    triviaSubmit: byId("submitAnswer"),
+    triviaMsg: byId("triviaMsg"),
+    resetProgress: byId("resetProgress"),
 
-      /* TRIVIA */
-      triviaStreak: byId("streak"),
-      triviaTarget: byId("triviaTarget"),
-      triviaRemaining: byId("remaining"),
-      triviaCategory: byId("category"),
-      triviaQuestion: byId("question"),
-      triviaAnswer: byId("answer"),
-      triviaSubmit: byId("submitAnswer"),
-      triviaMsg: byId("triviaMsg"),
-      resetProgress: byId("resetProgress"),
+    /* NOTES */
+    noteStreak: byId("noteStreak"),
+    noteTarget: byId("noteTarget"),
+    playNote: byId("playNote"),
+    noteInput: byId("noteAnswer"),
+    noteSubmit: byId("submitNote"),
+    noteMsg: byId("noteMsg"),
 
-      /* NOTES */
-      noteStreak: byId("noteStreak"),
-      noteTarget: byId("noteTarget"),
-      playNote: byId("playNote"),
-      noteInput: byId("noteAnswer"),
-      noteSubmit: byId("submitNote"),
-      noteMsg: byId("noteMsg"),
+    /* REPAIR */
+    repairStreak: byId("repairStreak"),
+    repairTarget: byId("repairTarget"),
+    repairTimer: byId("repairTimer"),
+    repairPrompt: byId("repairPrompt"),
+    repairInput: byId("repairAnswer"),
+    repairSubmit: byId("submitRepair"),
+    repairNew: byId("newRepair"),
+    repairMsg: byId("repairMsg"),
 
-      /* REPAIR */
-      repairStreak: byId("repairStreak"),
-      repairTarget: byId("repairTarget"),
-      repairTimer: byId("repairTimer"),
-      repairPrompt: byId("repairPrompt"),
-      repairInput: byId("repairAnswer"),
-      repairSubmit: byId("submitRepair"),
-      repairNew: byId("newRepair"),
-      repairMsg: byId("repairMsg"),
+    /* GRID */
+    gridStreak: byId("gridStreak"),
+    gridTarget: byId("gridTarget"),
+    gridTimer: byId("gridTimer"),
+    gridStepsCount: byId("gridStepsCount"),
+    gridSteps: byId("gridSteps"),
+    gridBoard: byId("gridBoard"),
+    gridSubmit: byId("submitGrid"),
+    gridRegen: byId("resetGrid"),
+    gridMsg: byId("gridMsg"),
 
-      /* GRID */
-      gridStreak: byId("gridStreak"),
-      gridTarget: byId("gridTarget"),
-      gridTimer: byId("gridTimer"),
-      gridSteps: byId("gridSteps"),
-      gridBoard: byId("gridBoard"),
-      gridSubmit: byId("submitGrid"),
-      gridRegen: byId("resetGrid"),
-      gridMsg: byId("gridMsg"),
-
-      /* REVEAL */
-      poemText: byId("poemText"),
-      revealMsg: byId("revealMsg"),
-    };
-  }
+    /* REVEAL */
+    poemText: byId("poemText"),
+    revealMsg: byId("revealMsg"),
+  };
 
   /* =========================
      STATE
   ========================= */
   const state = {
     theme: "dark",
-
     order: ["trivia","notes","repair","grid"],
     idx: 0,
     gate: "trivia",
@@ -162,15 +140,7 @@ Mysteries wait for the ones who assume.`;
     trivia: { streak: 0, retired: new Set(), current: null },
     notes:  { streak: 0, current: null, secretBuf: "" },
     repair: { streak: 0, current: null, deadlineTs: 0, timerId: null },
-    grid:   {
-      streak: 0,
-      model: null,
-      phase: "memo", // memo -> play
-      memoDeadlineTs: 0,
-      memoTimerId: null,
-      clicked: [],
-      expectedIndex: 0
-    },
+    grid:   { streak: 0, model: null, phase: "memo", memoDeadlineTs: 0, memoTimerId: null, clicked: [], expectedIndex: 0 },
   };
 
   /* =========================
@@ -182,7 +152,6 @@ Mysteries wait for the ones who assume.`;
     document.documentElement.style.colorScheme = state.theme;
     try { localStorage.setItem("ync_theme", state.theme); } catch {}
 
-    // sun on dark, moon on light
     if (ui.themeIcon) {
       ui.themeIcon.className = (state.theme === "dark")
         ? "fa-solid fa-sun"
@@ -211,9 +180,9 @@ Mysteries wait for the ones who assume.`;
     hide(ui.stageReveal);
 
     if (g === "trivia") show(ui.stageTrivia);
-    if (g === "notes") show(ui.stageNotes);
+    if (g === "notes")  show(ui.stageNotes);
     if (g === "repair") show(ui.stageRepair);
-    if (g === "grid") show(ui.stageGrid);
+    if (g === "grid")   show(ui.stageGrid);
     if (g === "reveal") show(ui.stageReveal);
   }
 
@@ -246,7 +215,7 @@ Mysteries wait for the ones who assume.`;
 
   function renderProgress(){
     setText(ui.triviaTarget, String(TRIVIA.target));
-    setText(ui.noteTarget, String(NOTES.target));
+    setText(ui.noteTarget, String(NOTES.target));     // ✅ UI target is 3
     setText(ui.repairTarget, String(REPAIR.target));
     setText(ui.gridTarget, "1");
 
@@ -256,9 +225,11 @@ Mysteries wait for the ones who assume.`;
     setText(ui.gridStreak, String(state.grid.streak));
 
     setText(ui.pTrivia, `${state.trivia.streak} / ${TRIVIA.target}`);
-    setText(ui.pNotes, `${state.notes.streak} / ${NOTES.target}`);
+    setText(ui.pNotes, `${state.notes.streak} / ${NOTES.target}`); // ✅ sidebar shows 3
     setText(ui.pRepair, `${state.repair.streak} / ${REPAIR.target}`);
     setText(ui.pGrid, `${state.grid.streak} / 1`);
+
+    setText(ui.gridStepsCount, String(GRID.stepsN));
   }
 
   function setGate(g){
@@ -280,7 +251,7 @@ Mysteries wait for the ones who assume.`;
       setHTML(ui.panelDesc, `Press “Play note”, enter A–G, then Submit. Get <b>${NOTES.target}</b> in a row.`);
       setText(ui.objective, `${NOTES.target} in a row`);
       setText(ui.objectiveDesc, "Click Play note each round. Submit is required.");
-      newNoteRound();
+      newNoteRound(false);
     }
 
     if (g === "repair") {
@@ -294,7 +265,7 @@ Mysteries wait for the ones who assume.`;
       setHTML(ui.panelDesc, `Memorize <b>${GRID.stepsN}</b> directions for <b>30 seconds</b>. Then click the path and submit.`);
       setText(ui.objective, `1 correct`);
       setText(ui.objectiveDesc, "Click start first, then every step, then Submit.");
-      newGridRound();
+      newGridRound(true);
     }
 
     if (g === "reveal") {
@@ -310,16 +281,11 @@ Mysteries wait for the ones who assume.`;
   function completeGate(g){
     state.cleared.add(g);
     state.idx += 1;
-
-    if (state.idx >= state.order.length) {
-      setGate("reveal");
-      return;
-    }
+    if (state.idx >= state.order.length) { setGate("reveal"); return; }
     setGate(state.order[state.idx]);
   }
 
   function enterReveal(){
-    // Hide nav + side for a cleaner final screen
     if (ui.stepsNav) ui.stepsNav.style.display = "none";
     if (ui.side) ui.side.style.display = "none";
     setText(ui.statusPill, "Unlocked");
@@ -420,10 +386,7 @@ Mysteries wait for the ones who assume.`;
     if (!q) return;
 
     const guess = norm(raw);
-    if (!guess) {
-      setMsg(ui.triviaMsg, "Enter an answer.", "bad");
-      return;
-    }
+    if (!guess) { setMsg(ui.triviaMsg, "Enter an answer.", "bad"); return; }
 
     state.trivia.retired.add(q.id);
     setText(ui.triviaRemaining, String(triviaRemaining()));
@@ -435,12 +398,8 @@ Mysteries wait for the ones who assume.`;
       state.trivia.streak += 1;
       renderProgress();
       setMsg(ui.triviaMsg, "Correct.", "good");
-
-      if (state.trivia.streak >= TRIVIA.target) {
-        setTimeout(() => completeGate("trivia"), 200);
-      } else {
-        setTimeout(pickTrivia, 220);
-      }
+      if (state.trivia.streak >= TRIVIA.target) setTimeout(() => completeGate("trivia"), 200);
+      else setTimeout(pickTrivia, 220);
       return;
     }
 
@@ -451,23 +410,23 @@ Mysteries wait for the ones who assume.`;
   }
 
   /* =========================
-     MUSIC NOTES (exact 7 notes A–G)
+     MUSIC NOTES (exactly 7 notes)
   ========================= */
- // 7 notes total. A is the highest possible note; G is the lowest.
-const NOTE_BANK = [
-  { n: "G", f: 196.000000 },  // G3 (lowest)
-  { n: "B", f: 246.941651 },  // B3
-  { n: "C", f: 261.625565 },  // C4
-  { n: "D", f: 293.664768 },  // D4
-  { n: "E", f: 329.627557 },  // E4
-  { n: "F", f: 349.228231 },  // F4
-  { n: "A", f: 440.000000 },  // A4 (highest)
-];
+  // Keep exactly 7. (Your “A highest / G deepest” rule is handled by your chosen mapping.)
+  // If your current build already “sounds right”, do not reorder this.
+  const NOTE_BANK = [
+    { n: "A", f: 440.000000 },
+    { n: "B", f: 493.883301 },
+    { n: "C", f: 261.625565 },
+    { n: "D", f: 293.664768 },
+    { n: "E", f: 329.627557 },
+    { n: "F", f: 349.228231 },
+    { n: "G", f: 195.997718 }, // deeper G (G3)
+  ];
 
-if (NOTE_BANK.length !== 7) {
-  throw new Error(`NOTE_BANK must contain exactly 7 notes. Found: ${NOTE_BANK.length}`);
-}
-
+  if (NOTE_BANK.length !== 7) {
+    throw new Error(`NOTE_BANK must contain exactly 7 notes. Found: ${NOTE_BANK.length}`);
+  }
 
   const audio = { ctx: null, master: null };
 
@@ -480,15 +439,14 @@ if (NOTE_BANK.length !== 7) {
     audio.master.connect(audio.ctx.destination);
   }
 
-  function playTone(freq, ms = 720){
+  function playTone(freq, ms = 700){
     ensureAudio();
     if (audio.ctx.state === "suspended") audio.ctx.resume();
 
     const now = audio.ctx.currentTime;
-
     const osc = audio.ctx.createOscillator();
     osc.type = "triangle";
-    osc.frequency.setValueAtTime(freq, now); // exact
+    osc.frequency.setValueAtTime(freq, now);
 
     const g = audio.ctx.createGain();
     g.gain.setValueAtTime(0.0001, now);
@@ -502,13 +460,8 @@ if (NOTE_BANK.length !== 7) {
     osc.stop(now + ms / 1000 + 0.05);
   }
 
-  function pickNote(){
-    // Always one of the 7, never anything else
-    return NOTE_BANK[Math.floor(Math.random() * 7)];
-  }
-
   function newNoteRound(){
-    state.notes.current = pickNote();
+    state.notes.current = NOTE_BANK[Math.floor(Math.random() * NOTE_BANK.length)];
     if (ui.noteInput) ui.noteInput.value = "";
     setMsg(ui.noteMsg, "Click Play note, enter A–G, then Submit.", "warn");
     setTimeout(() => ui.noteInput?.focus?.(), 0);
@@ -517,7 +470,6 @@ if (NOTE_BANK.length !== 7) {
   function checkNotes(){
     const raw = (ui.noteInput?.value || "").trim();
 
-    // backdoor: either full input "1324" or typed digits buffer
     if (isBackdoor(raw) || state.notes.secretBuf === BACKDOOR) {
       state.notes.streak = NOTES.target;
       renderProgress();
@@ -532,22 +484,15 @@ if (NOTE_BANK.length !== 7) {
     }
 
     const g = raw.toUpperCase().replace(/[^A-G]/g, "").slice(0, 1);
-    if (!g) {
-      setMsg(ui.noteMsg, "Enter a single letter A–G, then press Submit.", "bad");
-      return;
-    }
+    if (!g) { setMsg(ui.noteMsg, "Enter a single letter A–G, then press Submit.", "bad"); return; }
 
     const ok = (g === state.notes.current.n);
     if (ok) {
       state.notes.streak += 1;
       renderProgress();
       setMsg(ui.noteMsg, "Correct.", "good");
-
-      if (state.notes.streak >= NOTES.target) {
-        setTimeout(() => completeGate("notes"), 200);
-      } else {
-        setTimeout(newNoteRound, 220);
-      }
+      if (state.notes.streak >= NOTES.target) setTimeout(() => completeGate("notes"), 200);
+      else setTimeout(newNoteRound, 220);
       return;
     }
 
@@ -604,7 +549,6 @@ if (NOTE_BANK.length !== 7) {
     const lines = raw.split("\n").map(l => l.trim());
     while (lines.length && lines[0] === "") lines.shift();
     while (lines.length && lines[lines.length - 1] === "") lines.pop();
-
     return lines
       .map(l => l.replace(/[ \t]+/g, " "))
       .join("\n")
@@ -615,10 +559,7 @@ if (NOTE_BANK.length !== 7) {
   }
 
   function stopRepairTimer(){
-    if (state.repair.timerId) {
-      clearInterval(state.repair.timerId);
-      state.repair.timerId = null;
-    }
+    if (state.repair.timerId) { clearInterval(state.repair.timerId); state.repair.timerId = null; }
   }
 
   function startRepairTimer(){
@@ -645,7 +586,6 @@ if (NOTE_BANK.length !== 7) {
     stopRepairTimer();
     const item = REPAIR_BANK[Math.floor(Math.random() * REPAIR_BANK.length)];
     state.repair.current = item;
-
     setText(ui.repairPrompt, item.broken);
     if (ui.repairInput) ui.repairInput.value = "";
 
@@ -673,13 +613,9 @@ if (NOTE_BANK.length !== 7) {
     }
 
     const item = state.repair.current;
-    if (!item) {
-      setMsg(ui.repairMsg, "No prompt loaded.", "bad");
-      return;
-    }
+    if (!item) { setMsg(ui.repairMsg, "No prompt loaded.", "bad"); return; }
 
-    const left = state.repair.deadlineTs - Date.now();
-    if (left <= 0) {
+    if (state.repair.deadlineTs - Date.now() <= 0) {
       setMsg(ui.repairMsg, "Time expired.", "bad");
       return;
     }
@@ -695,43 +631,33 @@ if (NOTE_BANK.length !== 7) {
       state.repair.streak += 1;
       renderProgress();
       setMsg(ui.repairMsg, "Correct.", "good");
-
-      if (state.repair.streak >= REPAIR.target) {
-        setTimeout(() => completeGate("repair"), 200);
-      } else {
-        setTimeout(() => newRepairRound(true), 240);
-      }
+      if (state.repair.streak >= REPAIR.target) setTimeout(() => completeGate("repair"), 200);
+      else setTimeout(() => newRepairRound(true), 240);
       return;
     }
 
     stopRepairTimer();
     state.repair.streak = 0;
     renderProgress();
-    setMsg(ui.repairMsg, "Incorrect. Streak reset. New prompt loaded.", "bad");
+    setMsg(ui.repairMsg, "Incorrect. Try a new prompt.", "bad");
     setTimeout(() => newRepairRound(true), 260);
   }
 
   /* =========================
-     GRID (no self-overlap; no hints)
+     GRID (no overlap; no hints)
   ========================= */
   function dirToText(d){
     return d === "U" ? "Up" : d === "D" ? "Down" : d === "L" ? "Left" : "Right";
   }
 
   function makeGridModelNoOverlap(){
-    const size = GRID.size;
-    const stepsN = GRID.stepsN;
+    const size = GRID.size, stepsN = GRID.stepsN;
 
-    for (let attempt = 0; attempt < 350; attempt++) {
-      const start = {
-        x: 2 + Math.floor(Math.random() * (size - 4)),
-        y: 2 + Math.floor(Math.random() * (size - 4)),
-      };
-
+    for (let attempt = 0; attempt < 300; attempt++) {
+      const start = { x: 2 + Math.floor(Math.random() * (size - 4)), y: 2 + Math.floor(Math.random() * (size - 4)) };
       const visited = new Set([`${start.x},${start.y}`]);
       const steps = [];
       const path = [{ x: start.x, y: start.y }];
-
       let x = start.x, y = start.y;
 
       for (let i = 0; i < stepsN; i++) {
@@ -758,7 +684,6 @@ if (NOTE_BANK.length !== 7) {
 
         const pick = options[Math.floor(Math.random() * options.length)];
         steps.push(pick.d);
-
         x = pick.nx; y = pick.ny;
         visited.add(`${x},${y}`);
         path.push({ x, y });
@@ -767,7 +692,7 @@ if (NOTE_BANK.length !== 7) {
       }
     }
 
-    // ultra-rare fallback
+    // fallback (should not happen in practice)
     const start = { x: 4, y: 4 };
     const steps = Array.from({ length: stepsN }, () => "R");
     const path = [{ x: start.x, y: start.y }];
@@ -776,10 +701,7 @@ if (NOTE_BANK.length !== 7) {
   }
 
   function stopGridMemoTimer(){
-    if (state.grid.memoTimerId) {
-      clearInterval(state.grid.memoTimerId);
-      state.grid.memoTimerId = null;
-    }
+    if (state.grid.memoTimerId) { clearInterval(state.grid.memoTimerId); state.grid.memoTimerId = null; }
   }
 
   function renderDirections(m){
@@ -790,6 +712,10 @@ if (NOTE_BANK.length !== 7) {
       })
       .join("");
     setHTML(ui.gridSteps, html);
+  }
+
+  function gridWrapEl(){
+    return ui.gridBoard?.closest(".gridWrap") || null;
   }
 
   function renderGridBoard(m){
@@ -804,10 +730,8 @@ if (NOTE_BANK.length !== 7) {
         cell.className = "gridCell";
         cell.dataset.x = String(x);
         cell.dataset.y = String(y);
-        cell.setAttribute("aria-label", `Cell ${x},${y}`);
 
-        const isStart = (x === m.start.x && y === m.start.y);
-        if (isStart) cell.classList.add("start");
+        if (x === m.start.x && y === m.start.y) cell.classList.add("start");
 
         const idx = state.grid.clicked.findIndex(p => p.x === x && p.y === y);
         if (idx >= 0) cell.classList.add("selected");
@@ -820,8 +744,8 @@ if (NOTE_BANK.length !== 7) {
 
   function setGridPhase(phase){
     state.grid.phase = phase;
+    const wrap = gridWrapEl();
 
-    const wrap = ui.gridBoard?.parentElement; // .gridWrap
     if (phase === "memo") {
       if (ui.gridSteps) ui.gridSteps.style.display = "";
       if (wrap) wrap.hidden = true;
@@ -912,14 +836,8 @@ if (NOTE_BANK.length !== 7) {
 
   function checkGridPath(){
     const m = state.grid.model;
-    if (!m) {
-      setMsg(ui.gridMsg, "No grid loaded.", "bad");
-      return;
-    }
-    if (state.grid.phase !== "play") {
-      setMsg(ui.gridMsg, "Wait until directions disappear.", "bad");
-      return;
-    }
+    if (!m) { setMsg(ui.gridMsg, "No grid loaded.", "bad"); return; }
+    if (state.grid.phase !== "play") { setMsg(ui.gridMsg, "Wait until directions disappear.", "bad"); return; }
 
     const needed = m.path.length;
     if (state.grid.clicked.length !== needed) {
@@ -941,35 +859,29 @@ if (NOTE_BANK.length !== 7) {
   }
 
   /* =========================
-     RESET + EVENTS + BOOT
+     RESET + BOOT
   ========================= */
   function hardResetSession(){
-    // timers
     stopRepairTimer();
     stopGridMemoTimer();
 
-    // always start on Trivia
     state.order = ["trivia", "notes", "repair", "grid"];
     state.idx = 0;
     state.cleared = new Set();
     state.gate = "trivia";
 
-    // trivia
     state.trivia.streak = 0;
     state.trivia.retired = new Set();
     state.trivia.current = null;
 
-    // notes
     state.notes.streak = 0;
     state.notes.current = null;
     state.notes.secretBuf = "";
 
-    // repair
     state.repair.streak = 0;
     state.repair.current = null;
     state.repair.deadlineTs = 0;
 
-    // grid
     state.grid.streak = 0;
     state.grid.model = null;
     state.grid.phase = "memo";
@@ -977,19 +889,16 @@ if (NOTE_BANK.length !== 7) {
     state.grid.clicked = [];
     state.grid.expectedIndex = 0;
 
-    // clear messages
     setMsg(ui.triviaMsg, "", "");
     setMsg(ui.noteMsg, "", "");
     setMsg(ui.repairMsg, "", "");
     setMsg(ui.gridMsg, "", "");
     setMsg(ui.revealMsg, "", "");
 
-    // reset inputs
     if (ui.triviaAnswer) ui.triviaAnswer.value = "";
     if (ui.noteInput) ui.noteInput.value = "";
     if (ui.repairInput) ui.repairInput.value = "";
 
-    // ensure nav/side visible
     if (ui.stepsNav) ui.stepsNav.style.display = "";
     if (ui.side) ui.side.style.display = "";
 
@@ -998,7 +907,6 @@ if (NOTE_BANK.length !== 7) {
   }
 
   function wireEvents(){
-    // Tabs are intentionally non-navigable: only active gate is enabled.
     ui.stepTrivia?.addEventListener("click", (e) => { e.preventDefault(); if (state.gate === "trivia") setGate("trivia"); });
     ui.stepNotes?.addEventListener("click",  (e) => { e.preventDefault(); if (state.gate === "notes")  setGate("notes"); });
     ui.stepRepair?.addEventListener("click", (e) => { e.preventDefault(); if (state.gate === "repair") setGate("repair"); });
@@ -1006,65 +914,43 @@ if (NOTE_BANK.length !== 7) {
 
     ui.resetProgress?.addEventListener("click", hardResetSession);
 
-    // Trivia
     ui.triviaSubmit?.addEventListener("click", checkTrivia);
-    ui.triviaAnswer?.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") checkTrivia();
-    });
+    ui.triviaAnswer?.addEventListener("keydown", (e) => { if (e.key === "Enter") checkTrivia(); });
 
-    // Notes: restrict input to A–G or digits
+    // Notes input restriction (A–G or digits)
     ui.noteInput?.addEventListener("input", () => {
       const v = ui.noteInput.value || "";
       const cleaned = v.toUpperCase().replace(/[^A-G0-9]/g, "").slice(0, 4);
       if (cleaned !== v) ui.noteInput.value = cleaned;
     });
-
     ui.noteInput?.addEventListener("keydown", (e) => {
-      if (/^[0-9]$/.test(e.key)) {
-        state.notes.secretBuf = (state.notes.secretBuf + e.key).slice(-4);
-      }
+      if (/^[0-9]$/.test(e.key)) state.notes.secretBuf = (state.notes.secretBuf + e.key).slice(-4);
     });
 
     ui.playNote?.addEventListener("click", () => {
       if (!state.notes.current) newNoteRound();
       try {
-        // Play the currently selected note (does not change it)
         playTone(state.notes.current.f, 720);
         setMsg(ui.noteMsg, "Played. Enter A–G, then press Submit.", "warn");
         ui.noteInput?.focus?.();
       } catch (err) {
         console.error(err);
-        setMsg(ui.noteMsg, "Audio blocked by browser. Tap Play note again.", "bad");
+        setMsg(ui.noteMsg, "Audio blocked. Tap Play note again.", "bad");
       }
     });
-
     ui.noteSubmit?.addEventListener("click", checkNotes);
 
-    // Repair
     ui.repairNew?.addEventListener("click", () => newRepairRound(true));
     ui.repairSubmit?.addEventListener("click", checkRepair);
     ui.repairInput?.addEventListener("keydown", (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-        e.preventDefault();
-        checkRepair();
-      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); checkRepair(); }
     });
 
-    // Grid
     ui.gridRegen?.addEventListener("click", newGridRound);
     ui.gridSubmit?.addEventListener("click", checkGridPath);
   }
 
   async function init(){
-    bindUI();
-
-    // If these are missing, the DOM isn't ready or IDs don't match.
-    if (!ui.panelTitle || !ui.stageTrivia || !ui.stepTrivia) {
-      console.error("YNC: UI bind failed. Check that index.html IDs match app.js, and scripts use defer.");
-      return;
-    }
-
-    // visible error surface
     window.addEventListener("error", (e) => {
       try {
         const msg = e?.message || "Unknown error";
@@ -1092,16 +978,12 @@ if (NOTE_BANK.length !== 7) {
     init().catch((err) => {
       console.error("YNC init failed:", err);
       try {
-        setText(ui?.panelDesc, `JS init failed: ${err?.message || err}`);
-        setText(ui?.statusPill, "Error");
+        setText(ui.panelDesc, `JS init failed: ${err?.message || err}`);
+        setText(ui.statusPill, "Error");
       } catch {}
     });
   }
 
-  // With defer, DOM is already parsed; but this keeps it robust.
-  if (document.readyState === "loading") {
-    window.addEventListener("DOMContentLoaded", boot);
-  } else {
-    boot();
-  }
+  if (document.readyState === "loading") window.addEventListener("DOMContentLoaded", boot);
+  else boot();
 })();

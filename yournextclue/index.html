@@ -4,12 +4,18 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Your Next Clue</title>
+
+  <!-- Font Awesome for theme icon -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+        referrerpolicy="no-referrer" />
+
   <link rel="stylesheet" href="./style.css" />
 </head>
 
 <body>
   <header class="topbar">
-    <div class="topbar-inner">
+    <div class="topbar-inner glass">
       <div class="brand">
         <div class="brand-title">Your Next Clue</div>
         <div class="brand-sub">Clear each gate. Misses reset streaks.</div>
@@ -23,7 +29,7 @@
       </nav>
 
       <button class="iconbtn" id="themeToggle" type="button" aria-label="Toggle theme">
-        <span id="themeIcon" aria-hidden="true">☀</span>
+        <i id="themeIcon" class="fa-solid fa-sun" aria-hidden="true"></i>
       </button>
     </div>
   </header>

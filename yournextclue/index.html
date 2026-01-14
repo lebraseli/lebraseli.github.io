@@ -2,288 +2,273 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Your Next Clue</title>
 
-  <!-- Font Awesome (sun/moon) -->
+  <!-- Font Awesome (sun/moon icons) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="./style.css" />
 </head>
 
 <body>
-  <div class="appShell">
-    <header class="topbar">
+  <div class="appBg" aria-hidden="true"></div>
+
+  <!-- TOP BAR (full width) -->
+  <header class="topbar">
+    <div class="topbarInner">
       <div class="brand">
         <div class="brandTitle">Your Next Clue</div>
         <div class="brandSub">Clear each gate. Misses reset streaks.</div>
       </div>
 
-      <div class="topActions">
-        <nav id="stepsNav" class="stepsNav" aria-label="Gates">
-          <button id="stepTrivia" class="stepBtn" type="button">
-            <span class="stepDot" aria-hidden="true"></span> Trivia
-          </button>
-          <button id="stepNotes" class="stepBtn" type="button">
-            <span class="stepDot" aria-hidden="true"></span> Music Notes
-          </button>
-          <button id="stepRepair" class="stepBtn" type="button">
-            <span class="stepDot" aria-hidden="true"></span> Repair
-          </button>
-          <button id="stepGrid" class="stepBtn" type="button">
-            <span class="stepDot" aria-hidden="true"></span> Grid
-          </button>
-        </nav>
+      <nav class="tabs" id="stepsNav" aria-label="Gates">
+        <button class="tab" id="stepTrivia" type="button">
+          <span class="dot" aria-hidden="true"></span> Trivia
+        </button>
+        <button class="tab" id="stepNotes" type="button">
+          <span class="dot" aria-hidden="true"></span> Music Notes
+        </button>
+        <button class="tab" id="stepRepair" type="button">
+          <span class="dot" aria-hidden="true"></span> Repair
+        </button>
+        <button class="tab" id="stepGrid" type="button">
+          <span class="dot" aria-hidden="true"></span> Grid
+        </button>
 
-        <button id="themeToggle" class="iconBtn" type="button" aria-label="Toggle theme">
+        <button class="iconBtn" id="themeToggle" type="button" aria-label="Toggle theme">
           <i id="themeIcon" class="fa-solid fa-sun" aria-hidden="true"></i>
         </button>
-      </div>
-    </header>
+      </nav>
+    </div>
+  </header>
 
-    <main class="layout">
-      <section class="mainCol">
-        <div class="panel">
-          <div class="panelHead">
-            <div class="panelHeadLeft">
-              <div class="panelKicker">Gate</div>
-              <div id="panelTitle" class="panelTitle">Test</div>
-              <div id="panelDesc" class="panelDesc">—</div>
-            </div>
-            <div id="statusPill" class="pill">Locked</div>
+  <main class="shell">
+    <section class="panel">
+      <div class="panelHead">
+        <div class="panelHeadText">
+          <div class="panelTitleRow">
+            <h1 class="panelTitle" id="panelTitle">Gate</h1>
+            <span class="pill" id="statusPill">Loading…</span>
           </div>
+          <div class="panelDesc" id="panelDesc"></div>
+        </div>
+      </div>
 
-          <div class="panelBody">
+      <div class="panelBody">
+        <!-- TRIVIA -->
+        <section id="stageTrivia" class="stage" hidden>
+          <div class="stageCard">
+            <div class="metrics">
+              <div class="metric">
+                <div class="k">Streak</div>
+                <div class="v"><span id="streak">0</span> / <span id="triviaTarget">15</span></div>
+              </div>
+              <div class="metric">
+                <div class="k">Remaining</div>
+                <div class="v"><span id="remaining">—</span></div>
+              </div>
+              <div class="metric">
+                <div class="k">Category</div>
+                <div class="v" id="category">—</div>
+              </div>
+            </div>
 
-            <!-- TRIVIA STAGE -->
-            <section id="stageTrivia" class="stage" hidden>
-              <div class="stageTitleRow">
-                <div>
-                  <div class="stageTitle">Test — Trivia</div>
-                  <div class="stageSub">Answer questions. Streak matters.</div>
-                </div>
+            <div class="card">
+              <div class="k">Question</div>
+              <div class="q" id="question">—</div>
+
+              <div class="row">
+                <input id="answer" class="input" type="text" inputmode="text" autocomplete="off" placeholder="Type your answer…" />
+                <button id="submitAnswer" class="btn primary" type="button">Submit</button>
               </div>
 
-              <div class="metricRow">
-                <div class="metricCard">
-                  <div class="metricLabel">Streak</div>
-                  <div class="metricValue"><span id="streak">0</span>/<span id="triviaTarget">15</span></div>
-                </div>
-                <div class="metricCard">
-                  <div class="metricLabel">Remaining</div>
-                  <div class="metricValue"><span id="remaining">—</span></div>
-                </div>
-                <div class="metricCard">
-                  <div class="metricLabel">Category</div>
-                  <div class="metricValue mono" id="category">—</div>
-                </div>
-              </div>
+              <div class="msg" id="triviaMsg"></div>
 
-              <div class="card">
-                <div class="label">Question</div>
-                <div id="question" class="questionText">—</div>
-
-                <div class="formRow">
-                  <input id="answer" class="input" type="text" placeholder="Type answer…" autocomplete="off" />
-                  <button id="submitAnswer" class="btn primary" type="button">Submit</button>
-                </div>
-
-                <div id="triviaMsg" class="msg"></div>
-
-                <div class="hr"></div>
+              <div class="row rowTight">
                 <button id="resetProgress" class="btn ghost" type="button">Reset progress</button>
               </div>
-            </section>
+            </div>
+          </div>
+        </section>
 
-            <!-- NOTES STAGE -->
-            <section id="stageNotes" class="stage" hidden>
-              <div class="stageTitleRow">
-                <div>
-                  <div class="stageTitle">Test — Music Notes</div>
-                  <div class="stageSub">Press “Play note”, enter A–G, then Submit.</div>
-                </div>
+        <!-- NOTES -->
+        <section id="stageNotes" class="stage" hidden>
+          <div class="stageCard">
+            <div class="metrics">
+              <div class="metric">
+                <div class="k">Streak</div>
+                <div class="v"><span id="noteStreak">0</span> / <span id="noteTarget">3</span></div>
+              </div>
+              <div class="metric">
+                <div class="k">Allowed</div>
+                <div class="v mono">A–G</div>
+              </div>
+              <div class="metric">
+                <div class="k">Policy</div>
+                <div class="v mono">Single octave</div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="k">Audio</div>
+              <div class="q">Click “Play note”, then type the letter (A–G) and press Submit.</div>
+
+              <div class="row">
+                <button id="playNote" class="btn primary" type="button">Play note</button>
+                <input id="noteAnswer" class="input" type="text" inputmode="text" autocomplete="off" placeholder="A–G" maxlength="4" />
+                <button id="submitNote" class="btn primary" type="button">Submit</button>
               </div>
 
-              <div class="metricRow">
-                <div class="metricCard">
-                  <div class="metricLabel">Streak</div>
-                  <div class="metricValue"><span id="noteStreak">0</span>/<span id="noteTarget">3</span></div>
-                </div>
-                <div class="metricCard">
-                  <div class="metricLabel">Allowed</div>
-                  <div class="metricValue mono">A–G</div>
-                </div>
-                <div class="metricCard">
-                  <div class="metricLabel">Policy</div>
-                  <div class="metricValue mono">Single octave</div>
-                </div>
+              <div class="msg" id="noteMsg"></div>
+
+              <ul class="bullets">
+                <li>Input is restricted to A–G (digits allowed for backdoor).</li>
+                <li>Miss = streak reset.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- REPAIR -->
+        <section id="stageRepair" class="stage" hidden>
+          <div class="stageCard">
+            <div class="metrics">
+              <div class="metric">
+                <div class="k">Streak</div>
+                <div class="v"><span id="repairStreak">0</span> / <span id="repairTarget">3</span></div>
+              </div>
+              <div class="metric">
+                <div class="k">Timer</div>
+                <div class="v mono" id="repairTimer">—</div>
+              </div>
+              <div class="metric">
+                <div class="k">Tolerance</div>
+                <div class="v mono">≤ 20 wrong chars</div>
+              </div>
+              <div class="metric right">
+                <button id="newRepair" class="btn ghost" type="button">New prompt</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="k">Broken text</div>
+              <pre class="pre" id="repairPrompt">—</pre>
+
+              <div class="k">Fix the text</div>
+              <textarea id="repairAnswer" class="textarea" rows="7" placeholder="Paste the corrected version here (4 lines, 1)–4))…"></textarea>
+
+              <div class="row">
+                <button id="submitRepair" class="btn primary" type="button">Submit</button>
               </div>
 
-              <div class="card">
-                <div class="label">Audio</div>
-                <div class="bigText">Click “Play note”, then type the letter (A–G) and press Submit.</div>
+              <div class="msg" id="repairMsg"></div>
 
-                <div class="stack">
-                  <button id="playNote" class="btn" type="button">Play note</button>
+              <ul class="bullets">
+                <li>Timeout resets streak.</li>
+                <li>Keep numbering and line breaks.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
 
-                  <div class="formRow">
-                    <input id="noteAnswer" class="input" type="text" inputmode="text" placeholder="A–G" autocomplete="off" />
-                    <button id="submitNote" class="btn primary" type="button">Submit</button>
-                  </div>
-
-                  <div id="noteMsg" class="msg warn">Click Play note, enter A–G, then Submit.</div>
-
-                  <ul class="bulletNote">
-                    <li>Input is restricted to A–G (digits allowed for backdoor).</li>
-                    <li>Miss = streak reset.</li>
-                  </ul>
-                </div>
+        <!-- GRID -->
+        <section id="stageGrid" class="stage" hidden>
+          <div class="stageCard">
+            <div class="metrics">
+              <div class="metric">
+                <div class="k">Streak</div>
+                <div class="v"><span id="gridStreak">0</span> / <span id="gridTarget">1</span></div>
               </div>
-            </section>
-
-            <!-- REPAIR STAGE -->
-            <section id="stageRepair" class="stage" hidden>
-              <div class="stageTitleRow">
-                <div>
-                  <div class="stageTitle">Test — Sentence Repair</div>
-                  <div class="stageSub">Fix the text. Keep numbering and line breaks.</div>
-                </div>
-                <div class="pill soft">In progress</div>
+              <div class="metric">
+                <div class="k">Steps</div>
+                <div class="v mono" id="gridStepsCount">15</div>
               </div>
+              <div class="metric">
+                <div class="k">Visibility</div>
+                <div class="v mono" id="gridTimer">—</div>
+              </div>
+              <div class="metric right">
+                <button id="resetGrid" class="btn ghost" type="button">Regenerate</button>
+              </div>
+            </div>
 
-              <div class="metricRow">
-                <div class="metricCard">
-                  <div class="metricLabel">Streak</div>
-                  <div class="metricValue"><span id="repairStreak">0</span>/<span id="repairTarget">3</span></div>
-                </div>
-                <div class="metricCard">
-                  <div class="metricLabel">Timer</div>
-                  <div class="metricValue mono" id="repairTimer">3:30</div>
-                </div>
-                <div class="metricCard">
-                  <div class="metricLabel">Tolerance</div>
-                  <div class="metricValue mono">≤ 20 wrong chars</div>
-                </div>
-                <div class="metricCard right">
-                  <button id="newRepair" class="btn" type="button">New prompt</button>
-                </div>
+            <div class="card">
+              <div class="k">Directions</div>
+              <div class="q" id="gridDirectionsLead">
+                Memorize the directions. When they disappear: click start first, then every step, then press Submit.
               </div>
 
-              <div class="card">
-                <div class="label">Broken text</div>
-                <pre id="repairPrompt" class="preBox">—</pre>
+              <div id="gridSteps" class="stepsBox" aria-live="polite"></div>
 
-                <div class="label">Fix the text</div>
-                <textarea id="repairAnswer" class="textarea" placeholder="Paste the corrected version here (4 lines, 1)–4))…" spellcheck="false"></textarea>
-
-                <div class="formRow">
-                  <button id="submitRepair" class="btn primary" type="button">Submit</button>
-                </div>
-
-                <div id="repairMsg" class="msg warn">Keep 4 numbered lines with the same line breaks. Fix errors, then Submit.</div>
-              </div>
-            </section>
-
-            <!-- GRID STAGE -->
-            <section id="stageGrid" class="stage" hidden>
-              <div class="stageTitleRow">
-                <div>
-                  <div class="stageTitle">Test — Grid Memory Path</div>
-                  <div class="stageSub">Memorize 15 directions for 30 seconds. Then click the path and submit.</div>
-                </div>
-                <div class="pill soft">In progress</div>
+              <div class="gridWrap" hidden>
+                <div class="gridBoard" id="gridBoard" role="grid" aria-label="Memory grid"></div>
               </div>
 
-              <div class="metricRow">
-                <div class="metricCard">
-                  <div class="metricLabel">Streak</div>
-                  <div class="metricValue"><span id="gridStreak">0</span>/<span id="gridTarget">1</span></div>
-                </div>
-                <div class="metricCard">
-                  <div class="metricLabel">Steps</div>
-                  <div class="metricValue mono">15</div>
-                </div>
-                <div class="metricCard">
-                  <div class="metricLabel">Visibility</div>
-                  <div class="metricValue mono" id="gridTimer">0:30</div>
-                </div>
-                <div class="metricCard right">
-                  <button id="resetGrid" class="btn" type="button">Regenerate</button>
-                </div>
+              <div class="row">
+                <button id="submitGrid" class="btn primary" type="button" disabled>Submit Path</button>
               </div>
 
-              <div class="card">
-                <div class="label">Directions</div>
-                <div class="bigText">Memorize the directions. When they disappear: click start first, then every step, then press Submit.</div>
+              <div class="msg" id="gridMsg"></div>
+            </div>
+          </div>
+        </section>
 
-                <div id="gridSteps" class="stepsBox"></div>
-
-                <div class="gridWrap" hidden>
-                  <div id="gridBoard" class="gridBoard" aria-label="Grid board"></div>
-                </div>
-
-                <div class="formRow">
-                  <button id="submitGrid" class="btn primary" type="button" disabled>Submit Path</button>
-                </div>
-
-                <div id="gridMsg" class="msg warn">Memorize the directions. The grid will appear when time expires.</div>
-              </div>
-            </section>
-
-            <!-- REVEAL STAGE -->
-            <section id="stageReveal" class="stage" hidden>
-              <div class="revealWrap">
+        <!-- REVEAL -->
+        <section id="stageReveal" class="stage" hidden>
+          <div class="stageCard">
+            <div class="card reveal">
+              <div class="revealTop">
                 <div class="revealTitle">Access Granted</div>
                 <div class="revealHint">Don’t overthink it—read carefully.</div>
-
-                <pre id="poemText" class="poemBox"></pre>
-                <div id="revealMsg" class="msg"></div>
               </div>
-            </section>
 
-          </div>
-        </div>
-      </section>
-
-      <aside id="side" class="sideCol">
-        <div class="sideCard">
-          <div class="sideLabel">Objective</div>
-          <div id="objective" class="sideBig">Clear all gates</div>
-          <div id="objectiveDesc" class="sideDesc">Misses reset the active gate’s streak.</div>
-        </div>
-
-        <div class="sideCard">
-          <div class="sideLabel">Progress</div>
-
-          <div class="progressList">
-            <div class="progressRow">
-              <div class="progressName">Trivia gate</div>
-              <div id="pTrivia" class="progressVal">0 / 15</div>
-            </div>
-            <div class="progressRow">
-              <div class="progressName">Music Notes gate</div>
-              <div id="pNotes" class="progressVal">0 / 3</div>
-            </div>
-            <div class="progressRow">
-              <div class="progressName">Repair gate</div>
-              <div id="pRepair" class="progressVal">0 / 3</div>
-            </div>
-            <div class="progressRow">
-              <div class="progressName">Grid gate</div>
-              <div id="pGrid" class="progressVal">0 / 1</div>
+              <pre class="poem" id="poemText"></pre>
+              <div class="msg" id="revealMsg"></div>
             </div>
           </div>
+        </section>
+      </div>
+    </section>
 
-          <div class="sideFoot muted">
-            Reload always resets progress.
+    <!-- SIDEBAR -->
+    <aside class="side" id="side">
+      <div class="sideCard">
+        <div class="k">Objective</div>
+        <div class="sideTitle" id="objective">—</div>
+        <div class="sideDesc" id="objectiveDesc">—</div>
+      </div>
+
+      <div class="sideCard">
+        <div class="k">Progress</div>
+        <div class="progressList">
+          <div class="progressRow">
+            <div>Trivia gate</div>
+            <div class="mono" id="pTrivia">0 / 15</div>
+          </div>
+          <div class="progressRow">
+            <div>Music Notes gate</div>
+            <div class="mono" id="pNotes">0 / 3</div>
+          </div>
+          <div class="progressRow">
+            <div>Repair gate</div>
+            <div class="mono" id="pRepair">0 / 3</div>
+          </div>
+          <div class="progressRow">
+            <div>Grid gate</div>
+            <div class="mono" id="pGrid">0 / 1</div>
           </div>
         </div>
-      </aside>
-    </main>
-  </div>
 
-  <!-- IMPORTANT: defer + order -->
-  <script src="trivia_bank.js?v=1" defer></script>
-  <script src="app.js?v=1" defer></script>
+        <div class="fineprint">
+          Reload always resets progress.
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- IMPORTANT: trivia_bank.js must load before app.js -->
+  <script src="./trivia_bank.js"></script>
+  <script src="./app.js" defer></script>
 </body>
 </html>

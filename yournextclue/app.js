@@ -453,19 +453,21 @@ Mysteries wait for the ones who assume.`;
   /* =========================
      MUSIC NOTES (exact 7 notes A–G)
   ========================= */
-  const NOTE_BANK = Object.freeze([
-    { n: "C", f: 261.625565 }, // C4
-    { n: "D", f: 293.664768 }, // D4
-    { n: "E", f: 329.627557 }, // E4
-    { n: "F", f: 349.228231 }, // F4
-    { n: "G", f: 391.995436 }, // G4
-    { n: "A", f: 440.000000 }, // A4
-    { n: "B", f: 493.883301 }, // B4
-  ]);
+ // 7 notes total. A is the highest possible note; G is the lowest.
+const NOTE_BANK = [
+  { n: "G", f: 196.000000 },  // G3 (lowest)
+  { n: "B", f: 246.941651 },  // B3
+  { n: "C", f: 261.625565 },  // C4
+  { n: "D", f: 293.664768 },  // D4
+  { n: "E", f: 329.627557 },  // E4
+  { n: "F", f: 349.228231 },  // F4
+  { n: "A", f: 440.000000 },  // A4 (highest)
+];
 
-  if (NOTE_BANK.length !== 7) {
-    throw new Error(`NOTE_BANK must contain exactly 7 notes. Found: ${NOTE_BANK.length}`);
-  }
+if (NOTE_BANK.length !== 7) {
+  throw new Error(`NOTE_BANK must contain exactly 7 notes. Found: ${NOTE_BANK.length}`);
+}
+
 
   const audio = { ctx: null, master: null };
 

@@ -444,3 +444,19 @@ body{
   .iconbtn{ align-self: flex-end; }
   .input, .textarea{ min-width: 0; flex: 1 1 100%; }
 }
+
+/* Repair: make the answer box bigger */
+#repairAnswer{
+  min-height: 240px;      /* was too small */
+  height: 240px;          /* consistent default */
+  resize: vertical;       /* allow user to drag bigger */
+  line-height: 1.45;
+}
+
+/* On larger screens, give it even more room */
+@media (min-width: 900px){
+  #repairAnswer{
+    min-height: 320px;
+    height: 320px;
+  }
+}

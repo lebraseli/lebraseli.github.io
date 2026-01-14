@@ -1,9 +1,9 @@
 /* =========================================================
-   Your Next Clue — style.css (aligned to current index.html)
-   - Consistent layout + spacing
-   - Tabs: dot = gray (default), blue (active), green (done)
-   - Clean cards, rows, stats, grid, and reveal
-   - Robust light/dark theme via html[data-theme]
+   Your Next Clue — style.css (aligned + fixed)
+   - Header is a clean boxed container
+   - Tabs: dot gray (idle), blue (active), green (done) in BOTH themes
+   - Font Awesome theme icon is stable
+   - Layout + spacing consistently aligned across modes
    ========================================================= */
 
 /* ---------- Reset / base ---------- */
@@ -23,7 +23,7 @@ body{
   background: var(--bg);
 }
 
-/* Keep pseudo elements non-interactive, but don’t break real controls */
+/* Don’t let pseudo elements block clicks */
 *::before, *::after { pointer-events: none; }
 button, input, textarea { pointer-events: auto; }
 
@@ -32,6 +32,11 @@ button, input, textarea { pointer-events: auto; }
   --radius-xl: 22px;
   --radius-lg: 16px;
   --radius-md: 12px;
+
+  --pad-1: 10px;
+  --pad-2: 14px;
+  --pad-3: 18px;
+  --pad-4: 22px;
 
   --shadow-1: 0 14px 40px rgba(0,0,0,.18);
   --shadow-2: 0 10px 26px rgba(0,0,0,.14);
@@ -44,15 +49,13 @@ button, input, textarea { pointer-events: auto; }
   --bad:  #ff5f5f;
 
   --accent: #7aa6ff;
-  --accent-weak: rgba(122,166,255,.18);
 
-  --pad-1: 10px;
-  --pad-2: 14px;
-  --pad-3: 18px;
-  --pad-4: 22px;
+  /* defaults (overridden per theme) */
+  --dot-idle: rgba(255,255,255,.18);
+  --dot-ring: rgba(0,0,0,.25);
 }
 
-/* ---------- Theme ---------- */
+/* Dark */
 html[data-theme="dark"]{
   --bg: radial-gradient(1200px 800px at 20% 15%, rgba(70,110,220,.16), transparent 60%),
         radial-gradient(1000px 700px at 85% 10%, rgba(190,160,70,.12), transparent 55%),
@@ -68,6 +71,7 @@ html[data-theme="dark"]{
   --muted-2: rgba(255,255,255,.48);
 
   --chip: rgba(255,255,255,.07);
+
   --field: rgba(10,16,28,.45);
   --field-border: rgba(255,255,255,.14);
 
@@ -75,12 +79,13 @@ html[data-theme="dark"]{
   --dot-ring: rgba(0,0,0,.25);
 }
 
+/* Light */
 html[data-theme="light"]{
   --bg: radial-gradient(1200px 800px at 20% 15%, rgba(122,166,255,.16), transparent 60%),
         radial-gradient(1000px 700px at 85% 10%, rgba(208,168,79,.14), transparent 55%),
         linear-gradient(180deg, #f4f6ff 0%, #eef1ff 70%, #f2f4ff 100%);
 
-  --panel: rgba(255,255,255,.70);
+  --panel: rgba(255,255,255,.72);
   --panel-2: rgba(255,255,255,.56);
   --border: rgba(20,30,55,.12);
   --border-2: rgba(20,30,55,.10);
@@ -89,7 +94,8 @@ html[data-theme="light"]{
   --muted: rgba(10,14,22,.62);
   --muted-2: rgba(10,14,22,.46);
 
-  --chip: rgba(255,255,255,.85);
+  --chip: rgba(255,255,255,.86);
+
   --field: rgba(255,255,255,.86);
   --field-border: rgba(20,30,55,.16);
 
@@ -110,23 +116,17 @@ html[data-theme="light"]{
 }
 
 /* ---------- Header / topbar ---------- */
-.topbar{
-  padding: 12px 14px;
-}
+.topbar{ padding: 14px 16px 0; }
 
 .topbar-inner{
   max-width: 1200px;
   margin: 0 auto;
-  display: flex;
+  padding: 10px 12px;
+
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 14px;
-  justify-content: space-between;
-
-  padding: 10px 12px;
-  border-radius: var(--radius-xl);
-  background: linear-gradient(180deg, var(--panel), var(--panel-2));
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-inset);
 }
 
 .brand{
@@ -147,25 +147,28 @@ html[data-theme="light"]{
   font-size: 13px;
 }
 
-/* Tabs container */
+/* Tabs */
 .tabs{
+  justify-self: center;
+  max-width: min(760px, 100%);
+
   display: flex;
   align-items: center;
   gap: 8px;
+
   padding: 6px;
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--panel-2);
   box-shadow: var(--shadow-inset);
+
   overflow-x: auto;
   scrollbar-width: none;
-  max-width: 100%;
 }
 .tabs::-webkit-scrollbar { display: none; }
 
-/* Individual tab buttons */
+/* Tab buttons */
 .tab{
-  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -181,19 +184,21 @@ html[data-theme="light"]{
   white-space: nowrap;
   cursor: default;
 
-  transition: background .12s ease, border-color .12s ease, color .12s ease, transform .12s ease;
+  transition: background .12s ease, border-color .12s ease, color .12s ease;
 }
 
-/* Dot inside tab (your HTML uses <span class="dot"></span>) */
+/* The real dot element */
 .tab .dot{
+  display: inline-block;
   width: 10px;
   height: 10px;
   border-radius: 999px;
   background: var(--dot-idle);
   box-shadow: inset 0 0 0 2px var(--dot-ring);
+  flex: 0 0 auto;
 }
 
-/* Active tab */
+/* Active */
 .tab.active{
   color: var(--text);
   border-color: var(--border);
@@ -201,36 +206,40 @@ html[data-theme="light"]{
   cursor: pointer;
 }
 .tab.active .dot{
-  background: var(--accent);
-  box-shadow: none;
+  background: var(--accent) !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
 }
 
-/* Done tab (completed gate) => green dot */
-.tab.done{
-  color: var(--text);
-}
-.tab.done .dot{
-  background: var(--good);
-  box-shadow: none;
-}
-
-/* Disabled (your JS disables non-active tabs) */
-.tab:disabled{
-  opacity: .85;
-  cursor: not-allowed;
+/* Done — ALWAYS green, even when disabled */
+.tab.done{ color: var(--text); }
+.tab.done .dot,
+.tab.done:disabled .dot{
+  background: var(--good) !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
 }
 
-/* Theme toggle button */
+/* Disabled */
+.tab:disabled{ opacity: .86; cursor: not-allowed; }
+.tab:disabled .dot{ opacity: 1; }
+
+/* Theme toggle */
 .iconbtn,
 #themeToggle{
+  justify-self: end;
+
   border: 1px solid var(--border);
   background: var(--chip);
   color: var(--text);
+
   border-radius: 14px;
   height: 42px;
   width: 42px;
+
   display: grid;
   place-items: center;
+
   cursor: pointer;
   transition: transform .12s ease, background .12s ease, border-color .12s ease;
 }
@@ -241,7 +250,12 @@ html[data-theme="light"]{
 .iconbtn:focus-visible,
 #themeToggle:focus-visible{ outline: none; box-shadow: var(--ring); }
 
-/* ---------- Page shell / layout ---------- */
+#themeIcon{
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* ---------- Shell / layout ---------- */
 .shell{
   max-width: 1200px;
   margin: 0 auto;
@@ -260,15 +274,14 @@ html[data-theme="light"]{
 }
 
 /* ---------- Main panel ---------- */
-.panel{
-  padding: var(--pad-4);
-}
+.panel{ padding: var(--pad-4); }
 
 .panel-head{
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+
   padding-bottom: 14px;
   border-bottom: 1px solid var(--border-2);
   margin-bottom: 16px;
@@ -283,7 +296,7 @@ html[data-theme="light"]{
 
 .h1{
   margin: 4px 0 0;
-  font-size: 26px;
+  font-size: 32px;
   letter-spacing: -0.02em;
 }
 
@@ -294,6 +307,7 @@ html[data-theme="light"]{
 }
 
 #statusPill{
+  margin-top: 2px;
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--chip);
@@ -304,10 +318,7 @@ html[data-theme="light"]{
   white-space: nowrap;
 }
 
-/* Stages */
-.stage{ display: block; }
-
-/* ---------- Stats blocks ---------- */
+/* ---------- Stats ---------- */
 .stats{
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -342,7 +353,7 @@ html[data-theme="light"] .stat{ background: rgba(255,255,255,.45); }
   justify-content: flex-end;
 }
 
-/* ---------- Inner cards ---------- */
+/* ---------- Cards ---------- */
 .card{
   border-radius: var(--radius-xl);
   background: linear-gradient(180deg, var(--panel), var(--panel-2));
@@ -364,15 +375,15 @@ html[data-theme="light"] .stat{ background: rgba(255,255,255,.45); }
   color: var(--text);
 }
 
-/* Rows (input + button alignment) */
+/* Row alignment */
 .row{
   display: flex;
-  align-items: center;
   gap: 10px;
   margin-top: 14px;
+  align-items: stretch;
 }
 @media (max-width: 640px){
-  .row{ flex-direction: column; align-items: stretch; }
+  .row{ flex-direction: column; }
 }
 
 /* Inputs */
@@ -389,20 +400,18 @@ html[data-theme="light"] .stat{ background: rgba(255,255,255,.45); }
   box-shadow: var(--shadow-inset);
 }
 
-.input:focus,
-.textarea:focus{ box-shadow: var(--shadow-inset), var(--ring); }
-
+.input{ height: 48px; }
 .textarea{
   resize: vertical;
   min-height: 180px;
 }
-
-#repairAnswer{
-  min-height: 260px;
-}
+#repairAnswer{ min-height: 260px; }
 @media (min-width: 980px){
   #repairAnswer{ min-height: 300px; }
 }
+
+.input:focus,
+.textarea:focus{ box-shadow: var(--shadow-inset), var(--ring); }
 
 /* Pre blocks */
 .pre{
@@ -420,6 +429,7 @@ html[data-theme="light"] .pre{ background: rgba(255,255,255,.45); }
 button{ font: inherit; }
 
 .btn{
+  height: 48px;
   border-radius: 18px;
   border: 1px solid rgba(122,166,255,.55);
   background: rgba(122,166,255,.14);
@@ -427,7 +437,7 @@ button{ font: inherit; }
   padding: 12px 16px;
   font-weight: 750;
   cursor: pointer;
-  transition: transform .12s ease, background .12s ease, border-color .12s ease, filter .12s ease;
+  transition: transform .12s ease, filter .12s ease, background .12s ease, border-color .12s ease;
   white-space: nowrap;
 }
 .btn:hover{ transform: translateY(-1px); filter: brightness(1.02); }
@@ -470,6 +480,8 @@ html[data-theme="light"] .msg{ background: rgba(255,255,255,.45); }
 /* ---------- Sidebar ---------- */
 .side{
   padding: var(--pad-4);
+  display: grid;
+  gap: 14px;
 }
 
 .side-card{
@@ -557,7 +569,6 @@ html[data-theme="light"] .gridCell{
   border-color: rgba(122,166,255,.55);
   box-shadow: 0 0 0 2px rgba(122,166,255,.18) inset;
 }
-
 .gridCell.selected{
   border-color: rgba(122,166,255,.75);
   background: rgba(122,166,255,.20);
@@ -577,17 +588,23 @@ html[data-theme="light"] .gridCell{
 }
 html[data-theme="light"] .poem{ background: rgba(255,255,255,.45); }
 
+/* ---------- Mobile header reflow ---------- */
+@media (max-width: 760px){
+  .topbar-inner{
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+  }
+  .brand{ grid-column: 1 / -1; min-width: unset; }
+  #stepsNav{ grid-column: 1 / -1; justify-self: start; max-width: 100%; }
+  #themeToggle{ grid-column: 2; grid-row: 2; }
+}
+
 /* ---------- Mobile polish ---------- */
 @media (max-width: 640px){
   .shell{ padding: 12px 12px 22px; }
-  .topbar{ padding: 10px 12px; }
-  .topbar-inner{ gap: 10px; }
-  .brand{ min-width: unset; }
-  .brand-title{ font-size: 18px; }
-  .brand-sub{ font-size: 12.5px; }
   .panel, .side{ padding: 16px; }
   .card{ padding: 16px; }
-  .h1{ font-size: 22px; }
+  .h1{ font-size: 26px; }
   #statusPill{ padding: 7px 10px; }
   .btn{ width: 100%; }
   .iconbtn, #themeToggle{ height: 40px; width: 40px; }

@@ -21,8 +21,7 @@
     memoMs: 30_000,
   };
 
-  const POEM =
-`Don’t overthink it—read carefully.`;
+  const POEM = `Don’t overthink it—read carefully.`;
 
   /* =========================
      DOM HELPERS
@@ -31,12 +30,22 @@
 
   function show(el){ if (!el) return; el.hidden = false; el.style.display = ""; }
   function hide(el){ if (!el) return; el.hidden = true; el.style.display = "none"; }
+
   function setText(el, t){ if (!el) return; el.textContent = t ?? ""; }
   function setHTML(el, h){ if (!el) return; el.innerHTML = h ?? ""; }
 
+  // Messages should NOT occupy space when empty.
   function setMsg(el, text, kind){
     if (!el) return;
-    el.textContent = text || "";
+    const v = (text || "").trim();
+    if (!v) {
+      el.textContent = "";
+      el.className = "msg";
+      el.hidden = true;
+      return;
+    }
+    el.hidden = false;
+    el.textContent = v;
     el.className = "msg" + (kind ? ` ${kind}` : "");
   }
 
@@ -58,7 +67,6 @@
 
   function isNumericAnswer(raw){
     const t = (raw || "").trim();
-    // allow: 7, -3, 0, 12.5, 15/16
     return /^-?\d+(\.\d+)?$/.test(t) || /^\d+\s*\/\s*\d+$/.test(t);
   }
 
@@ -101,7 +109,6 @@
     triviaAnswer: byId("answer"),
     triviaSubmit: byId("submitAnswer"),
     triviaMsg: byId("triviaMsg"),
-    resetProgress: byId("resetProgress"),
 
     /* NOTES */
     noteStreak: byId("noteStreak"),
@@ -161,19 +168,23 @@
   };
 
   /* =========================
-     THEME
+     THEME (Font Awesome)
   ========================= */
+  function setThemeIcon(){
+    if (!ui.themeIcon) return;
+
+    // requirement carried over: sun on dark, moon on light
+    ui.themeIcon.classList.remove("fa-sun", "fa-moon");
+    ui.themeIcon.classList.add(state.theme === "dark" ? "fa-sun" : "fa-moon");
+  }
+
   function applyTheme(t){
     state.theme = (t === "light") ? "light" : "dark";
     document.documentElement.dataset.theme = state.theme;
     document.documentElement.style.colorScheme = state.theme;
-    try { localStorage.setItem("ync_theme", state.theme); } catch {}
 
-    // Font Awesome icon toggle (sun on dark, moon on light)
-    if (ui.themeIcon) {
-      ui.themeIcon.classList.remove("fa-sun", "fa-moon");
-      ui.themeIcon.classList.add(state.theme === "dark" ? "fa-sun" : "fa-moon");
-    }
+    try { localStorage.setItem("ync_theme", state.theme); } catch {}
+    setThemeIcon();
   }
 
   function initTheme(){
@@ -255,6 +266,13 @@
     setText(ui.panelTitle, gateTitle(g));
     setText(ui.statusPill, state.cleared.has(g) ? "Unlocked" : "In progress");
 
+    // Clear messages when switching gates (no stray boxes)
+    setMsg(ui.triviaMsg, "", "");
+    setMsg(ui.noteMsg, "", "");
+    setMsg(ui.repairMsg, "", "");
+    setMsg(ui.gridMsg, "", "");
+    setMsg(ui.revealMsg, "", "");
+
     if (g === "trivia") {
       setHTML(ui.panelDesc, `Answer <b>${TRIVIA.target}</b> correctly in a row. Miss resets streak.`);
       setText(ui.objective, `${TRIVIA.target} in a row`);
@@ -310,15 +328,6 @@
     setText(ui.statusPill, "Unlocked");
     setText(ui.poemText, POEM);
     setMsg(ui.revealMsg, "", "");
-  }
-
-  function shuffle(arr){
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
   }
 
   /* =========================
@@ -420,7 +429,6 @@
       return;
     }
 
-    // Your rule: 1 character is only allowed if numeric
     if (trimmed.length === 1 && !isNumericAnswer(trimmed)) {
       setMsg(ui.triviaMsg, "Answer must be at least 2 characters (unless numeric).", "warn");
       return;
@@ -452,17 +460,16 @@
   }
 
   /* =========================
-     MUSIC NOTES (ONLY 7, your pitch order)
-     A highest -> ... -> G lowest
+     MUSIC NOTES
   ========================= */
   const NOTE_BANK = [
-    { n: "A", f: 440.000000 }, // highest
-    { n: "B", f: 415.304698 }, // -1 semitone
-    { n: "C", f: 391.995436 }, // -2
-    { n: "D", f: 369.994423 }, // -3
-    { n: "E", f: 349.228231 }, // -4
-    { n: "F", f: 329.627557 }, // -5
-    { n: "G", f: 311.126984 }, // lowest
+    { n: "A", f: 440.000000 },
+    { n: "B", f: 415.304698 },
+    { n: "C", f: 391.995436 },
+    { n: "D", f: 369.994423 },
+    { n: "E", f: 349.228231 },
+    { n: "F", f: 329.627557 },
+    { n: "G", f: 311.126984 },
   ];
 
   const audio = { ctx: null, master: null };
@@ -701,7 +708,7 @@
   }
 
   /* =========================
-     GRID (no self-overlap; wrong click resets)
+     GRID
   ========================= */
   function dirToText(d){
     return d === "U" ? "Up" : d === "D" ? "Down" : d === "L" ? "Left" : "Right";
@@ -807,13 +814,16 @@
   function setGridPhase(phase){
     state.grid.phase = phase;
 
+    // Regenerate should ONLY appear after directions disappear (play phase).
+    if (ui.gridRegen) ui.gridRegen.hidden = (phase !== "play");
+
     if (phase === "memo") {
       if (ui.gridSteps) ui.gridSteps.style.display = "";
-      if (ui.gridBoard?.parentElement) ui.gridBoard.parentElement.style.display = "none";
+      if (ui.gridBoard) ui.gridBoard.style.display = "none";
       if (ui.gridSubmit) ui.gridSubmit.disabled = true;
     } else {
       if (ui.gridSteps) ui.gridSteps.style.display = "none";
-      if (ui.gridBoard?.parentElement) ui.gridBoard.parentElement.style.display = "";
+      if (ui.gridBoard) ui.gridBoard.style.display = "";
       if (ui.gridSubmit) ui.gridSubmit.disabled = true;
     }
   }
@@ -978,8 +988,6 @@
     ui.stepNotes?.addEventListener("click",  (e) => { e.preventDefault(); if (state.gate === "notes")  setGate("notes"); });
     ui.stepRepair?.addEventListener("click", (e) => { e.preventDefault(); if (state.gate === "repair") setGate("repair"); });
     ui.stepGrid?.addEventListener("click",   (e) => { e.preventDefault(); if (state.gate === "grid")   setGate("grid"); });
-
-    ui.resetProgress?.addEventListener("click", hardResetSession);
 
     ui.triviaSubmit?.addEventListener("click", checkTrivia);
     ui.triviaAnswer?.addEventListener("keydown", (e) => {

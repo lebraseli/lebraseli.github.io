@@ -1,31 +1,37 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Your Next Clue</title>
 
-  <!-- Font Awesome for theme icon -->
-  <link rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
-        referrerpolicy="no-referrer" />
+  <!-- Font Awesome (theme toggle icon) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
   <link rel="stylesheet" href="./style.css" />
 </head>
 
 <body>
   <header class="topbar">
-    <div class="topbar-inner glass">
+    <div class="topbar-inner shell">
       <div class="brand">
         <div class="brand-title">Your Next Clue</div>
         <div class="brand-sub">Clear each gate. Misses reset streaks.</div>
       </div>
 
       <nav class="tabs" id="stepsNav" aria-label="Gates">
-        <button class="tab" id="stepTrivia" type="button"><span class="dot"></span>Trivia</button>
-        <button class="tab" id="stepNotes" type="button"><span class="dot"></span>Music Notes</button>
-        <button class="tab" id="stepRepair" type="button"><span class="dot"></span>Repair</button>
-        <button class="tab" id="stepGrid" type="button"><span class="dot"></span>Grid</button>
+        <button class="tab" id="stepTrivia" type="button">
+          <span class="dot" aria-hidden="true"></span><span>Trivia</span>
+        </button>
+        <button class="tab" id="stepNotes" type="button">
+          <span class="dot" aria-hidden="true"></span><span>Music Notes</span>
+        </button>
+        <button class="tab" id="stepRepair" type="button">
+          <span class="dot" aria-hidden="true"></span><span>Repair</span>
+        </button>
+        <button class="tab" id="stepGrid" type="button">
+          <span class="dot" aria-hidden="true"></span><span>Grid</span>
+        </button>
       </nav>
 
       <button class="iconbtn" id="themeToggle" type="button" aria-label="Toggle theme">
@@ -40,7 +46,7 @@
       <section class="main">
         <div class="panel glass">
           <div class="panel-head">
-            <div>
+            <div class="panel-head-left">
               <div class="kicker">Gate</div>
               <h1 class="h1" id="panelTitle">Gate</h1>
               <p class="muted" id="panelDesc">Loading…</p>
@@ -74,9 +80,7 @@
                 <button id="submitAnswer" class="btn" type="button">Submit</button>
               </div>
 
-              <div id="triviaMsg" class="msg"></div>
-
-              <button id="resetProgress" class="btn ghost" type="button">Reset progress</button>
+              <div id="triviaMsg" class="msg" hidden></div>
             </div>
           </section>
 
@@ -102,7 +106,7 @@
               <div class="q">Press Play note, type a single letter (A–G), then Submit.</div>
 
               <div class="row">
-                <button id="playNote" class="btn" type="button">Play note</button>
+                <button id="playNote" class="btn secondary" type="button">Play note</button>
               </div>
 
               <div class="row">
@@ -110,27 +114,30 @@
                 <button id="submitNote" class="btn" type="button">Submit</button>
               </div>
 
-              <div id="noteMsg" class="msg"></div>
+              <div id="noteMsg" class="msg" hidden></div>
             </div>
           </section>
 
           <!-- REPAIR -->
           <section id="stageRepair" class="stage" hidden>
-            <div class="stats">
-              <div class="stat">
-                <div class="label">Streak</div>
-                <div class="value"><span id="repairStreak">0</span>/<span id="repairTarget">3</span></div>
+            <div class="statsRow">
+              <div class="stats">
+                <div class="stat">
+                  <div class="label">Streak</div>
+                  <div class="value"><span id="repairStreak">0</span>/<span id="repairTarget">3</span></div>
+                </div>
+                <div class="stat">
+                  <div class="label">Timer</div>
+                  <div class="value" id="repairTimer">—</div>
+                </div>
+                <div class="stat">
+                  <div class="label">Tolerance</div>
+                  <div class="value">≤ 20 wrong chars</div>
+                </div>
               </div>
-              <div class="stat">
-                <div class="label">Timer</div>
-                <div class="value" id="repairTimer">—</div>
-              </div>
-              <div class="stat">
-                <div class="label">Tolerance</div>
-                <div class="value">≤ 20 wrong chars</div>
-              </div>
-              <div class="stat right">
-                <button id="newRepair" class="btn ghost" type="button">New prompt</button>
+
+              <div class="statsActions">
+                <button id="newRepair" class="btn secondary" type="button">New prompt</button>
               </div>
             </div>
 
@@ -140,13 +147,18 @@
 
               <pre class="pre" id="repairPrompt">—</pre>
 
-              <textarea id="repairAnswer" class="textarea" placeholder="Paste corrected text here (4 lines, 1)–4))…" spellcheck="false"></textarea>
+              <textarea
+                id="repairAnswer"
+                class="textarea"
+                placeholder="Paste corrected text here (4 lines, 1)–4)…"
+                spellcheck="false"
+              ></textarea>
 
               <div class="row">
                 <button id="submitRepair" class="btn" type="button">Submit</button>
               </div>
 
-              <div id="repairMsg" class="msg"></div>
+              <div id="repairMsg" class="msg" hidden></div>
             </div>
           </section>
 
@@ -165,9 +177,6 @@
                 <div class="label">Visibility</div>
                 <div class="value" id="gridTimer">—</div>
               </div>
-              <div class="stat right">
-                <button id="resetGrid" class="btn ghost" type="button">Regenerate</button>
-              </div>
             </div>
 
             <div class="card">
@@ -180,25 +189,25 @@
                 <div id="gridBoard" class="grid" role="grid" aria-label="Memory grid"></div>
               </div>
 
-              <div class="row">
+              <div class="row row-split">
                 <button id="submitGrid" class="btn" type="button" disabled>Submit Path</button>
+                <button id="resetGrid" class="btn secondary" type="button" hidden>Regenerate</button>
               </div>
 
-              <div id="gridMsg" class="msg"></div>
+              <div id="gridMsg" class="msg" hidden></div>
             </div>
           </section>
 
           <!-- REVEAL -->
           <section id="stageReveal" class="stage" hidden>
-            <div class="reveal">
-              <div class="reveal-top">
-                <div class="kicker">Final</div>
-                <h2 class="h2">Don’t overthink it—read carefully.</h2>
-              </div>
+            <div class="card">
+              <div class="kicker">Final</div>
+              <h2 class="h2">Access Granted</h2>
               <pre class="poem" id="poemText"></pre>
-              <div id="revealMsg" class="msg"></div>
+              <div id="revealMsg" class="msg" hidden></div>
             </div>
           </section>
+
         </div>
       </section>
 

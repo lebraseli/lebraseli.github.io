@@ -1,743 +1,499 @@
-/* =========================================================
-   Your Next Clue — style.css (full file)
-   - Subtle background (no loud blue/yellow split)
-   - Top bar full-width, sticky, polished
-   - Messages are text (no big red box)
-   - Consistent spacing (no “glued together” controls)
-   - Mobile-first responsiveness
-========================================================= */
+/* =========================
+   Base / Theme Tokens
+========================= */
 
 :root{
-  --page-bg: #f6f7fb;
-  --panel-bg: rgba(255,255,255,0.74);
-  --panel-solid: #ffffff;
+  --bg0: #070A12;
+  --bg1: #0B1020;
+  --panel: rgba(255,255,255,0.06);
+  --panel2: rgba(255,255,255,0.08);
+  --stroke: rgba(255,255,255,0.10);
+  --stroke2: rgba(255,255,255,0.14);
+  --text: rgba(255,255,255,0.92);
+  --muted: rgba(255,255,255,0.62);
+  --muted2: rgba(255,255,255,0.45);
 
-  --text: rgba(12, 16, 24, 0.92);
-  --muted: rgba(12, 16, 24, 0.62);
+  --accent: rgba(110,150,255,0.95);
+  --accent2: rgba(110,150,255,0.30);
 
-  --border: rgba(0,0,0,0.10);
-  --border-2: rgba(0,0,0,0.08);
+  --bad: rgba(255,110,120,0.90);
+  --good: rgba(120,255,190,0.90);
+  --warn: rgba(255,190,90,0.90);
 
-  --shadow: 0 18px 50px rgba(16, 24, 40, 0.10);
-  --shadow-soft: 0 8px 22px rgba(16, 24, 40, 0.08);
+  --shadow: 0 28px 80px rgba(0,0,0,0.45);
+  --radius: 18px;
 
-  --radius-xl: 22px;
-  --radius-lg: 16px;
-  --radius-md: 12px;
-
-  --pad-xl: 22px;
-  --pad-lg: 18px;
-  --pad-md: 14px;
-  --pad-sm: 10px;
-
-  --accent: rgba(86, 119, 255, 0.95);
-  --accent-2: rgba(86, 119, 255, 0.18);
-  --accent-3: rgba(86, 119, 255, 0.10);
-
-  --danger: rgba(200, 60, 70, 0.95);
-  --warn: rgba(180, 120, 0, 0.95);
-  --good: rgba(20, 140, 80, 0.95);
-
-  --focus: 0 0 0 4px rgba(86, 119, 255, 0.18);
+  --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
 }
 
-html[data-theme="dark"]{
-  --page-bg: #0b0f18;
-  --panel-bg: rgba(15, 20, 32, 0.72);
-  --panel-solid: #101726;
+html[data-theme="light"]{
+  --bg0: #F3F5FF;
+  --bg1: #EEF1FF;
+  --panel: rgba(0,0,0,0.04);
+  --panel2: rgba(0,0,0,0.06);
+  --stroke: rgba(0,0,0,0.08);
+  --stroke2: rgba(0,0,0,0.12);
+  --text: rgba(0,0,0,0.88);
+  --muted: rgba(0,0,0,0.60);
+  --muted2: rgba(0,0,0,0.42);
 
-  --text: rgba(245, 246, 250, 0.92);
-  --muted: rgba(245, 246, 250, 0.62);
+  --accent: rgba(60,110,255,0.95);
+  --accent2: rgba(60,110,255,0.22);
 
-  --border: rgba(255,255,255,0.12);
-  --border-2: rgba(255,255,255,0.10);
-
-  --shadow: 0 22px 60px rgba(0,0,0,0.45);
-  --shadow-soft: 0 10px 26px rgba(0,0,0,0.35);
-
-  --accent: rgba(128, 158, 255, 0.98);
-  --accent-2: rgba(128, 158, 255, 0.22);
-  --accent-3: rgba(128, 158, 255, 0.12);
-
-  --danger: rgba(255, 120, 130, 0.95);
-  --warn: rgba(255, 190, 100, 0.95);
-  --good: rgba(90, 220, 160, 0.95);
+  --shadow: 0 26px 70px rgba(0,0,0,0.18);
 }
 
-*{ box-sizing: border-box; }
-html, body{ height: 100%; }
-
+*{ box-sizing:border-box; }
+html,body{ height:100%; }
 body{
-  margin: 0;
-  font-family: var(--sans);
+  margin:0;
+  font-family: var(--font);
   color: var(--text);
 
-  /* Subtle background — reduces obvious blue/yellow split */
+  /* More subtle left/right tint (no loud blue/yellow split) */
   background:
-    radial-gradient(900px 600px at 18% 20%, rgba(70, 110, 255, 0.08), transparent 60%),
-    radial-gradient(900px 600px at 82% 22%, rgba(255, 200, 80, 0.06), transparent 60%),
-    radial-gradient(1200px 900px at 50% 120%, rgba(0, 0, 0, 0.06), transparent 55%),
-    var(--page-bg);
-
-  background-attachment: fixed;
+    radial-gradient(900px 600px at 20% 20%, rgba(110,150,255,0.12), transparent 60%),
+    radial-gradient(900px 600px at 80% 30%, rgba(255,210,120,0.08), transparent 60%),
+    radial-gradient(1200px 800px at 50% 100%, rgba(110,150,255,0.08), transparent 60%),
+    linear-gradient(180deg, var(--bg0), var(--bg1));
 }
 
-/* If you rely on <main> wrappers */
-main{
-  width: min(1120px, calc(100% - 32px));
-  margin: 22px auto 42px auto;
-}
+/* =========================
+   Topbar
+========================= */
 
-/* =========================================================
-   Top bar (full width, sticky)
-========================================================= */
-#stepsNav{
-  width: 100%;
+.topbar{
   position: sticky;
   top: 0;
-  z-index: 50;
-
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-
-  padding: 14px 18px;
-  margin: 0;
-
-  border-bottom: 1px solid var(--border-2);
-  background: rgba(255,255,255,0.72);
+  z-index: 10;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--stroke);
+  background: rgba(10,14,28,0.55);
+}
+html[data-theme="light"] .topbar{
+  background: rgba(245,247,255,0.78);
 }
 
-html[data-theme="dark"] #stepsNav{
-  background: rgba(15, 20, 32, 0.72);
-}
-
-/* Left title stack */
-#stepsNav .brand,
-#stepsNav .headerLeft,
-#stepsNav .topLeft{
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 260px;
-}
-
-#stepsNav h1,
-#stepsNav .title{
-  margin: 0;
-  font-size: 20px;
-  line-height: 1.2;
-  letter-spacing: -0.2px;
-}
-
-#stepsNav .subtitle,
-#stepsNav .desc,
-#stepsNav p{
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.3;
-}
-
-/* Right controls cluster (tabs + theme) */
-#stepsNav .tabs,
-#stepsNav .steps,
-#stepsNav .navTabs{
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-/* Theme toggle button (moon/sun icon sits inside) */
-#themeToggle{
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--panel-bg);
-  box-shadow: var(--shadow-soft);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-#themeToggle:focus{ outline: none; box-shadow: var(--shadow-soft), var(--focus); }
-#themeToggle i{ font-size: 16px; color: var(--text); opacity: 0.92; }
-
-/* Tab buttons */
-#stepsNav button{
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,0.55);
-  color: var(--muted);
-  padding: 8px 12px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: transform 120ms ease, background 120ms ease, color 120ms ease, border-color 120ms ease;
-  box-shadow: none;
-}
-html[data-theme="dark"] #stepsNav button{
-  background: rgba(255,255,255,0.04);
-}
-
-#stepsNav button:hover{ transform: translateY(-1px); }
-#stepsNav button:focus{ outline: none; box-shadow: var(--focus); }
-#stepsNav button:disabled{
-  cursor: default;
-  opacity: 0.75;
-}
-#stepsNav button.active{
-  background: var(--accent-2);
-  border-color: rgba(86, 119, 255, 0.35);
-  color: var(--text);
-}
-#stepsNav button.done{
-  color: rgba(20, 140, 80, 0.95);
-  border-color: rgba(20, 140, 80, 0.25);
-}
-
-/* =========================================================
-   Layout: main content + right sidebar
-========================================================= */
-.page,
-#app,
-#root{
-  width: min(1120px, calc(100% - 32px));
-  margin: 22px auto 42px auto;
-}
-
-.layout,
-#layout,
-#content{
+.topbar-inner{
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 14px 18px;
   display: grid;
-  grid-template-columns: 1.35fr 0.9fr;
-  gap: 18px;
+  grid-template-columns: 1fr auto auto;
+  gap: 14px;
+  align-items: center;
 }
 
-/* Generic cards/panels */
-.card,
-.panel,
-.section,
-#stageTrivia,
-#stageNotes,
-#stageRepair,
-#stageGrid,
-#stageReveal{
-  background: var(--panel-bg);
-  border: 1px solid var(--border-2);
-  border-radius: var(--radius-xl);
+.brand-title{
+  font-size: 22px;
+  font-weight: 760;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.brand-sub{
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.tabs{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  padding: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,0.03);
+}
+
+.tab{
+  appearance:none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 650;
+  cursor: pointer;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.tab .dot{
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.14);
+}
+html[data-theme="light"] .tab .dot{
+  background: rgba(0,0,0,0.12);
+}
+
+.tab.active{
+  color: var(--text);
+  background: rgba(255,255,255,0.06);
+  border-color: var(--stroke);
+}
+.tab.done .dot{
+  background: rgba(120,255,190,0.85);
+}
+.tab:disabled{
+  opacity: 0.5;
+  cursor: default;
+}
+
+.icon-btn{
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  cursor:pointer;
+  display:grid;
+  place-items:center;
+}
+.icon-btn:hover{ border-color: var(--stroke2); }
+
+/* =========================
+   Layout
+========================= */
+
+.shell{
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 18px;
+}
+
+.layout{
+  display:grid;
+  grid-template-columns: 1.45fr 0.85fr;
+  gap: 16px;
+  align-items:start;
+}
+
+.panel{
+  border-radius: var(--radius);
+  border: 1px solid var(--stroke);
+  background: var(--panel);
   box-shadow: var(--shadow);
   overflow: hidden;
 }
 
-.cardInner,
-.panelInner{
-  padding: var(--pad-xl);
-}
-
-/* Header block within a stage */
-.stageHeader{
-  padding: var(--pad-xl);
-  border-bottom: 1px solid var(--border-2);
-  display: flex;
-  align-items: flex-start;
+.panel-head{
+  padding: 18px 18px 14px 18px;
+  display:flex;
   justify-content: space-between;
-  gap: 12px;
-}
-
-.stageHeader .kicker{
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.stageHeader .headline,
-#panelTitle{
-  margin: 6px 0 0 0;
-  font-size: 22px;
-  line-height: 1.2;
-  letter-spacing: -0.3px;
-}
-
-.stageHeader .subhead,
-#panelDesc{
-  margin: 6px 0 0 0;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-/* Status pill */
-#statusPill,
-.pill{
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,0.45);
-  padding: 8px 12px;
-  border-radius: 999px;
-  font-size: 13px;
-  color: var(--muted);
-  white-space: nowrap;
-}
-html[data-theme="dark"] #statusPill,
-html[data-theme="dark"] .pill{
-  background: rgba(255,255,255,0.04);
-}
-
-/* Right sidebar cards */
-#side{
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-#objective,
-#objectiveDesc{
-  margin: 0;
-}
-
-.sideCard{
-  padding: var(--pad-xl);
-}
-
-.sideCard .label{
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-
-.sideCard .big{
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-  margin: 0 0 6px 0;
-}
-
-.sideCard .small{
-  color: var(--muted);
-  font-size: 13px;
-  margin: 0;
-}
-
-/* Progress list */
-.progressList{
-  display: flex;
-  flex-direction: column;
   gap: 10px;
-  margin-top: 12px;
-}
-.progressRow{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border: 1px solid var(--border-2);
-  background: rgba(255,255,255,0.35);
-  border-radius: 999px;
-}
-html[data-theme="dark"] .progressRow{
-  background: rgba(255,255,255,0.03);
-}
-.progressRow .name{ color: var(--text); }
-.progressRow .val{ color: var(--muted); font-variant-numeric: tabular-nums; }
-
-/* =========================================================
-   Form controls
-========================================================= */
-label{ display: block; color: var(--muted); font-size: 13px; }
-
-input[type="text"],
-input[type="password"],
-textarea{
-  width: 100%;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,0.60);
-  padding: 12px 12px;
-  font-size: 16px;
-  color: var(--text);
-  outline: none;
-  transition: box-shadow 120ms ease, border-color 120ms ease, transform 120ms ease;
+  border-bottom: 1px solid var(--stroke);
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent);
 }
 
-html[data-theme="dark"] input[type="text"],
-html[data-theme="dark"] input[type="password"],
-html[data-theme="dark"] textarea{
-  background: rgba(255,255,255,0.04);
+.eyebrow{
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted2);
 }
-
-textarea{
-  min-height: 120px;
-  resize: vertical;
-  font-family: var(--mono);
+.panel-title{
+  margin: 4px 0 6px 0;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+.panel-desc{
+  margin: 0;
+  color: var(--muted);
   font-size: 14px;
   line-height: 1.4;
 }
 
-input:focus,
-textarea:focus{
-  box-shadow: var(--focus);
-  border-color: rgba(86, 119, 255, 0.45);
+.pill{
+  align-self:flex-start;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,0.04);
+  color: var(--muted);
+  font-weight: 650;
+  white-space: nowrap;
 }
 
-fieldset{
-  border: 0;
-  padding: 0;
-  margin: 0;
+.stage{
+  padding: 16px 18px 18px 18px;
 }
 
-/* Button system */
-button{
-  font-family: inherit;
+.card{
+  border-radius: var(--radius);
+  border: 1px solid var(--stroke);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: 16px;
 }
 
-.btn,
-button.primary,
-button.secondary,
-#submitAnswer,
-#submitNote,
-#submitRepair,
-#submitGrid,
-#playNote,
-#newRepair,
-#resetGrid,
-#resetProgress{
+.side{
+  display:flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.big{
+  font-size: 26px;
+  font-weight: 780;
+  letter-spacing: -0.02em;
+  margin: 6px 0 6px 0;
+}
+.muted{ color: var(--muted); }
+.small{ font-size: 12px; color: var(--muted2); margin-top: 10px; }
+
+.progressList{
+  margin-top: 10px;
+  display:flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.prow{
+  display:flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
   border-radius: 14px;
-  padding: 10px 14px;
-  border: 1px solid rgba(86, 119, 255, 0.35);
-  background: var(--accent-2);
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,0.03);
+  color: var(--muted);
+}
+
+/* =========================
+   Components
+========================= */
+
+.stats{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.stat{
+  border-radius: 16px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,0.03);
+  padding: 12px;
+}
+.stat .k{
+  color: var(--muted2);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+}
+.stat .v{
+  margin-top: 6px;
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+
+.block{
+  border-radius: var(--radius);
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,0.02);
+  padding: 14px;
+}
+
+.k{
+  color: var(--muted2);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+.help{
+  color: var(--muted);
+  font-size: 14px;
+  margin: 8px 0 12px 0;
+}
+.question{
+  font-size: 18px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  margin: 6px 0 12px 0;
+}
+
+.row{
+  display:flex;
+  gap: 10px;
+  align-items:center;
+  flex-wrap: wrap;
+}
+.row.split{
+  justify-content: space-between;
+}
+
+.input{
+  flex: 1 1 320px;
+  min-width: 180px;
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,0.03);
   color: var(--text);
-  cursor: pointer;
-  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, opacity 120ms ease;
-  box-shadow: none;
-}
-
-#submitAnswer:hover,
-#submitNote:hover,
-#submitRepair:hover,
-#submitGrid:hover,
-#playNote:hover,
-#newRepair:hover,
-#resetGrid:hover,
-#resetProgress:hover{
-  transform: translateY(-1px);
-  background: rgba(86, 119, 255, 0.22);
-}
-
-#submitAnswer:focus,
-#submitNote:focus,
-#submitRepair:focus,
-#submitGrid:focus,
-#playNote:focus,
-#newRepair:focus,
-#resetGrid:focus,
-#resetProgress:focus{
+  padding: 0 14px;
   outline: none;
-  box-shadow: var(--focus);
+  font-size: 16px;
+}
+.input:focus{
+  border-color: rgba(110,150,255,0.55);
+  box-shadow: 0 0 0 4px rgba(110,150,255,0.16);
 }
 
-button:disabled,
+.textarea{
+  width:100%;
+  border-radius: 16px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,0.03);
+  color: var(--text);
+  padding: 12px 14px;
+  outline:none;
+  font-size: 15px;
+  line-height: 1.4;
+  resize: vertical;
+}
+.textarea:focus{
+  border-color: rgba(110,150,255,0.55);
+  box-shadow: 0 0 0 4px rgba(110,150,255,0.16);
+}
+
+.btn{
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  font-weight: 750;
+  cursor:pointer;
+}
+.btn:hover{ border-color: var(--stroke2); }
 .btn:disabled{
   opacity: 0.55;
   cursor: default;
-  transform: none;
 }
-
-/* Make "Reset progress" not look like a primary action */
-#resetProgress{
-  border-color: var(--border);
-  background: rgba(255,255,255,0.35);
-  color: var(--muted);
+.btn.primary{
+  border-color: rgba(110,150,255,0.40);
+  background: rgba(110,150,255,0.16);
 }
-html[data-theme="dark"] #resetProgress{
-  background: rgba(255,255,255,0.03);
-}
-
-/* Spacing utilities for inputs + buttons */
-.formRow{
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.stack{
-  display: grid;
-  gap: 12px;
-}
-.stack-lg{ gap: 16px; }
-
-/* =========================================================
-   Metric tiles (streak/remaining/category etc.)
-========================================================= */
-.metrics{
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0,1fr));
-  gap: 12px;
-  padding: 16px 18px 0 18px;
-}
-
-.metric{
-  border: 1px solid var(--border-2);
-  background: rgba(255,255,255,0.35);
-  border-radius: 16px;
-  padding: 12px;
-}
-html[data-theme="dark"] .metric{
-  background: rgba(255,255,255,0.03);
-}
-.metric .label{
-  font-size: 12px;
-  color: var(--muted);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-.metric .value{
-  margin-top: 6px;
-  font-size: 18px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-/* =========================================================
-   Messages (NO boxes)
-========================================================= */
-.msg{
-  margin-top: 10px;
-  padding: 0;
-  border: 0;
+.btn.ghost{
   background: transparent;
-  border-radius: 0;
-  font-size: 14px;
-  line-height: 1.35;
-}
-.msg.good{ color: var(--good); }
-.msg.warn{ color: var(--warn); }
-.msg.bad{ color: var(--danger); }
-
-/* =========================================================
-   Trivia section specifics
-========================================================= */
-#question{
-  font-size: 16px;
-  margin: 10px 0 10px 0;
-}
-#category{
-  font-family: var(--mono);
-  font-weight: 600;
-}
-#remaining{
-  font-variant-numeric: tabular-nums;
+  color: var(--muted);
 }
 
-/* =========================================================
-   Music notes section
-========================================================= */
-#noteAnswer{
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-/* Put note input + submit on same row for desktop; stack on mobile */
-.notesRow{
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.notesRow #noteAnswer{ flex: 1; }
-
-/* =========================================================
-   Repair section
-========================================================= */
-#repairPrompt{
+.pre{
   font-family: var(--mono);
   font-size: 14px;
   line-height: 1.45;
-  white-space: pre-wrap;
-  border: 1px solid var(--border-2);
-  background: rgba(255,255,255,0.35);
+  padding: 12px 14px;
   border-radius: 16px;
-  padding: 12px;
-}
-html[data-theme="dark"] #repairPrompt{
+  border: 1px solid var(--stroke);
   background: rgba(255,255,255,0.03);
+  overflow:auto;
 }
 
-/* =========================================================
-   Grid section
-========================================================= */
-#gridSteps{
-  border: 1px solid var(--border-2);
-  background: rgba(255,255,255,0.35);
+/* Hide empty message “boxes” completely */
+.msg{
+  display:none;
+  margin-top: 12px;
+  padding: 12px 14px;
   border-radius: 16px;
-  padding: 12px;
-}
-html[data-theme="dark"] #gridSteps{
+  border: 1px solid var(--stroke);
   background: rgba(255,255,255,0.03);
+  color: var(--muted);
+  font-weight: 650;
 }
+.msg.show{ display:block; }
+.msg.good{ border-color: rgba(120,255,190,0.30); color: var(--good); background: rgba(120,255,190,0.08); }
+.msg.bad{  border-color: rgba(255,110,120,0.30); color: var(--bad);  background: rgba(255,110,120,0.08); }
+.msg.warn{ border-color: rgba(255,190,90,0.30);  color: var(--warn); background: rgba(255,190,90,0.08); }
 
+.mono{ font-family: var(--mono); }
+
+/* =========================
+   Grid
+========================= */
+
+.stepsBox{
+  margin-top: 10px;
+  border-radius: 16px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,0.03);
+  padding: 10px 12px;
+}
 .stepLine{
-  display: grid;
-  grid-template-columns: 40px 1fr;
-  gap: 10px;
-  padding: 4px 0;
-  font-variant-numeric: tabular-nums;
+  display:flex;
+  gap: 14px;
+  padding: 5px 2px;
+  color: var(--muted);
+  font-family: var(--mono);
 }
 .stepLine .idx{
-  font-family: var(--mono);
-  color: var(--muted);
+  width: 28px;
+  color: var(--muted2);
 }
 
-.gridWrap{
-  border: 1px solid var(--border-2);
-  background: rgba(255,255,255,0.22);
-  border-radius: 20px;
+.boardWrap{
+  margin-top: 12px;
+  border-radius: 18px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,0.02);
   padding: 12px;
 }
-html[data-theme="dark"] .gridWrap{
-  background: rgba(255,255,255,0.03);
-}
 
-/* #gridBoard is a CSS grid and uses --n from JS */
-#gridBoard{
-  display: grid;
-  grid-template-columns: repeat(var(--n, 9), minmax(0, 1fr));
+.gridBoard{
+  --n: 9;
+  display:grid;
+  grid-template-columns: repeat(var(--n), 1fr);
   gap: 10px;
-  padding: 8px;
-  border-radius: 18px;
 }
 
-/* Grid cells */
 .gridCell{
-  aspect-ratio: 1 / 1;
+  width: 100%;
+  aspect-ratio: 1/1;
   border-radius: 14px;
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,0.55);
-  cursor: pointer;
-  transition: transform 90ms ease, background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
-}
-html[data-theme="dark"] .gridCell{
+  border: 1px solid var(--stroke);
   background: rgba(255,255,255,0.04);
+  cursor:pointer;
 }
-.gridCell:hover{
-  transform: translateY(-1px);
-}
-.gridCell:focus{
-  outline: none;
-  box-shadow: var(--focus);
-  border-color: rgba(86, 119, 255, 0.45);
-}
-
-/* Start cell and selections */
+.gridCell:hover{ border-color: var(--stroke2); }
 .gridCell.start{
-  border-color: rgba(86, 119, 255, 0.50);
-  background: rgba(86, 119, 255, 0.18);
+  border-color: rgba(110,150,255,0.55);
+  box-shadow: 0 0 0 3px rgba(110,150,255,0.14) inset;
 }
 .gridCell.selected{
-  border-color: rgba(86, 119, 255, 0.65);
-  background: rgba(86, 119, 255, 0.22);
+  border-color: rgba(110,150,255,0.70);
+  background: rgba(110,150,255,0.12);
 }
 
-/* =========================================================
-   Reveal screen
-========================================================= */
-#poemText{
-  font-family: var(--mono);
-  font-size: 14px;
-  line-height: 1.55;
-  white-space: pre-wrap;
-  margin: 0;
-}
-#revealMsg{
-  margin-top: 12px;
-}
+/* =========================
+   Responsive (mobile)
+========================= */
 
-/* =========================================================
-   Responsiveness
-========================================================= */
 @media (max-width: 980px){
-  .layout,
-  #layout,
-  #content{
+  .topbar-inner{
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .tabs{
+    justify-content: space-between;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .layout{
     grid-template-columns: 1fr;
   }
-  #side{
-    order: 2;
-  }
-}
-
-@media (max-width: 760px){
-  main,
-  .page,
-  #app,
-  #root{
-    width: calc(100% - 20px);
-    margin: 14px auto 28px auto;
-  }
-
-  #stepsNav{
-    flex-wrap: wrap;
-    justify-content: center;
-    padding: 12px 12px;
-  }
-
-  #stepsNav .brand,
-  #stepsNav .headerLeft,
-  #stepsNav .topLeft{
-    min-width: 0;
-    width: 100%;
-    text-align: left;
-  }
-
-  #stepsNav .tabs,
-  #stepsNav .steps,
-  #stepsNav .navTabs{
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .metrics{
+  .stats{
     grid-template-columns: 1fr;
-    padding: 14px 14px 0 14px;
   }
-
-  .stageHeader{
-    padding: 16px;
+  .input{
+    flex: 1 1 100%;
   }
-
-  .cardInner,
-  .panelInner{
-    padding: 16px;
-  }
-
-  /* Notes row stacks nicely */
-  .notesRow{
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  #gridBoard{
-    gap: 8px;
-  }
-}
-
-/* =========================================================
-   Small polish
-========================================================= */
-hr{
-  border: 0;
-  border-top: 1px solid var(--border-2);
-  margin: 16px 0;
-}
-
-a{ color: inherit; }
-
-::selection{
-  background: rgba(86, 119, 255, 0.22);
 }

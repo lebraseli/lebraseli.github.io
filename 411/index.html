@@ -325,11 +325,7 @@ html, body {
   85%{ opacity:.95; }
   100%{ opacity:0; }
 }
-@keyframes bugCrawl {
-  0% { transform: translate(-20vw, 80vh) rotate(-6deg) scale(1); opacity:0; }
-  10%{ opacity:1; }
-  100% { transform: translate(120vw, 35vh) rotate(3deg) scale(1.05); opacity:1; }
-}
+  
 @keyframes compassSpin {
   0%{ transform: translate(-50%,-50%) rotate(0deg); opacity:0; }
   10%{ opacity:.9; }
@@ -348,6 +344,22 @@ html, body {
   85%{ opacity:.85; }
   100%{ opacity:0; transform: translate(-50%,-50%) scale(1.05); }
 }
+
+  @keyframes bugPro {
+  0%   { transform: translate(-20vw, 78vh) rotate(-8deg) scale(.92); opacity: 0; }
+  10%  { opacity: 1; }
+
+  26%  { transform: translate(18vw, 60vh) rotate(6deg)  scale(1.00); }
+  44%  { transform: translate(48vw, 52vh) rotate(-3deg) scale(1.02); }
+
+  55%  { transform: translate(52vw, 50vh) rotate(2deg)  scale(1.02); } /* brief pause */
+
+  64%  { transform: translate(62vw, 46vh) rotate(-2deg) scale(1.03); }
+  80%  { transform: translate(88vw, 40vh) rotate(5deg)  scale(1.02); }
+
+  100% { transform: translate(120vw, 32vh) rotate(2deg) scale(.98); opacity: 1; }
+}
+
 </style>
 </head>
 
@@ -552,7 +564,7 @@ function fxCard(label, icon){
   txt.textContent = label;
   card.appendChild(ico);
   card.appendChild(txt);
-  card.style.animation = "driftFloat 1.8s ease-in-out infinite";
+  card.style.animation = "none";
   center.appendChild(card);
   fx.appendChild(center);
 }
@@ -1319,29 +1331,42 @@ function effectBug(){
     bug.style.left="0"; bug.style.top="0";
     bug.style.width="clamp(120px, 14vw, 220px)";
     bug.style.filter="drop-shadow(0 18px 22px rgba(0,0,0,.25))";
-    bug.style.animation = `bugCrawl ${dur("Bug")}ms cubic-bezier(.2,.8,.2,1) forwards`;
+    bug.style.animation = `bugPro ${dur("Bug")}ms ease-in-out forwards`;
     bug.innerHTML = `
-      <svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <defs>
-          <radialGradient id="g" cx="35%" cy="35%" r="70%">
-            <stop offset="0%" stop-color="#ff6b6b"/>
-            <stop offset="70%" stop-color="#d61f1f"/>
-            <stop offset="100%" stop-color="#a10f0f"/>
-          </radialGradient>
-        </defs>
-        <circle cx="110" cy="118" r="70" fill="url(#g)"/>
-        <circle cx="110" cy="60" r="38" fill="#111"/>
-        <rect x="106" y="46" width="8" height="145" rx="4" fill="#111" opacity="0.9"/>
-        <circle cx="85" cy="110" r="14" fill="#111"/>
-        <circle cx="140" cy="100" r="12" fill="#111"/>
-        <circle cx="80" cy="145" r="11" fill="#111"/>
-        <circle cx="150" cy="140" r="13" fill="#111"/>
-        <path d="M58 105 C30 92, 28 70, 55 62" stroke="#111" stroke-width="10" stroke-linecap="round" fill="none"/>
-        <path d="M162 105 C190 92, 192 70, 165 62" stroke="#111" stroke-width="10" stroke-linecap="round" fill="none"/>
-        <path d="M55 140 C26 132, 24 108, 52 100" stroke="#111" stroke-width="10" stroke-linecap="round" fill="none"/>
-        <path d="M165 140 C194 132, 196 108, 168 100" stroke="#111" stroke-width="10" stroke-linecap="round" fill="none"/>
-      </svg>
-    `;
+<svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <radialGradient id="body" cx="35%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="rgba(255,255,255,.35)"/>
+      <stop offset="55%" stop-color="rgba(255,255,255,.10)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </radialGradient>
+  </defs>
+
+  <!-- body -->
+  <ellipse cx="110" cy="122" rx="72" ry="66" fill="rgba(0,0,0,.90)"/>
+  <ellipse cx="110" cy="122" rx="62" ry="56" fill="url(#body)"/>
+
+  <!-- head -->
+  <circle cx="110" cy="62" r="34" fill="rgba(0,0,0,.92)"/>
+
+  <!-- center line -->
+  <rect x="106" y="56" width="8" height="132" rx="4" fill="rgba(255,255,255,.10)"/>
+
+  <!-- minimal spots -->
+  <circle cx="86" cy="118" r="10" fill="rgba(255,255,255,.10)"/>
+  <circle cx="142" cy="112" r="9" fill="rgba(255,255,255,.10)"/>
+  <circle cx="84" cy="150" r="8" fill="rgba(255,255,255,.08)"/>
+  <circle cx="150" cy="146" r="9" fill="rgba(255,255,255,.08)"/>
+
+  <!-- legs -->
+  <g stroke="rgba(0,0,0,.92)" stroke-width="10" stroke-linecap="round" fill="none">
+    <path d="M60 110 C30 94, 28 74, 56 66"/>
+    <path d="M160 110 C190 94, 192 74, 164 66"/>
+    <path d="M58 140 C26 132, 24 110, 52 102"/>
+    <path d="M162 140 C194 132, 196 110, 168 102"/>
+  </g>
+</svg>
+`;
     fx.appendChild(bug);
   });
 }

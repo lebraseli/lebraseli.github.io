@@ -39,9 +39,11 @@ body {
   place-items: center;
   font-size: 14vw;
   font-weight: 900;
-  letter-spacing: .2em;
-  color: #fff;
-  opacity: 0.06;
+  letter-spacing: .25em;
+  color: #ffffff;
+  opacity: 0.12;               /* was ~0.06 */
+  mix-blend-mode: overlay;     /* NEW — this is key */
+  filter: contrast(140%);
   pointer-events: none;
   user-select: none;
 }

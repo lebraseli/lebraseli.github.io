@@ -1,3 +1,4 @@
+/* style.css */
 /* =========================================================
    Your Next Clue — style.css
    - Robust light/dark theme via html[data-theme]
@@ -471,53 +472,78 @@ html[data-theme="light"] .msg{ background: rgba(255,255,255,.45); }
 }
 
 /* ---------- Grid ---------- */
-.gridWrap{ margin-top: 12px; }
+.gridWrap{
+  margin-top: 12px;
+  overflow-x: auto;           /* safe on small screens */
+  padding-bottom: 2px;
+}
 
+/* Compact, centered board with fixed-ish cell sizing */
 #gridBoard{
+  --cell: clamp(26px, 3.2vw, 40px);
   display: grid;
-  grid-template-columns: repeat(var(--n, 9), minmax(0, 1fr));
-  gap: 8px;
-  padding: 14px;
+  grid-template-columns: repeat(var(--n, 9), var(--cell));
+  gap: 6px;
+  width: max-content;
+  margin: 0 auto;
+
+  padding: 12px;
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-2);
-  background: rgba(0,0,0,.05);
+  background: rgba(0,0,0,.045);
+  box-shadow: var(--shadow-inset);
 }
-html[data-theme="light"] #gridBoard{ background: rgba(255,255,255,.45); }
+html[data-theme="light"] #gridBoard{
+  background: rgba(255,255,255,.55);
+}
 
 .gridCell{
   pointer-events: auto;
-  aspect-ratio: 1 / 1;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.06);
+  width: var(--cell);
+  height: var(--cell);
+
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.055);
   cursor: pointer;
-  transition: transform .08s ease, background .10s ease, border-color .10s ease, box-shadow .10s ease;
+
+  transition:
+    transform .08s ease,
+    background .12s ease,
+    border-color .12s ease,
+    box-shadow .12s ease;
 }
 html[data-theme="light"] .gridCell{
-  border-color: rgba(10,14,22,.10);
-  background: rgba(255,255,255,.65);
+  border-color: rgba(10,14,22,.12);
+  background: rgba(255,255,255,.78);
 }
 .gridCell:hover{ transform: translateY(-1px); }
 .gridCell:active{ transform: translateY(0); }
 
+/* Start cell: clear but not loud */
 .gridCell.start{
-  border-color: rgba(122,166,255,.55);
-  box-shadow: 0 0 0 2px rgba(122,166,255,.18) inset;
-}
-.gridCell.selected{
-  border-color: rgba(122,166,255,.75);
-  background: rgba(122,166,255,.20);
-  box-shadow: 0 0 0 3px rgba(122,166,255,.20);
+  border-color: rgba(122,166,255,.70);
+  box-shadow: 0 0 0 2px rgba(122,166,255,.16) inset;
+  background: rgba(122,166,255,.10);
 }
 
-/* Directions list */
+/* Selected path: higher contrast + “filled” feel */
+.gridCell.selected{
+  border-color: rgba(122,166,255,.85);
+  background: rgba(122,166,255,.22);
+  box-shadow:
+    0 0 0 3px rgba(122,166,255,.18),
+    inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+/* Directions list: slightly tighter + better scanability */
 .steps{
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-2);
-  background: rgba(0,0,0,.05);
-  padding: 14px;
+  background: rgba(0,0,0,.045);
+  padding: 12px;
 }
-html[data-theme="light"] .steps{ background: rgba(255,255,255,.45); }
+html[data-theme="light"] .steps{ background: rgba(255,255,255,.55); }
 
 .stepLine{
   display: grid;
@@ -528,6 +554,7 @@ html[data-theme="light"] .steps{ background: rgba(255,255,255,.45); }
   border-bottom: 1px solid var(--border-2);
 }
 .stepLine:last-child{ border-bottom: 0; }
+
 .stepLine .idx{
   font-variant-numeric: tabular-nums;
   color: var(--muted-2);

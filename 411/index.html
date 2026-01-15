@@ -32,7 +32,7 @@ html, body {
 }
 #final span { color: #111; }
 
-/* ===== HIDDEN WORD (ULTRA-LOW VISIBILITY) ===== */
+/* ===== HIDDEN WORD (EXTREME LOW VISIBILITY) ===== */
 #inspect {
   position: fixed;
   inset: 0;
@@ -41,26 +41,21 @@ html, body {
 
   font-size: 16vw;
   font-weight: 900;
-  letter-spacing: .32em;
+  letter-spacing: .34em;
 
-  /* push it closer to the background than before */
-  color: rgb(253,253,253);
+  color: rgb(254,254,254);
+  opacity: 0.004;
 
-  /* extremely faint at full brightness */
-  opacity: 0.008;
-
-  /* still “there” for low-light viewing */
   mix-blend-mode: difference;
 
-  /* keep micro-structure but far subtler */
   text-shadow:
-    0 0 .4px rgba(0,0,0,.015),
-    0 0 .9px rgba(0,0,0,.008);
+    0 0 .3px rgba(0,0,0,.01),
+    0 0 .6px rgba(0,0,0,.006);
 
   filter:
-    blur(.45px)
-    contrast(101%)
-    brightness(99.2%);
+    blur(.55px)
+    contrast(100.5%)
+    brightness(99.6%);
 
   pointer-events: none;
   user-select: none;
@@ -126,6 +121,10 @@ html, body {
 <div id="buttons"></div>
 
 <script>
+/* ==========================================================
+   BUTTON DATA
+   ========================================================== */
+
 const labels = [
 "Peel","Echo","Drift","Fade","Unlock","Trace","Veil","Shift","Open","Thin",
 "Crack","Signal","Lift","Ghost","Mirror","Pulse","Layer","Quiet","Hidden","Seek",
@@ -134,7 +133,6 @@ const labels = [
 "Peel","Thin","Open","Blur","Fade","Layer","Shift","Seek","Quiet","Crack"
 ];
 
-/* 1 icon per button (50 total). Font Awesome will render these if available. */
 const icons = [
 "fa-eye","fa-mask","fa-layer-group","fa-lock","fa-key","fa-feather",
 "fa-ghost","fa-wand-magic","fa-droplet","fa-circle-notch",
@@ -145,7 +143,7 @@ const icons = [
 "fa-compass","fa-map","fa-location-dot","fa-hourglass-half","fa-stopwatch",
 "fa-microchip","fa-terminal","fa-bug","fa-network-wired","fa-database",
 "fa-wave-square","fa-sliders","fa-chart-line","fa-pen-nib","fa-scissors",
-"fa-infinity","fa-arrows-rotate","fa-rotate-right","fa-eye-slash","fa-door-open"
+"fa-infinity","fa-arrows-rotate","fa-eye-slash","fa-door-open","fa-circle"
 ];
 
 const container = document.getElementById("buttons");
@@ -153,20 +151,40 @@ const container = document.getElementById("buttons");
 labels.forEach((label, i) => {
   const b = document.createElement("div");
   b.className = "button";
-  b.innerHTML = `<i class="fa-solid ${icons[i] || icons[i % icons.length]}"></i>${label}`;
+  b.innerHTML = `<i class="fa-solid ${icons[i]}"></i>${label}`;
   b.onclick = () => { if (label === "Peel") peel(); };
   container.appendChild(b);
 });
 
-let opened = false;
+/* ==========================================================
+   DEVTOOLS DETECTION + COMMENT REVEAL
+   ========================================================== */
 
-/* Detect DevTools: 30 seconds after they inspect (DevTools opened), show 50 buttons */
+let devtoolsOpened = false;
+
 setInterval(() => {
-  if (window.outerWidth - window.innerWidth > 160 || window.outerHeight - window.innerHeight > 160) {
-    if (!opened) {
-      opened = true;
-      setTimeout(showButtons, 30000);
-    }
+  const open =
+    window.outerWidth - window.innerWidth > 160 ||
+    window.outerHeight - window.innerHeight > 160;
+
+  if (open && !devtoolsOpened) {
+    devtoolsOpened = true;
+
+    /* reveal comment in DevTools */
+    const message = "not everything is meant to be seen";
+
+    console.log(
+      "%c" + message,
+      "color:#888;font-style:italic;font-size:14px;"
+    );
+
+    const note = document.createElement("div");
+    note.setAttribute("data-inspection-note", message);
+    note.style.display = "none";
+    document.body.appendChild(note);
+
+    /* after 30 seconds, show buttons */
+    setTimeout(showButtons, 30000);
   }
 }, 500);
 
@@ -174,6 +192,10 @@ function showButtons() {
   container.style.opacity = "1";
   container.style.pointerEvents = "auto";
 }
+
+/* ==========================================================
+   PEEL ACTION
+   ========================================================== */
 
 function peel() {
   document.getElementById("pastel").style.opacity = "0";

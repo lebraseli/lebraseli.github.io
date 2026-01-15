@@ -5,13 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>404</title>
   <meta name="robots" content="noindex,nofollow" />
-
-  <!--
-    Official-style 404. Puzzle has multiple non-DevTools paths.
-    Path B: diagnostics acrostic.
-    Path C: integrity modal + copy/paste token extraction (zero-width payload).
-  -->
-
   <style>
     :root{
       --bg:#ffffff;
@@ -76,28 +69,6 @@
     a:hover{ text-decoration: underline; }
     .spacer{ height: 18px; }
 
-    .diag{
-      margin: 22px auto 0;
-      max-width: 620px;
-      text-align:left;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 14px;
-      background: var(--panel);
-      font-family: var(--mono);
-      font-size: 12px;
-      color: #3d444d;
-    }
-    .diag .row{
-      display:flex;
-      gap:10px;
-      padding: 4px 0;
-      border-bottom: 1px dashed rgba(208,215,222,.9);
-    }
-    .diag .row:last-child{ border-bottom:none; }
-    .diag .k{ width: 165px; color: #57606a; }
-    .diag .v{ flex:1; }
-
     .footer{
       margin-top: 28px;
       color: var(--muted2);
@@ -110,17 +81,19 @@
     .footer a:hover{ text-decoration: underline; }
     .sep{ margin: 0 10px; color: var(--border); }
 
+    /* Octocat mark */
     .mark{
       margin: 18px auto 0;
       width: 34px;
       height: 34px;
       opacity: 0.35;
       display:block;
-      cursor: default;
+      cursor: pointer; /* subtle affordance */
       user-select:none;
     }
+    .mark:hover{ opacity: 0.55; }
 
-    /* Modal (hidden by default). Neutral, system-ish, not “gamey”. */
+    /* Modal */
     .modal-overlay{
       position:fixed;
       inset:0;
@@ -174,82 +147,24 @@
       font-size: 13px;
       line-height: 1.55;
     }
-    .modal-b .note{
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 12px;
-      margin: 10px 0 12px;
-      color: #3d444d;
-      font-family: var(--mono);
-      font-size: 12px;
-    }
-    .modal-b label{
-      display:block;
-      font-weight: 700;
-      color: var(--text);
-      margin-bottom: 6px;
-      font-size: 12px;
-    }
-    .modal-b textarea{
-      width:100%;
-      min-height: 92px;
-      resize: vertical;
-      padding: 10px 10px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      font-family: var(--mono);
-      font-size: 12px;
-      color: #3d444d;
-      outline:none;
-    }
-    .modal-b textarea:focus{
-      border-color: rgba(9,105,218,.55);
-      box-shadow: 0 0 0 3px rgba(9,105,218,.12);
-    }
-    .modal-actions{
-      display:flex;
-      gap:10px;
-      margin-top: 10px;
-      align-items:center;
-      justify-content:flex-end;
-    }
-    .btn{
-      border: 1px solid var(--border);
-      background: #ffffff;
-      color: var(--text);
-      padding: 8px 12px;
-      border-radius: 10px;
-      cursor:pointer;
-      font-weight: 700;
-      font-size: 12px;
-    }
-    .btn.primary{
-      border-color: rgba(9,105,218,.35);
-      background: rgba(9,105,218,.10);
-      color: #0b2d6b;
-    }
-    .btn:hover{ background: rgba(208,215,222,.25); }
-    .btn.primary:hover{ background: rgba(9,105,218,.16); }
 
-    .result{
+    /* Poem block: fixed-width to make "first column" obvious */
+    .poem{
       margin-top: 10px;
-      font-family: var(--mono);
-      font-size: 12px;
-      color: #3d444d;
-      padding: 10px 12px;
-      border-radius: 10px;
       border: 1px solid var(--border);
       background: var(--panel);
-      display:none;
-      white-space: pre-wrap;
-      word-break: break-word;
+      border-radius: 10px;
+      padding: 12px 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: #3d444d;
+      white-space: pre;
+      overflow-x: auto;
     }
-
-    /* Keep selection normal. No “highlight me” behavior. */
-    ::selection{
-      background: rgba(9,105,218,0.20);
-      color: #0b1f3a;
+    .note{
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--muted2);
     }
   </style>
 </head>
@@ -263,15 +178,14 @@
 
       <div class="spacer"></div>
 
-      <p id="msg1">The site configured at this address does not contain the requested file.</p>
+      <p>The site configured at this address does not contain the requested file.</p>
 
-      <p id="msg2">
+      <p>
         If this is your site, make sure that the filename case matches the URL as well as any
         file permissions.
       </p>
 
-      <!-- This paragraph will carry the zero-width payload (invisible) -->
-      <p id="msg3">
+      <p>
         For root URLs (like <code>http://example.com/</code>) you must provide an <code>index.html</code> file.
       </p>
 
@@ -284,28 +198,13 @@
         for more information about using <strong>GitHub Pages</strong>.
       </p>
 
-      <!-- PATH B remains: acrostic in diagnostic values -->
-      <div class="diag" aria-label="diagnostics">
-        <div class="row"><div class="k">Status</div><div class="v">404 Not Found</div></div>
-        <div class="row"><div class="k">Method</div><div class="v">GET</div></div>
-        <div class="row"><div class="k">Edge</div><div class="v">SEA-01</div></div>
-        <div class="row"><div class="k">Cache</div><div class="v">MISS</div></div>
-
-        <!-- first letters spell MAZDA -->
-        <div class="row"><div class="k">Integrity</div><div class="v">Mismatched ETag on origin</div></div>
-        <div class="row"><div class="k">Routing</div><div class="v">Apex host unresolved</div></div>
-        <div class="row"><div class="k">Resolver</div><div class="v">Zone delegated elsewhere</div></div>
-        <div class="row"><div class="k">TLS</div><div class="v">DNSError on cert lookup</div></div>
-        <div class="row"><div class="k">Next</div><div class="v">Alternate path required</div></div>
-      </div>
-
       <div class="footer" aria-label="footer">
         <a href="https://www.githubstatus.com/" target="_blank" rel="noopener noreferrer">GitHub Status</a>
         <span class="sep">—</span>
         <a href="https://twitter.com/githubstatus" target="_blank" rel="noopener noreferrer">@githubstatus</a>
 
-        <!-- Octocat mark: clicking 7 times opens the hidden Integrity Check modal -->
-        <svg id="octo" class="mark" viewBox="0 0 16 16" aria-hidden="true" title="">
+        <!-- Double-click this icon -->
+        <svg id="octo" class="mark" viewBox="0 0 16 16" aria-hidden="true" title=" ">
           <path fill="#57606a" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
             0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01
             1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95
@@ -318,150 +217,46 @@
     </div>
   </div>
 
-  <!-- Hidden modal (Path C) -->
-  <div id="overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Integrity Check">
+  <!-- Modal -->
+  <div id="overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Riddle">
     <div class="modal">
       <div class="modal-h">
-        <div class="title">Integrity Check</div>
+        <div class="title">Riddle</div>
         <button type="button" id="close" aria-label="Close">&times;</button>
       </div>
-
       <div class="modal-b">
-        This tool validates incident tokens embedded in the error response.
+        Below is a short riddle. Read it carefully.
+
+        <div class="poem" aria-label="poem">
+M  any roads end quietly at dusk,
+A  nd maps pretend they never knew.
+Z  eros on screens can feel like walls,
+D  oors appear when you change your view.
+A  sk the lot where metal waits—go there.
+        </div>
 
         <div class="note">
-          Instructions:
-          1) Copy the full “root URLs” sentence from the page.
-          2) Paste it below.
-          3) Run validation.
+          Tip: the left edge matters.
         </div>
-
-        <label for="tokenBox">Incident statement</label>
-        <textarea id="tokenBox" placeholder="Paste the copied sentence here…"></textarea>
-
-        <div class="modal-actions">
-          <button class="btn" type="button" id="clear">Clear</button>
-          <button class="btn primary" type="button" id="validate">Validate</button>
-        </div>
-
-        <div id="result" class="result"></div>
       </div>
     </div>
   </div>
 
   <script>
-    /* ===========================
-       PATH C (No DevTools):
-       - The “root URLs” paragraph contains invisible zero-width payload encoding "MAZDA".
-       - Players discover a hidden Integrity Check modal by clicking the Octocat 7 times.
-       - They copy/paste the sentence into the modal, which extracts and decodes the payload.
-       =========================== */
-
-    // Zero-width mapping:
-    // ZWSP (\u200B) = 0, ZWNJ (\u200C) = 1
-    // Encode uppercase letters A=0..Z=25 as 5 bits each.
-    function encodeZW(text){
-      const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-      const bits = [];
-      for (const ch of text){
-        const n = A.indexOf(ch);
-        if (n < 0) continue;
-        bits.push(n.toString(2).padStart(5,"0"));
-      }
-      const flat = bits.join("");
-      return flat.split("").map(b => b === "0" ? "\u200B" : "\u200C").join("");
-    }
-
-    function decodeZW(str){
-      const bits = [];
-      for (const ch of str){
-        if (ch === "\u200B") bits.push("0");
-        else if (ch === "\u200C") bits.push("1");
-      }
-      const bitstr = bits.join("");
-      const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-      let out = "";
-      for (let i=0; i+5 <= bitstr.length; i += 5){
-        const n = parseInt(bitstr.slice(i, i+5), 2);
-        if (Number.isFinite(n) && n >= 0 && n < 26) out += A[n];
-      }
-      return out;
-    }
-
-    // Embed the hidden payload into the "root URLs" paragraph without any visible change.
-    (function embedPayload(){
-      const msg3 = document.getElementById("msg3");
-      const payload = encodeZW("MAZDA");
-      // Insert into a stable location inside the sentence
-      msg3.innerHTML = msg3.innerHTML.replace("root URLs", "root URLs" + payload);
-    })();
-
-    // Hidden modal trigger: 7 clicks on Octocat.
     const octo = document.getElementById("octo");
     const overlay = document.getElementById("overlay");
     const closeBtn = document.getElementById("close");
-    const clearBtn = document.getElementById("clear");
-    const validateBtn = document.getElementById("validate");
-    const tokenBox = document.getElementById("tokenBox");
-    const result = document.getElementById("result");
 
-    let clickCount = 0;
-    let clickTimer = null;
+    function openModal(){ overlay.style.display = "flex"; }
+    function closeModal(){ overlay.style.display = "none"; }
 
-    function openModal(){
-      overlay.style.display = "flex";
-      result.style.display = "none";
-      result.textContent = "";
-      // Focus for accessibility
-      setTimeout(() => tokenBox.focus(), 0);
-    }
-    function closeModal(){
-      overlay.style.display = "none";
-    }
-
-    octo.addEventListener("click", () => {
-      clickCount++;
-      // Reset clicks if too slow (keeps it “hidden”)
-      clearTimeout(clickTimer);
-      clickTimer = setTimeout(() => { clickCount = 0; }, 1200);
-
-      if (clickCount >= 7){
-        clickCount = 0;
-        openModal();
-      }
-    });
+    // Requirement: click twice on the cat icon (double-click)
+    octo.addEventListener("dblclick", openModal);
 
     closeBtn.addEventListener("click", closeModal);
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) closeModal();
-    });
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && overlay.style.display === "flex") closeModal();
-    });
-
-    clearBtn.addEventListener("click", () => {
-      tokenBox.value = "";
-      result.style.display = "none";
-      result.textContent = "";
-      tokenBox.focus();
-    });
-
-    validateBtn.addEventListener("click", () => {
-      const pasted = tokenBox.value || "";
-      const decoded = decodeZW(pasted);
-
-      // Require exact match so random pastes don't accidentally succeed
-      if (decoded === "MAZDA"){
-        result.style.display = "block";
-        result.textContent =
-          "Token: OK\n" +
-          "Directive: GO TO THE MAZDA";
-      } else {
-        result.style.display = "block";
-        result.textContent =
-          "Token: INVALID\n" +
-          "Action: Paste the full “root URLs” sentence exactly as copied from the page.";
-      }
     });
   </script>
 </body>

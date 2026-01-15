@@ -5,6 +5,8 @@
 <title>Between The Colors</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<!-- not everything is meant to be seen -->
+
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 
 <style>
@@ -30,7 +32,7 @@ html, body {
 }
 #final span { color: #111; }
 
-/* ===== HIDDEN WORD (EXTREME LOW-VIS MODE) ===== */
+/* ===== HIDDEN WORD (ULTRA-LOW VISIBILITY) ===== */
 #inspect {
   position: fixed;
   inset: 0;
@@ -41,24 +43,24 @@ html, body {
   font-weight: 900;
   letter-spacing: .32em;
 
-  /* nearly identical to background */
-  color: rgb(252,252,252);
+  /* push it closer to the background than before */
+  color: rgb(253,253,253);
 
-  /* below conscious perception at full brightness */
-  opacity: 0.018;
+  /* extremely faint at full brightness */
+  opacity: 0.008;
 
-  /* recovers contrast as brightness drops */
+  /* still “there” for low-light viewing */
   mix-blend-mode: difference;
 
-  /* micro-contrast only visible in low luminance */
+  /* keep micro-structure but far subtler */
   text-shadow:
-    0 0 .6px rgba(0,0,0,.035),
-    0 0 1.2px rgba(0,0,0,.02);
+    0 0 .4px rgba(0,0,0,.015),
+    0 0 .9px rgba(0,0,0,.008);
 
   filter:
-    blur(.35px)
-    contrast(102%)
-    brightness(98%);
+    blur(.45px)
+    contrast(101%)
+    brightness(99.2%);
 
   pointer-events: none;
   user-select: none;
@@ -132,11 +134,18 @@ const labels = [
 "Peel","Thin","Open","Blur","Fade","Layer","Shift","Seek","Quiet","Crack"
 ];
 
+/* 1 icon per button (50 total). Font Awesome will render these if available. */
 const icons = [
 "fa-eye","fa-mask","fa-layer-group","fa-lock","fa-key","fa-feather",
 "fa-ghost","fa-wand-magic","fa-droplet","fa-circle-notch",
 "fa-fingerprint","fa-brush","fa-wind","fa-moon","fa-star",
-"fa-book","fa-code","fa-ribbon","fa-palette","fa-puzzle-piece"
+"fa-book","fa-code","fa-ribbon","fa-palette","fa-puzzle-piece",
+"fa-bolt","fa-magnifying-glass","fa-circle-half-stroke","fa-shield-halved","fa-flask",
+"fa-fire","fa-snowflake","fa-cloud","fa-water","fa-mountain",
+"fa-compass","fa-map","fa-location-dot","fa-hourglass-half","fa-stopwatch",
+"fa-microchip","fa-terminal","fa-bug","fa-network-wired","fa-database",
+"fa-wave-square","fa-sliders","fa-chart-line","fa-pen-nib","fa-scissors",
+"fa-infinity","fa-arrows-rotate","fa-rotate-right","fa-eye-slash","fa-door-open"
 ];
 
 const container = document.getElementById("buttons");
@@ -144,19 +153,16 @@ const container = document.getElementById("buttons");
 labels.forEach((label, i) => {
   const b = document.createElement("div");
   b.className = "button";
-  b.innerHTML = `<i class="fa-solid ${icons[i % icons.length]}"></i>${label}`;
+  b.innerHTML = `<i class="fa-solid ${icons[i] || icons[i % icons.length]}"></i>${label}`;
   b.onclick = () => { if (label === "Peel") peel(); };
   container.appendChild(b);
 });
 
 let opened = false;
 
-/* Detect DevTools */
+/* Detect DevTools: 30 seconds after they inspect (DevTools opened), show 50 buttons */
 setInterval(() => {
-  if (
-    window.outerWidth - window.innerWidth > 160 ||
-    window.outerHeight - window.innerHeight > 160
-  ) {
+  if (window.outerWidth - window.innerWidth > 160 || window.outerHeight - window.innerHeight > 160) {
     if (!opened) {
       opened = true;
       setTimeout(showButtons, 30000);

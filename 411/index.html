@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Between The Colors</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- not everything is meant to be seen -->
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+<style>
+body {
+  margin: 0;
+  height: 100vh;
+  background: #fdfdfd;
+  font-family: system-ui, sans-serif;
+  overflow: hidden;
+}
+
+/* ===== Pastel overlay ===== */
+#pastel {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 30%, #f7b7d2, transparent 60%),
+    radial-gradient(circle at 80% 20%, #b7ccff, transparent 60%),
+    radial-gradient(circle at 50% 80%, #fff0b3, transparent 60%);
+  mix-blend-mode: multiply;
+  z-index: 5;
+  transition: opacity 1.2s ease;
+}
+
+/* ===== INSPECT hidden in color ===== */
+#inspect {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 14vw;
+  font-weight: 900;
+  letter-spacing: .2em;
+  color: #fff;
+  opacity: 0.06;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ===== Buttons ===== */
+#buttons {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  gap: 10px;
+  padding: 30px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1s ease;
+  z-index: 10;
+}
+
+.button {
+  background: rgba(255,255,255,.7);
+  border-radius: 14px;
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-size: .7rem;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(0,0,0,.12);
+  transition: transform .3s ease;
+}
+
+.button:hover {
+  transform: scale(1.1);
+}
+
+.button i {
+  font-size: 1.2rem;
+  margin-bottom: 6px;
+}
+
+/* ===== Final URL ===== */
+#final {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 2.5rem;
+  font-weight: 600;
+  letter-spacing: .05em;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+  z-index: 1;
+}
+
+/* YOU change this URL */
+#final span {
+  color: #111;
+}
+</style>
+</head>
+
+<body>
+
+<div id="final">
+  <span>https://YOUR_FINAL_URL_HERE</span>
+</div>
+
+<div id="inspect">INSPECT</div>
+<div id="pastel"></div>
+
+<div id="buttons"></div>
+
+<script>
+const labels = [
+"Peel","Echo","Drift","Fade","Unlock","Trace","Veil","Shift","Open","Thin",
+"Crack","Signal","Lift","Ghost","Mirror","Pulse","Layer","Quiet","Hidden","Seek",
+"Bleed","Blur","Reveal","Cipher","Tone","Mask","Fold","Slip","Soft","Ink",
+"Mark","Shell","Veer","Slip","Echo","Hush","Glow","Break","Slip","Veil",
+"Ghost","Lift","Peel","Thin","Open","Blur","Fade","Layer","Shift","Seek"
+];
+
+const icons = [
+"fa-eye","fa-mask","fa-layer-group","fa-lock","fa-key","fa-feather",
+"fa-ghost","fa-wand-magic","fa-droplet","fa-circle-notch",
+"fa-fingerprint","fa-brush","fa-wind","fa-moon","fa-star",
+"fa-book","fa-code","fa-ribbon","fa-palette","fa-puzzle-piece"
+];
+
+const container = document.getElementById("buttons");
+labels.forEach((label, i) => {
+  const btn = document.createElement("div");
+  btn.className = "button";
+  btn.innerHTML = `<i class="fa-solid ${icons[i % icons.length]}"></i>${label}`;
+  btn.onclick = () => {
+    if (label === "Peel") peel();
+  };
+  container.appendChild(btn);
+});
+
+let opened = false;
+
+/* Detect DevTools */
+setInterval(() => {
+  if (window.outerWidth - window.innerWidth > 160 || window.outerHeight - window.innerHeight > 160) {
+    if (!opened) {
+      opened = true;
+      setTimeout(showButtons, 30000); // 30 seconds
+    }
+  }
+}, 500);
+
+function showButtons() {
+  container.style.opacity = "1";
+  container.style.pointerEvents = "auto";
+}
+
+function peel() {
+  document.getElementById("pastel").style.opacity = "0";
+  document.getElementById("final").style.opacity = "1";
+}
+</script>
+
+</body>
+</html>

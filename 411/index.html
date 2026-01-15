@@ -43,25 +43,29 @@ html, body {
   font-weight: 900;
   letter-spacing: .34em;
 
-  color: rgb(254,254,254);
-  opacity: 0.004;
+  /* key change: not pure white */
+  color: rgb(246,246,246);
+
+  /* just enough signal to survive panel quantization */
+  opacity: 0.012;
 
   mix-blend-mode: difference;
 
+  /* micro-edge survives low-light */
   text-shadow:
-    0 0 .3px rgba(0,0,0,.01),
-    0 0 .6px rgba(0,0,0,.006);
+    0 0 .6px rgba(0,0,0,.025),
+    0 0 1.2px rgba(0,0,0,.015);
 
   filter:
-    blur(.55px)
-    contrast(100.5%)
-    brightness(99.6%);
+    blur(.45px)
+    contrast(101%)
+    brightness(99%);
 
   pointer-events: none;
   user-select: none;
   z-index: 2;
 }
-
+  
 /* ===== PASTEL WASH ===== */
 #pastel {
   position: fixed;

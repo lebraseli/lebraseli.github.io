@@ -10,6 +10,35 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 
 <style>
+:root{
+  /* Pastel controls */
+  --pastel-opacity: 1;
+  --pastel-brightness: 110%;
+  --pastel-saturate: 110%;
+  --pastel-huerotate: 0deg;
+  --pastel-blur: 0px;
+  --pastel-contrast: 100%;
+  --pastel-rotate: 0deg;
+  --pastel-scale: 1;
+  --pastel-x: 0px;
+  --pastel-y: 0px;
+
+  /* Inspect controls */
+  --inspect-opacity: 0.012;
+  --inspect-brightness: 99%;
+  --inspect-contrast: 101%;
+  --inspect-blur: .45px;
+  --inspect-letterspacing: .34em;
+
+  /* Buttons controls */
+  --buttons-blur: 0px;
+  --buttons-glow: 0px;
+  --buttons-outline: 0px;
+
+  /* Mask overlay */
+  --vignette-opacity: 0;
+}
+
 html, body {
   margin: 0;
   height: 100%;
@@ -32,7 +61,7 @@ html, body {
 }
 #final span { color: #111; }
 
-/* ===== HIDDEN WORD (EXTREME LOW VISIBILITY) ===== */
+/* ===== HIDDEN WORD ===== */
 #inspect {
   position: fixed;
   inset: 0;
@@ -41,31 +70,28 @@ html, body {
 
   font-size: 16vw;
   font-weight: 900;
-  letter-spacing: .34em;
+  letter-spacing: var(--inspect-letterspacing);
 
-  /* key change: not pure white */
+  /* tuned to survive panel quantization while staying "near invisible" at full brightness */
   color: rgb(246,246,246);
-
-  /* just enough signal to survive panel quantization */
-  opacity: 0.012;
+  opacity: var(--inspect-opacity);
 
   mix-blend-mode: difference;
 
-  /* micro-edge survives low-light */
   text-shadow:
     0 0 .6px rgba(0,0,0,.025),
     0 0 1.2px rgba(0,0,0,.015);
 
   filter:
-    blur(.45px)
-    contrast(101%)
-    brightness(99%);
+    blur(var(--inspect-blur))
+    contrast(var(--inspect-contrast))
+    brightness(var(--inspect-brightness));
 
   pointer-events: none;
   user-select: none;
   z-index: 2;
 }
-  
+
 /* ===== PASTEL WASH ===== */
 #pastel {
   position: fixed;
@@ -75,10 +101,92 @@ html, body {
     radial-gradient(circle at 80% 20%, #b7ccff 0%, transparent 60%),
     radial-gradient(circle at 50% 80%, #fff0b3 0%, transparent 60%),
     linear-gradient(120deg, rgba(255,200,210,.5), rgba(200,210,255,.5));
-  filter: brightness(110%) saturate(110%);
+  opacity: var(--pastel-opacity);
+  filter:
+    brightness(var(--pastel-brightness))
+    saturate(var(--pastel-saturate))
+    hue-rotate(var(--pastel-huerotate))
+    blur(var(--pastel-blur))
+    contrast(var(--pastel-contrast));
   mix-blend-mode: multiply;
   z-index: 5;
-  transition: opacity 1.2s ease;
+  transition: opacity 1.2s ease, filter .6s ease;
+  transform:
+    translate(var(--pastel-x), var(--pastel-y))
+    rotate(var(--pastel-rotate))
+    scale(var(--pastel-scale));
+  transform-origin: 20% 20%;
+  will-change: transform, clip-path, opacity, filter;
+}
+
+/* Optional “peel edge” illusion */
+#pastel::after{
+  content:"";
+  position:absolute;
+  inset:-10%;
+  pointer-events:none;
+  opacity:0;
+  background:
+    radial-gradient(closest-side, rgba(0,0,0,.10), transparent 65%);
+  mix-blend-mode:multiply;
+  filter: blur(10px);
+  transition: opacity .4s ease;
+}
+
+/* Peeling animation */
+#pastel.peeling {
+  animation: peelOff 1.25s cubic-bezier(.2,.9,.2,1) forwards;
+}
+#pastel.peeling::after{
+  opacity: .65;
+}
+
+@keyframes peelOff {
+  0% {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+    transform: translate(0px,0px) rotate(0deg) scale(1);
+    opacity: 1;
+    filter:
+      brightness(var(--pastel-brightness))
+      saturate(var(--pastel-saturate))
+      hue-rotate(var(--pastel-huerotate))
+      blur(var(--pastel-blur))
+      contrast(var(--pastel-contrast));
+  }
+  35% {
+    clip-path: polygon(0 0, 100% 0, 94% 72%, 62% 92%, 25% 88%, 0 74%);
+    transform: translate(-8px, -6px) rotate(-3deg) scale(1.02);
+    opacity: 1;
+  }
+  70% {
+    clip-path: polygon(0 0, 78% 0, 62% 40%, 48% 55%, 20% 62%, 0 48%);
+    transform: translate(-28px, -22px) rotate(-9deg) scale(1.04);
+    opacity: .55;
+    filter:
+      brightness(120%)
+      saturate(120%)
+      hue-rotate(var(--pastel-huerotate))
+      blur(0.6px)
+      contrast(105%);
+  }
+  100% {
+    clip-path: polygon(0 0, 30% 0, 18% 18%, 10% 25%, 0 22%);
+    transform: translate(-80px, -70px) rotate(-18deg) scale(1.06);
+    opacity: 0;
+  }
+}
+
+/* ===== VIGNETTE / MASK OVERLAY (for “Mask”) ===== */
+#vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 7;
+  opacity: var(--vignette-opacity);
+  transition: opacity .4s ease;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,0) 45%, rgba(0,0,0,.18) 85%, rgba(0,0,0,.30) 100%);
+  mix-blend-mode: multiply;
 }
 
 /* ===== BUTTON GRID ===== */
@@ -94,11 +202,13 @@ html, body {
   pointer-events: none;
   transition: opacity 1s ease;
   z-index: 10;
+
+  filter: blur(var(--buttons-blur));
 }
 
 .button {
   background: rgba(255,255,255,.75);
-  border-radius: 16px;
+  border-radius: 18px;
   backdrop-filter: blur(12px);
   display: flex;
   flex-direction: column;
@@ -106,11 +216,37 @@ html, body {
   justify-content: center;
   font-size: .7rem;
   cursor: pointer;
-  box-shadow: 0 12px 30px rgba(0,0,0,.15);
-  transition: transform .3s ease;
+  box-shadow:
+    0 12px 30px rgba(0,0,0,.15),
+    0 0 var(--buttons-glow) rgba(120,120,120,.30);
+  transition: transform .25s ease, box-shadow .25s ease, filter .25s ease;
+  outline: var(--buttons-outline) solid rgba(0,0,0,.12);
+  outline-offset: -2px;
 }
-.button:hover { transform: scale(1.12); }
+.button:hover { transform: scale(1.10); }
 .button i { font-size: 1.4rem; margin-bottom: 6px; }
+
+/* small action feedback */
+.button.ping {
+  animation: ping .45s ease;
+}
+@keyframes ping {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+/* quick glitch */
+#pastel.glitch {
+  animation: glitch .35s steps(2,end) 2;
+}
+@keyframes glitch {
+  0%   { transform: translate(var(--pastel-x), var(--pastel-y)) rotate(var(--pastel-rotate)) scale(var(--pastel-scale)); }
+  25%  { transform: translate(calc(var(--pastel-x) + 12px), calc(var(--pastel-y) - 6px)) rotate(calc(var(--pastel-rotate) + 2deg)) scale(1.01); }
+  50%  { transform: translate(calc(var(--pastel-x) - 18px), calc(var(--pastel-y) + 9px)) rotate(calc(var(--pastel-rotate) - 3deg)) scale(1.02); }
+  75%  { transform: translate(calc(var(--pastel-x) + 10px), calc(var(--pastel-y) + 4px)) rotate(calc(var(--pastel-rotate) + 1deg)) scale(1.00); }
+  100% { transform: translate(var(--pastel-x), var(--pastel-y)) rotate(var(--pastel-rotate)) scale(var(--pastel-scale)); }
+}
 </style>
 </head>
 
@@ -122,46 +258,534 @@ html, body {
 
 <div id="inspect">INSPECT</div>
 <div id="pastel"></div>
+<div id="vignette"></div>
 <div id="buttons"></div>
 
 <script>
 /* ==========================================================
-   BUTTON DATA
+   BUTTON DEFINITIONS (50) + “PEEL” placed late, randomish
    ========================================================== */
 
-const labels = [
-"Peel","Echo","Drift","Fade","Unlock","Trace","Veil","Shift","Open","Thin",
-"Crack","Signal","Lift","Ghost","Mirror","Pulse","Layer","Quiet","Hidden","Seek",
-"Bleed","Blur","Reveal","Cipher","Tone","Mask","Fold","Slip","Soft","Ink",
-"Mark","Shell","Veer","Hush","Glow","Break","Veil","Ghost","Lift","Fold",
-"Peel","Thin","Open","Blur","Fade","Layer","Shift","Seek","Quiet","Crack"
+const baseButtons = [
+  { label: "Echo",   icon: "fa-compact-disc" },
+  { label: "Drift",  icon: "fa-layer-group" },
+  { label: "Fade",   icon: "fa-lock" },
+  { label: "Unlock", icon: "fa-key" },
+  { label: "Trace",  icon: "fa-feather" },
+  { label: "Veil",   icon: "fa-ghost" },
+  { label: "Shift",  icon: "fa-pen-nib" },
+  { label: "Open",   icon: "fa-droplet" },
+  { label: "Thin",   icon: "fa-circle-notch" },
+
+  { label: "Crack",  icon: "fa-fingerprint" },
+  { label: "Signal", icon: "fa-brush" },
+  { label: "Lift",   icon: "fa-wind" },
+  { label: "Ghost",  icon: "fa-moon" },
+  { label: "Mirror", icon: "fa-star" },
+  { label: "Pulse",  icon: "fa-book" },
+  { label: "Layer",  icon: "fa-code" },
+  { label: "Quiet",  icon: "fa-ribbon" },
+  { label: "Hidden", icon: "fa-palette" },
+  { label: "Seek",   icon: "fa-puzzle-piece" },
+
+  { label: "Bleed",  icon: "fa-bolt" },
+  { label: "Blur",   icon: "fa-magnifying-glass" },
+  { label: "Reveal", icon: "fa-circle-half-stroke" },
+  { label: "Cipher", icon: "fa-shield-halved" },
+  { label: "Tone",   icon: "fa-flask" },
+  { label: "Mask",   icon: "fa-fire" },
+  { label: "Fold",   icon: "fa-snowflake" },
+  { label: "Slip",   icon: "fa-cloud" },
+  { label: "Soft",   icon: "fa-water" },
+  { label: "Ink",    icon: "fa-mountain" },
+
+  { label: "Mark",   icon: "fa-compass" },
+  { label: "Shell",  icon: "fa-map" },
+  { label: "Veer",   icon: "fa-location-dot" },
+  { label: "Hush",   icon: "fa-hourglass-half" },
+  { label: "Glow",   icon: "fa-stopwatch" },
+  { label: "Break",  icon: "fa-microchip" },
+
+  { label: "Terminal", icon: "fa-terminal" },
+  { label: "Bug",      icon: "fa-bug" },
+  { label: "Network",  icon: "fa-network-wired" },
+  { label: "Archive",  icon: "fa-database" },
+  { label: "Wave",     icon: "fa-wave-square" },
+
+  { label: "Sliders",  icon: "fa-sliders" },
+  { label: "Chart",    icon: "fa-chart-line" },
+  { label: "Scissors", icon: "fa-scissors" },
+  { label: "Infinity", icon: "fa-infinity" },
+  { label: "Rotate",   icon: "fa-arrows-rotate" },
+  { label: "Blind",    icon: "fa-eye-slash" },
+  { label: "Door",     icon: "fa-door-open" },
+  { label: "Dot",      icon: "fa-circle" },
 ];
 
-const icons = [
-"fa-eye","fa-mask","fa-layer-group","fa-lock","fa-key","fa-feather",
-"fa-ghost","fa-wand-magic","fa-droplet","fa-circle-notch",
-"fa-fingerprint","fa-brush","fa-wind","fa-moon","fa-star",
-"fa-book","fa-code","fa-ribbon","fa-palette","fa-puzzle-piece",
-"fa-bolt","fa-magnifying-glass","fa-circle-half-stroke","fa-shield-halved","fa-flask",
-"fa-fire","fa-snowflake","fa-cloud","fa-water","fa-mountain",
-"fa-compass","fa-map","fa-location-dot","fa-hourglass-half","fa-stopwatch",
-"fa-microchip","fa-terminal","fa-bug","fa-network-wired","fa-database",
-"fa-wave-square","fa-sliders","fa-chart-line","fa-pen-nib","fa-scissors",
-"fa-infinity","fa-arrows-rotate","fa-eye-slash","fa-door-open","fa-circle"
-];
+// Insert the one true Peel later in the deck.
+const peelButton = { label: "Peel", icon: "fa-eye" };
+
+/* Deterministic “randomish” shuffle so it feels organic but stable */
+function mulberry32(seed) {
+  return function() {
+    let t = seed += 0x6D2B79F5;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffleDeterministic(arr, seed=1337){
+  const rnd = mulberry32(seed);
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* Place Peel in a late “randomish” position (last ~15 slots) */
+function buildButtons(){
+  const shuffled = shuffleDeterministic(baseButtons, 24601);
+  const total = 50;
+
+  // Ensure we have exactly 49 non-peel, then insert peel => 50 total
+  const trimmed = shuffled.slice(0, total - 1);
+
+  // late random slot: between 35 and 47 inclusive (0-index)
+  const rnd = mulberry32(9001);
+  const peelIndex = 35 + Math.floor(rnd() * 13);
+
+  trimmed.splice(peelIndex, 0, peelButton);
+  return trimmed;
+}
+
+const buttonsData = buildButtons();
+
+/* ==========================================================
+   DOM + STATE
+   ========================================================== */
 
 const container = document.getElementById("buttons");
+const pastel = document.getElementById("pastel");
+const inspectEl = document.getElementById("inspect");
+const finalEl = document.getElementById("final");
 
-labels.forEach((label, i) => {
+let peelIndexInDom = -1;
+
+function setVar(name, value) {
+  document.documentElement.style.setProperty(name, value);
+}
+function getVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+/* Base snapshot for “Quiet” resets */
+const baseState = {
+  pastel: {
+    opacity: getVar("--pastel-opacity"),
+    brightness: getVar("--pastel-brightness"),
+    saturate: getVar("--pastel-saturate"),
+    huerotate: getVar("--pastel-huerotate"),
+    blur: getVar("--pastel-blur"),
+    contrast: getVar("--pastel-contrast"),
+    rotate: getVar("--pastel-rotate"),
+    scale: getVar("--pastel-scale"),
+    x: getVar("--pastel-x"),
+    y: getVar("--pastel-y"),
+  },
+  inspect: {
+    opacity: getVar("--inspect-opacity"),
+    brightness: getVar("--inspect-brightness"),
+    contrast: getVar("--inspect-contrast"),
+    blur: getVar("--inspect-blur"),
+    letterspacing: getVar("--inspect-letterspacing"),
+  },
+  buttons: {
+    blur: getVar("--buttons-blur"),
+    glow: getVar("--buttons-glow"),
+    outline: getVar("--buttons-outline"),
+  },
+  vignette: {
+    opacity: getVar("--vignette-opacity"),
+  }
+};
+
+function resetAll() {
+  setVar("--pastel-opacity", baseState.pastel.opacity);
+  setVar("--pastel-brightness", baseState.pastel.brightness);
+  setVar("--pastel-saturate", baseState.pastel.saturate);
+  setVar("--pastel-huerotate", baseState.pastel.huerotate);
+  setVar("--pastel-blur", baseState.pastel.blur);
+  setVar("--pastel-contrast", baseState.pastel.contrast);
+  setVar("--pastel-rotate", baseState.pastel.rotate);
+  setVar("--pastel-scale", baseState.pastel.scale);
+  setVar("--pastel-x", baseState.pastel.x);
+  setVar("--pastel-y", baseState.pastel.y);
+
+  setVar("--inspect-opacity", baseState.inspect.opacity);
+  setVar("--inspect-brightness", baseState.inspect.brightness);
+  setVar("--inspect-contrast", baseState.inspect.contrast);
+  setVar("--inspect-blur", baseState.inspect.blur);
+  setVar("--inspect-letterspacing", baseState.inspect.letterspacing);
+
+  setVar("--buttons-blur", baseState.buttons.blur);
+  setVar("--buttons-glow", baseState.buttons.glow);
+  setVar("--buttons-outline", baseState.buttons.outline);
+
+  setVar("--vignette-opacity", baseState.vignette.opacity);
+
+  pastel.classList.remove("glitch");
+  pastel.style.transform = ""; // keep vars driving transform
+}
+
+/* Small helper: apply effect, optionally revert later */
+function applyTemp(fn, ms=1400) {
+  fn();
+  if (ms > 0) setTimeout(resetAll, ms);
+}
+
+/* ==========================================================
+   BUTTON ACTIONS (ALL DO SOMETHING “NAME-CONSISTENT”)
+   ========================================================== */
+
+function actionFor(label) {
+  switch(label) {
+    case "Echo":
+      return () => applyTemp(() => {
+        pastel.classList.add("glitch");
+        setVar("--pastel-contrast", "112%");
+      }, 700);
+
+    case "Drift":
+      return () => applyTemp(() => {
+        setVar("--pastel-x", "14px");
+        setVar("--pastel-y", "-10px");
+        setVar("--pastel-rotate", "1.5deg");
+      }, 1200);
+
+    case "Fade":
+      return () => applyTemp(() => {
+        setVar("--pastel-opacity", "0.55");
+      }, 1100);
+
+    case "Unlock":
+      return () => applyTemp(() => {
+        setVar("--buttons-outline", "2px");
+        setVar("--buttons-glow", "18px");
+      }, 1400);
+
+    case "Trace":
+      return () => applyTemp(() => {
+        setVar("--buttons-outline", "3px");
+      }, 1600);
+
+    case "Veil":
+      return () => applyTemp(() => {
+        setVar("--pastel-opacity", "1");
+        setVar("--pastel-blur", "1.1px");
+        setVar("--pastel-brightness", "118%");
+      }, 1600);
+
+    case "Shift":
+      return () => applyTemp(() => {
+        setVar("--pastel-huerotate", "18deg");
+        setVar("--pastel-x", "-10px");
+      }, 1400);
+
+    case "Open":
+      return () => applyTemp(() => {
+        // a quick “glimpse”, not a full reveal
+        finalEl.style.opacity = "0.12";
+        setTimeout(() => finalEl.style.opacity = "0", 650);
+      }, 900);
+
+    case "Thin":
+      return () => applyTemp(() => {
+        setVar("--inspect-letterspacing", ".12em");
+        setVar("--inspect-opacity", "0.018");
+      }, 1600);
+
+    case "Crack":
+      return () => applyTemp(() => {
+        pastel.classList.add("glitch");
+        setVar("--pastel-contrast", "120%");
+      }, 900);
+
+    case "Signal":
+      return () => applyTemp(() => {
+        setVar("--pastel-brightness", "125%");
+      }, 650);
+
+    case "Lift":
+      return () => applyTemp(() => {
+        container.querySelectorAll(".button").forEach((b, idx) => {
+          if (idx % 3 === 0) b.style.transform = "translateY(-10px)";
+        });
+        setTimeout(() => {
+          container.querySelectorAll(".button").forEach(b => b.style.transform = "");
+        }, 800);
+      }, 900);
+
+    case "Ghost":
+      return () => applyTemp(() => {
+        setVar("--buttons-blur", "0.8px");
+        setVar("--pastel-opacity", "0.82");
+      }, 1400);
+
+    case "Mirror":
+      return () => applyTemp(() => {
+        setVar("--pastel-scale", "-1"); // flip
+      }, 1200);
+
+    case "Pulse":
+      return () => applyTemp(() => {
+        setVar("--pastel-saturate", "140%");
+        setVar("--pastel-brightness", "118%");
+      }, 900);
+
+    case "Layer":
+      return () => applyTemp(() => {
+        pastel.style.mixBlendMode = "screen";
+        setTimeout(() => pastel.style.mixBlendMode = "multiply", 900);
+      }, 1100);
+
+    case "Quiet":
+      return () => resetAll();
+
+    case "Hidden":
+      return () => applyTemp(() => {
+        setVar("--inspect-opacity", "0.000");
+      }, 900);
+
+    case "Seek":
+      return () => applyTemp(() => {
+        // subtle highlight for the real Peel button
+        const peelBtn = container.children[peelIndexInDom];
+        if (peelBtn) {
+          peelBtn.style.boxShadow = "0 12px 30px rgba(0,0,0,.15), 0 0 22px rgba(120,120,120,.45)";
+          peelBtn.style.transform = "scale(1.05)";
+          setTimeout(() => {
+            peelBtn.style.boxShadow = "";
+            peelBtn.style.transform = "";
+          }, 1100);
+        }
+      }, 1200);
+
+    case "Bleed":
+      return () => applyTemp(() => {
+        setVar("--pastel-saturate", "160%");
+      }, 1200);
+
+    case "Blur":
+      return () => applyTemp(() => {
+        setVar("--pastel-blur", "1.2px");
+        setVar("--inspect-blur", ".8px");
+      }, 1200);
+
+    case "Reveal":
+      return () => applyTemp(() => {
+        setVar("--inspect-opacity", "0.03");
+        setVar("--inspect-contrast", "112%");
+      }, 1400);
+
+    case "Cipher":
+      return () => applyTemp(() => {
+        // swap letters briefly (simple cipher vibe)
+        const original = inspectEl.textContent;
+        inspectEl.textContent = "1N5P3C7";
+        setTimeout(() => inspectEl.textContent = original, 900);
+      }, 1000);
+
+    case "Tone":
+      return () => applyTemp(() => {
+        setVar("--pastel-brightness", "102%");
+        setVar("--pastel-contrast", "110%");
+      }, 1300);
+
+    case "Mask":
+      return () => applyTemp(() => {
+        setVar("--vignette-opacity", "1");
+      }, 1400);
+
+    case "Fold":
+      return () => applyTemp(() => {
+        setVar("--pastel-rotate", "-2.5deg");
+        setVar("--pastel-contrast", "108%");
+      }, 1200);
+
+    case "Slip":
+      return () => applyTemp(() => {
+        setVar("--pastel-x", "-24px");
+        setVar("--pastel-y", "14px");
+      }, 800);
+
+    case "Soft":
+      return () => applyTemp(() => {
+        setVar("--buttons-blur", "1.2px");
+        setVar("--pastel-blur", "0.8px");
+      }, 1400);
+
+    case "Ink":
+      return () => applyTemp(() => {
+        setVar("--pastel-brightness", "96%");
+        setVar("--pastel-contrast", "112%");
+      }, 1400);
+
+    case "Mark":
+      return () => applyTemp(() => {
+        setVar("--buttons-outline", "1.5px");
+      }, 1100);
+
+    case "Shell":
+      return () => applyTemp(() => {
+        setVar("--buttons-outline", "4px");
+      }, 900);
+
+    case "Veer":
+      return () => applyTemp(() => {
+        setVar("--pastel-rotate", "3.5deg");
+        setVar("--pastel-x", "10px");
+      }, 1100);
+
+    case "Hush":
+      return () => applyTemp(() => {
+        setVar("--pastel-saturate", "85%");
+      }, 1200);
+
+    case "Glow":
+      return () => applyTemp(() => {
+        setVar("--buttons-glow", "26px");
+      }, 1400);
+
+    case "Break":
+      return () => applyTemp(() => {
+        pastel.classList.add("glitch");
+        setVar("--pastel-huerotate", "35deg");
+        setVar("--pastel-contrast", "125%");
+      }, 850);
+
+    /* extras */
+    case "Terminal":
+      return () => applyTemp(() => {
+        console.log("%c> trace: alive", "font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color:#666;");
+      }, 500);
+
+    case "Bug":
+      return () => applyTemp(() => {
+        pastel.classList.add("glitch");
+      }, 700);
+
+    case "Network":
+      return () => applyTemp(() => {
+        setVar("--pastel-x", "18px");
+        setVar("--pastel-y", "18px");
+      }, 850);
+
+    case "Archive":
+      return () => applyTemp(() => {
+        setVar("--pastel-opacity", "0.92");
+        setVar("--buttons-blur", "0.4px");
+      }, 1200);
+
+    case "Wave":
+      return () => applyTemp(() => {
+        setVar("--pastel-huerotate", "10deg");
+        setVar("--pastel-rotate", "1deg");
+      }, 1000);
+
+    case "Sliders":
+      return () => applyTemp(() => {
+        setVar("--pastel-contrast", "115%");
+      }, 900);
+
+    case "Chart":
+      return () => applyTemp(() => {
+        setVar("--pastel-brightness", "120%");
+        setVar("--pastel-saturate", "130%");
+      }, 900);
+
+    case "Scissors":
+      return () => applyTemp(() => {
+        setVar("--pastel-opacity", "0.78");
+        setVar("--pastel-rotate", "-1.5deg");
+      }, 900);
+
+    case "Infinity":
+      return () => applyTemp(() => {
+        setVar("--pastel-huerotate", "360deg");
+      }, 700);
+
+    case "Rotate":
+      return () => applyTemp(() => {
+        setVar("--pastel-rotate", "6deg");
+      }, 900);
+
+    case "Blind":
+      return () => applyTemp(() => {
+        setVar("--inspect-opacity", "0.000");
+        setVar("--pastel-opacity", "1");
+      }, 900);
+
+    case "Door":
+      return () => applyTemp(() => {
+        finalEl.style.opacity = "0.06";
+        setTimeout(() => finalEl.style.opacity = "0", 650);
+      }, 900);
+
+    case "Dot":
+      return () => applyTemp(() => {
+        setVar("--buttons-outline", "2px");
+      }, 800);
+
+    default:
+      return () => applyTemp(() => {}, 300);
+  }
+}
+
+/* PEEL: hide buttons, animate peel, then reveal final */
+function peel() {
+  // buttons go away immediately so the text can own the moment
+  container.style.opacity = "0";
+  container.style.pointerEvents = "none";
+
+  // peel animation
+  pastel.classList.add("peeling");
+
+  // when peel completes, reveal final URL
+  setTimeout(() => {
+    finalEl.style.opacity = "1";
+  }, 950);
+}
+
+/* ==========================================================
+   RENDER BUTTONS
+   ========================================================== */
+
+buttonsData.forEach((item, i) => {
   const b = document.createElement("div");
   b.className = "button";
-  b.innerHTML = `<i class="fa-solid ${icons[i]}"></i>${label}`;
-  b.onclick = () => { if (label === "Peel") peel(); };
+  b.innerHTML = `<i class="fa-solid ${item.icon}"></i>${item.label}`;
+
+  if (item.label === "Peel") peelIndexInDom = i;
+
+  b.onclick = () => {
+    b.classList.add("ping");
+    setTimeout(() => b.classList.remove("ping"), 450);
+
+    if (item.label === "Peel") {
+      peel();
+      return;
+    }
+    actionFor(item.label)();
+  };
+
   container.appendChild(b);
 });
 
 /* ==========================================================
-   DEVTOOLS DETECTION + COMMENT REVEAL
+   DEVTOOLS DETECTION + COMMENT REVEAL + DELAYED BUTTONS
    ========================================================== */
 
 let devtoolsOpened = false;
@@ -174,37 +798,24 @@ setInterval(() => {
   if (open && !devtoolsOpened) {
     devtoolsOpened = true;
 
-    /* reveal comment in DevTools */
     const message = "not everything is meant to be seen";
 
-    console.log(
-      "%c" + message,
-      "color:#888;font-style:italic;font-size:14px;"
-    );
+    // Console reveal
+    console.log("%c" + message, "color:#888;font-style:italic;font-size:14px;");
 
+    // Elements reveal (hidden node)
     const note = document.createElement("div");
     note.setAttribute("data-inspection-note", message);
     note.style.display = "none";
     document.body.appendChild(note);
 
-    /* after 30 seconds, show buttons */
-    setTimeout(showButtons, 30000);
+    // After 30s, show buttons
+    setTimeout(() => {
+      container.style.opacity = "1";
+      container.style.pointerEvents = "auto";
+    }, 30000);
   }
 }, 500);
-
-function showButtons() {
-  container.style.opacity = "1";
-  container.style.pointerEvents = "auto";
-}
-
-/* ==========================================================
-   PEEL ACTION
-   ========================================================== */
-
-function peel() {
-  document.getElementById("pastel").style.opacity = "0";
-  document.getElementById("final").style.opacity = "1";
-}
 </script>
 
 </body>

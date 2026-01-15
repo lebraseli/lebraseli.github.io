@@ -188,6 +188,7 @@ html, body {
   place-items:center;
 }
 
+/* We keep fx-card styles in case you want them later, but we NO LONGER render it. */
 .fx-card {
   border-radius: 28px;
   background: rgba(255,255,255,.60);
@@ -206,12 +207,6 @@ html, body {
   letter-spacing: .10em;
   font-size: clamp(28px, 7vw, 92px);
   text-transform: uppercase;
-}
-
-/* universal: soft drift */
-@keyframes driftFloat {
-  0%,100%{ transform: translateY(0) }
-  50%{ transform: translateY(-10px) }
 }
 
 /* ===== UNIQUE FX KEYFRAMES ===== */
@@ -325,7 +320,6 @@ html, body {
   85%{ opacity:.95; }
   100%{ opacity:0; }
 }
-  
 @keyframes compassSpin {
   0%{ transform: translate(-50%,-50%) rotate(0deg); opacity:0; }
   10%{ opacity:.9; }
@@ -345,21 +339,16 @@ html, body {
   100%{ opacity:0; transform: translate(-50%,-50%) scale(1.05); }
 }
 
-  @keyframes bugPro {
+@keyframes bugPro {
   0%   { transform: translate(-20vw, 78vh) rotate(-8deg) scale(.92); opacity: 0; }
   10%  { opacity: 1; }
-
   26%  { transform: translate(18vw, 60vh) rotate(6deg)  scale(1.00); }
   44%  { transform: translate(48vw, 52vh) rotate(-3deg) scale(1.02); }
-
-  55%  { transform: translate(52vw, 50vh) rotate(2deg)  scale(1.02); } /* brief pause */
-
+  55%  { transform: translate(52vw, 50vh) rotate(2deg)  scale(1.02); }
   64%  { transform: translate(62vw, 46vh) rotate(-2deg) scale(1.03); }
   80%  { transform: translate(88vw, 40vh) rotate(5deg)  scale(1.02); }
-
   100% { transform: translate(120vw, 32vh) rotate(2deg) scale(.98); opacity: 1; }
 }
-
 </style>
 </head>
 
@@ -550,25 +539,10 @@ function dur(label){
   return map[label] ?? 4800;
 }
 
-function fxCard(label, icon){
-  const center = document.createElement("div");
-  center.className = "fx-center";
-  const card = document.createElement("div");
-  card.className = "fx-card";
-  // fallback if a specific icon doesn't exist in free set
-  const ico = document.createElement("div");
-  ico.className = "ico";
-  ico.innerHTML = `<i class="fa-solid ${icon}"></i>`;
-  const txt = document.createElement("div");
-  txt.className = "txt";
-  txt.textContent = label;
-  card.appendChild(ico);
-  card.appendChild(txt);
-  card.style.animation = "none";
-  center.appendChild(card);
-  fx.appendChild(center);
-}
-
+/* ==========================================================
+   IMPORTANT CHANGE:
+   No more center label card at all — ONLY the effect.
+   ========================================================== */
 function startFX(label, icon, build){
   if (fxRunning) return;
   fxRunning = true;
@@ -576,7 +550,7 @@ function startFX(label, icon, build){
   clearFX();
   fx.classList.add("active");
 
-  fxCard(label, icon);
+  // NO fxCard() — removed per request.
   build?.();
 
   const ms = dur(label);
@@ -624,7 +598,6 @@ function effectDrift(){
     layer.style.animation = `fogRoll ${dur("Drift")}ms ease forwards`;
     fx.appendChild(layer);
 
-    // also visibly drift pastel for the duration
     setVar("--pastel-x","20px");
     setVar("--pastel-y","-14px");
     setVar("--pastel-rotate","2.8deg");
@@ -640,8 +613,6 @@ function effectFade(){
     wash.style.animation = `fadeWash ${dur("Fade")}ms ease forwards`;
     wash.style.mixBlendMode="screen";
     fx.appendChild(wash);
-
-    // make the UI behind fade strongly
     setVar("--pastel-opacity","0.35");
   });
 }
@@ -665,7 +636,6 @@ function effectUnlock(){
       { transform:"translate(-50%,-50%) rotate(0deg) scale(.9)", opacity: 0.0 }
     ], { duration: dur("Unlock"), easing:"cubic-bezier(.2,.9,.2,1)" });
 
-    // quick “unlock glow” on pastel
     setVar("--pastel-brightness","125%");
     setVar("--pastel-contrast","120%");
   });
@@ -703,7 +673,6 @@ function effectVeil(){
     curtain.style.mixBlendMode="multiply";
     curtain.style.animation = `curtainSlide ${dur("Veil")}ms ease forwards`;
     fx.appendChild(curtain);
-
     setVar("--vignette-opacity","1");
   });
 }
@@ -722,7 +691,6 @@ function effectShift(){
     overlay.style.filter="blur(2px)";
     fx.appendChild(overlay);
 
-    // strong hue rotate sweep on pastel for the duration
     setVar("--pastel-huerotate","65deg");
     setVar("--pastel-contrast","125%");
     setVar("--pastel-brightness","120%");
@@ -765,7 +733,6 @@ function effectOpen(){
 
 function effectThin(){
   startFX("Thin","fa-minimize",() => {
-    // squeeze INSPECT in a very obvious way, then restore
     inspectEl.animate(
       [
         { letterSpacing: getComputedStyle(inspectEl).letterSpacing, transform:"scaleX(1)" },
@@ -822,7 +789,6 @@ function effectSignal(){
 
 function effectLift(){
   startFX("Lift","fa-arrow-up",() => {
-    // wave-lift the actual buttons (big, obvious)
     const btns = Array.from(container.querySelectorAll(".button"));
     let alive = true;
     const start = performance.now();
@@ -883,7 +849,6 @@ function effectPulse(){
 
 function effectLayer(){
   startFX("Layer","fa-layer-group",() => {
-    // stack “sheets” sliding past
     for (let i=0;i<7;i++){
       const sheet = document.createElement("div");
       sheet.style.position="absolute";
@@ -924,7 +889,6 @@ function effectQuiet(){
 
 function effectHidden(){
   startFX("Hidden","fa-eye-slash",() => {
-    // hide buttons strongly (but only during FX)
     container.animate([{opacity:1},{opacity:.05},{opacity:.05},{opacity:1}],{duration:dur("Hidden"),easing:"ease"});
     setVar("--inspect-opacity","0.000");
   });
@@ -932,7 +896,6 @@ function effectHidden(){
 
 function effectSeek(){
   startFX("Seek","fa-magnifying-glass",() => {
-    // spotlight that hunts and ends on the Peel button
     const spot = document.createElement("div");
     spot.style.position="absolute";
     spot.style.left="50%";
@@ -946,7 +909,6 @@ function effectSeek(){
     spot.style.animation=`spotlightSeek ${dur("Seek")}ms ease forwards`;
     fx.appendChild(spot);
 
-    // also “hint” peel button at end
     const peelBtn = container.children[peelIndexInDom];
     if (peelBtn){
       const rect = peelBtn.getBoundingClientRect();
@@ -1017,7 +979,6 @@ function effectBlur(){
 
 function effectReveal(){
   startFX("Reveal","fa-eye",() => {
-    // briefly boost INSPECT visibility noticeably, then restore
     setVar("--inspect-opacity","0.045");
     setVar("--inspect-contrast","115%");
     setVar("--inspect-blur",".25px");
@@ -1046,7 +1007,6 @@ function effectCipher(){
     rain.style.animation=`matrixRain ${dur("Cipher")}ms ease forwards`;
     fx.appendChild(rain);
 
-    // scramble INSPECT for the duration
     const original = inspectEl.textContent;
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     const t = setInterval(() => {
@@ -1172,7 +1132,6 @@ function effectMark(){
 
 function effectShell(){
   startFX("Shell","fa-circle",() => {
-    // spiral illusion using stacked rings rotating at different speeds
     const wrap = document.createElement("div");
     wrap.style.position="absolute";
     wrap.style.left="50%"; wrap.style.top="50%";
@@ -1225,7 +1184,6 @@ function effectVeer(){
 
 function effectHush(){
   startFX("Hush","fa-hand",() => {
-    // “silence wave” — expanding soft rings + vignette
     setVar("--vignette-opacity","1");
     for (let i=0;i<4;i++){
       const ring = document.createElement("div");
@@ -1341,24 +1299,14 @@ function effectBug(){
       <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
     </radialGradient>
   </defs>
-
-  <!-- body -->
   <ellipse cx="110" cy="122" rx="72" ry="66" fill="rgba(0,0,0,.90)"/>
   <ellipse cx="110" cy="122" rx="62" ry="56" fill="url(#body)"/>
-
-  <!-- head -->
   <circle cx="110" cy="62" r="34" fill="rgba(0,0,0,.92)"/>
-
-  <!-- center line -->
   <rect x="106" y="56" width="8" height="132" rx="4" fill="rgba(255,255,255,.10)"/>
-
-  <!-- minimal spots -->
   <circle cx="86" cy="118" r="10" fill="rgba(255,255,255,.10)"/>
   <circle cx="142" cy="112" r="9" fill="rgba(255,255,255,.10)"/>
   <circle cx="84" cy="150" r="8" fill="rgba(255,255,255,.08)"/>
   <circle cx="150" cy="146" r="9" fill="rgba(255,255,255,.08)"/>
-
-  <!-- legs -->
   <g stroke="rgba(0,0,0,.92)" stroke-width="10" stroke-linecap="round" fill="none">
     <path d="M60 110 C30 94, 28 74, 56 66"/>
     <path d="M160 110 C190 94, 192 74, 164 66"/>
@@ -1398,7 +1346,6 @@ function effectNetwork(){
       </g>
     `;
     fx.appendChild(svg);
-
     svg.animate([{opacity:0},{opacity:.95,offset:.12},{opacity:.85,offset:.86},{opacity:0}],{duration:dur("Network"),easing:"ease"});
   });
 }
@@ -1506,7 +1453,6 @@ function effectSliders(){
       );
     }
 
-    // also visibly modulate pastel in sync
     setVar("--pastel-contrast","125%");
     setVar("--pastel-brightness","120%");
   });
@@ -1559,7 +1505,6 @@ function effectScissors(){
       {duration:dur("Scissors"),easing:"cubic-bezier(.2,.9,.2,1)"}
     );
 
-    // cut the pastel briefly (hard opacity dip)
     setVar("--pastel-opacity","0.55");
     setVar("--pastel-contrast","120%");
   });
@@ -1623,7 +1568,6 @@ function effectBlind(){
 
 function effectDoor(){
   startFX("Door","fa-door-open",() => {
-    // more literal “door” than Open: two panels
     const left = document.createElement("div");
     const right = document.createElement("div");
     [left,right].forEach(p => {
@@ -1636,8 +1580,6 @@ function effectDoor(){
       p.style.boxShadow="0 24px 90px rgba(0,0,0,.18)";
     });
     left.style.left="0"; right.style.right="0";
-    left.style.transformOrigin="left center";
-    right.style.transformOrigin="right center";
     fx.appendChild(left); fx.appendChild(right);
 
     left.animate([{transform:"translateX(0%)"},{transform:"translateX(-105%)"}],{duration:dur("Door"),easing:"cubic-bezier(.2,.9,.2,1)"});
@@ -1650,7 +1592,6 @@ function effectDoor(){
 
 function effectDot(){
   startFX("Dot","fa-circle-dot",() => {
-    // dot swarm to a center point
     const wrap = document.createElement("div");
     wrap.style.position="absolute"; wrap.style.inset=0;
     fx.appendChild(wrap);
@@ -1666,12 +1607,14 @@ function effectDot(){
       d.style.left = (Math.random()*100) + "%";
       d.style.top = (Math.random()*100) + "%";
       wrap.appendChild(d);
+      const lx = parseFloat(d.style.left);
+      const ty = parseFloat(d.style.top);
       d.animate(
         [
           { transform:"translate(0,0)", opacity: 0 },
           { opacity: .9, offset: .12 },
-          { transform:`translate(${(50 - parseFloat(d.style.left))*0.9}vw, ${(50 - parseFloat(d.style.top))*0.9}vh)`, opacity: .85, offset: .72 },
-          { transform:`translate(${(50 - parseFloat(d.style.left))*1.1}vw, ${(50 - parseFloat(d.style.top))*1.1}vh)`, opacity: 0 }
+          { transform:`translate(${(50 - lx)*0.9}vw, ${(50 - ty)*0.9}vh)`, opacity: .85, offset: .72 },
+          { transform:`translate(${(50 - lx)*1.1}vw, ${(50 - ty)*1.1}vh)`, opacity: 0 }
         ],
         { duration: dur("Dot"), easing:"cubic-bezier(.2,.9,.2,1)" }
       );
@@ -1679,86 +1622,9 @@ function effectDot(){
   });
 }
 
-/* Remaining labels: each still distinct (not reused) */
+/* Remaining labels: no-op fallback (should not hit) */
 function effectShiftMinor(label){
-  // used ONLY for labels not listed above; each gets its own distinct variant path
-  const ms = dur(label);
-  startFX(label, iconFor(label), () => {
-    if (label === "Layer") return; // already handled
-    if (label === "Open") return;
-
-    // Unique, non-overlapping by label:
-    if (label === "Signal") return;
-    if (label === "Crack") return;
-    if (label === "Veil") return;
-
-    if (label === "Trace") return;
-
-    if (label === "Unlock") return;
-
-    if (label === "Hidden") return;
-
-    if (label === "Quiet") return;
-
-    if (label === "Reveal") return;
-
-    if (label === "Bleed") return;
-
-    if (label === "Blur") return;
-
-    if (label === "Tone") return;
-
-    if (label === "Mask") return;
-
-    if (label === "Fold") return;
-
-    if (label === "Slip") return;
-
-    if (label === "Soft") return;
-
-    if (label === "Ink") return;
-
-    if (label === "Mark") return;
-
-    if (label === "Shell") return;
-
-    if (label === "Veer") return;
-
-    if (label === "Hush") return;
-
-    if (label === "Glow") return;
-
-    if (label === "Break") return;
-
-    if (label === "Terminal") return;
-
-    if (label === "Bug") return;
-
-    if (label === "Network") return;
-
-    if (label === "Archive") return;
-
-    if (label === "Wave") return;
-
-    if (label === "Sliders") return;
-
-    if (label === "Chart") return;
-
-    if (label === "Scissors") return;
-
-    if (label === "Infinity") return;
-
-    if (label === "Rotate") return;
-
-    if (label === "Blind") return;
-
-    if (label === "Door") return;
-
-    if (label === "Dot") return;
-
-    // truly remaining: Shift/Open/Thin/Fade/Drift/Echo/... already covered.
-    // We should not reach here.
-  });
+  startFX(label, iconFor(label), () => {});
 }
 
 function iconFor(label){
@@ -1822,7 +1688,6 @@ function runEffect(label){
     case "Door": return effectDoor();
     case "Dot": return effectDot();
 
-    // labels that may exist from shuffle but not in switch:
     default: return effectShiftMinor(label);
   }
 }
@@ -1851,7 +1716,6 @@ buttonsData.forEach((item, i) => {
   const b = document.createElement("div");
   b.className = "button";
 
-  // fallback for icons that may not exist (e.g., fa-spiral in free)
   const iconClass = item.icon === "fa-spiral" ? "fa-circle" : item.icon;
 
   b.innerHTML = `<i class="fa-solid ${iconClass}"></i>${item.label}`;
@@ -1870,7 +1734,7 @@ buttonsData.forEach((item, i) => {
 });
 
 /* ==========================================================
-   DEVTOOLS DETECTION + COMMENT REVEAL + 30s DELAYED BUTTONS
+   DEVTOOLS DETECTION + COMMENT REVEAL + 7s DELAYED BUTTONS
    ========================================================== */
 let devtoolsOpened = false;
 

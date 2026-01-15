@@ -1,10 +1,9 @@
-/* style.css */
 /* =========================================================
    Your Next Clue — style.css
    - Robust light/dark theme via html[data-theme]
-   - Tabs show DONE as green in BOTH themes
+   - Tabs show DONE as green in BOTH themes (uses the .dot span)
    - Messages only appear when populated
-   - Subtle, gradual topbar blur fade
+   - Subtle topbar blur fade (no weird blue banding)
    ========================================================= */
 
 /* ---------- Reset / base ---------- */
@@ -53,9 +52,12 @@ body {
 
 /* Dark */
 html[data-theme="dark"]{
-  --bg: radial-gradient(1200px 800px at 20% 15%, rgba(70,110,220,.16), transparent 60%),
-        radial-gradient(1000px 700px at 85% 10%, rgba(190,160,70,.12), transparent 55%),
-        linear-gradient(180deg, #0b1221 0%, #070b14 100%);
+  /* Reduced/contained blue so you don’t get that bottom “blue hue band” */
+  --bg:
+    radial-gradient(900px 520px at 22% 0%, rgba(70,110,220,.10), transparent 55%),
+    radial-gradient(860px 520px at 86% 0%, rgba(190,160,70,.10), transparent 55%),
+    linear-gradient(180deg, #0b1221 0%, #070b14 100%);
+
   --panel: rgba(255,255,255,.06);
   --panel-2: rgba(255,255,255,.04);
   --border: rgba(255,255,255,.10);
@@ -104,7 +106,6 @@ html[data-theme="light"]{
   top: 0;
   z-index: 10;
 
-  /* slightly less blur, more subtle */
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 
@@ -124,13 +125,12 @@ html[data-theme="light"]{
   bottom: -22px;
   height: 22px;
 
-  /* more gradual, more subtle */
   background: linear-gradient(
     to bottom,
     rgba(0,0,0,0.10),
     rgba(0,0,0,0.00)
   );
-  opacity: .45;
+  opacity: .35;
 }
 html[data-theme="light"] .topbar::after{
   background: linear-gradient(
@@ -138,7 +138,7 @@ html[data-theme="light"] .topbar::after{
     rgba(10,14,22,0.10),
     rgba(10,14,22,0.00)
   );
-  opacity: .22;
+  opacity: .18;
 }
 
 /* Keep inner layout */
@@ -189,27 +189,29 @@ html[data-theme="light"] .topbar::after{
   background: transparent;
   color: var(--muted);
   border-radius: 999px;
-  padding: 10px 14px 10px 34px;
+  padding: 10px 14px;
   font-weight: 650;
   cursor: default;
   white-space: nowrap;
-  transition: background .12s ease, border-color .12s ease, color .12s ease;
+  transition: background .12s ease, border-color .12s ease, color .12s ease, opacity .12s ease;
 }
 
-/* dot */
-#stepsNav button::before{
-  content: "";
-  position: absolute;
-  left: 14px;
-  top: 50%;
+/* IMPORTANT: use the actual <span class="dot"> in your HTML */
+#stepsNav .tab{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+#stepsNav .dot{
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  transform: translateY(-50%);
   background: rgba(120,120,120,.25);
   box-shadow: inset 0 0 0 2px rgba(0,0,0,.10);
+  flex: 0 0 10px;
+  pointer-events: none;
 }
-html[data-theme="light"] #stepsNav button::before{
+html[data-theme="light"] #stepsNav .dot{
   background: rgba(10,14,22,.10);
   box-shadow: inset 0 0 0 2px rgba(10,14,22,.08);
 }
@@ -220,7 +222,7 @@ html[data-theme="light"] #stepsNav button::before{
   border-color: var(--border);
   background: var(--chip);
 }
-#stepsNav button.active::before{
+#stepsNav button.active .dot{
   background: var(--accent);
   box-shadow: none;
 }
@@ -229,7 +231,7 @@ html[data-theme="light"] #stepsNav button::before{
 #stepsNav button.done{
   color: var(--text);
 }
-#stepsNav button.done::before{
+#stepsNav button.done .dot{
   background: var(--good);
   box-shadow: none;
 }
@@ -451,6 +453,7 @@ button{ font: inherit; }
   background: rgba(0,0,0,.05);
   padding: 12px 14px;
   color: var(--muted);
+  font-size: 16.5px; /* slightly bigger for readability */
 }
 html[data-theme="light"] .msg{ background: rgba(255,255,255,.45); }
 .msg[hidden]{ display:none !important; }
@@ -472,78 +475,53 @@ html[data-theme="light"] .msg{ background: rgba(255,255,255,.45); }
 }
 
 /* ---------- Grid ---------- */
-.gridWrap{
-  margin-top: 12px;
-  overflow-x: auto;           /* safe on small screens */
-  padding-bottom: 2px;
-}
+.gridWrap{ margin-top: 12px; }
 
-/* Compact, centered board with fixed-ish cell sizing */
 #gridBoard{
-  --cell: clamp(26px, 3.2vw, 40px);
   display: grid;
-  grid-template-columns: repeat(var(--n, 9), var(--cell));
-  gap: 6px;
-  width: max-content;
-  margin: 0 auto;
-
-  padding: 12px;
+  grid-template-columns: repeat(var(--n, 9), minmax(0, 1fr));
+  gap: 8px;
+  padding: 14px;
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-2);
-  background: rgba(0,0,0,.045);
-  box-shadow: var(--shadow-inset);
+  background: rgba(0,0,0,.05);
 }
-html[data-theme="light"] #gridBoard{
-  background: rgba(255,255,255,.55);
-}
+html[data-theme="light"] #gridBoard{ background: rgba(255,255,255,.45); }
 
 .gridCell{
   pointer-events: auto;
-  width: var(--cell);
-  height: var(--cell);
-
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.055);
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.06);
   cursor: pointer;
-
-  transition:
-    transform .08s ease,
-    background .12s ease,
-    border-color .12s ease,
-    box-shadow .12s ease;
+  transition: transform .08s ease, background .10s ease, border-color .10s ease, box-shadow .10s ease;
 }
 html[data-theme="light"] .gridCell{
-  border-color: rgba(10,14,22,.12);
-  background: rgba(255,255,255,.78);
+  border-color: rgba(10,14,22,.10);
+  background: rgba(255,255,255,.65);
 }
 .gridCell:hover{ transform: translateY(-1px); }
 .gridCell:active{ transform: translateY(0); }
 
-/* Start cell: clear but not loud */
 .gridCell.start{
-  border-color: rgba(122,166,255,.70);
-  box-shadow: 0 0 0 2px rgba(122,166,255,.16) inset;
-  background: rgba(122,166,255,.10);
+  border-color: rgba(122,166,255,.55);
+  box-shadow: 0 0 0 2px rgba(122,166,255,.18) inset;
 }
-
-/* Selected path: higher contrast + “filled” feel */
 .gridCell.selected{
-  border-color: rgba(122,166,255,.85);
-  background: rgba(122,166,255,.22);
-  box-shadow:
-    0 0 0 3px rgba(122,166,255,.18),
-    inset 0 1px 0 rgba(255,255,255,.08);
+  border-color: rgba(122,166,255,.75);
+  background: rgba(122,166,255,.20);
+  box-shadow: 0 0 0 3px rgba(122,166,255,.20);
 }
 
-/* Directions list: slightly tighter + better scanability */
+/* Directions list */
 .steps{
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-2);
-  background: rgba(0,0,0,.045);
-  padding: 12px;
+  background: rgba(0,0,0,.05);
+  padding: 14px;
 }
-html[data-theme="light"] .steps{ background: rgba(255,255,255,.55); }
+html[data-theme="light"] .steps{ background: rgba(255,255,255,.45); }
 
 .stepLine{
   display: grid;
@@ -554,10 +532,20 @@ html[data-theme="light"] .steps{ background: rgba(255,255,255,.55); }
   border-bottom: 1px solid var(--border-2);
 }
 .stepLine:last-child{ border-bottom: 0; }
-
 .stepLine .idx{
   font-variant-numeric: tabular-nums;
   color: var(--muted-2);
+}
+
+/* ---------- Reveal poem (make text bigger) ---------- */
+.poem{
+  margin: 14px 0 0;
+  padding: 0;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 20px;       /* bigger */
+  line-height: 1.55;     /* more breathable */
+  color: var(--text);
 }
 
 /* ---------- Sidebar ---------- */
@@ -605,4 +593,9 @@ html[data-theme="light"] .prow{ background: rgba(255,255,255,.45); }
   #statusPill{ padding: 7px 10px; }
   .btn{ width: 100%; }
   #themeToggle{ height: 40px; width: 40px; }
+
+  .poem{
+    font-size: 18px;   /* still bigger on mobile */
+    line-height: 1.55;
+  }
 }

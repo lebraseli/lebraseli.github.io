@@ -87,6 +87,7 @@ body::after {
   z-index: 2;
 }
 
+/* LINE REVEAL */
 .poem span {
   display: block;
   opacity: 0;
@@ -94,10 +95,12 @@ body::after {
   animation: reveal 1.4s ease forwards;
 }
 
-.poem span:nth-child(1) { animation-delay: .2s; }
-.poem span:nth-child(2) { animation-delay: .5s; }
-.poem span:nth-child(3) { animation-delay: .8s; }
+.poem span:nth-child(1) { animation-delay: 0.2s; }
+.poem span:nth-child(2) { animation-delay: 0.5s; }
+.poem span:nth-child(3) { animation-delay: 0.8s; }
 .poem span:nth-child(4) { animation-delay: 1.1s; }
+.poem span:nth-child(5) { animation-delay: 1.4s; }
+.poem span:nth-child(6) { animation-delay: 1.7s; }
 
 @keyframes reveal {
   to {
@@ -142,7 +145,7 @@ body::after {
       <span>I learned to look where the colors are thin,</span>
       <span>where the paper shows through, pale as skin.</span>
       <span>Beneath the chalk and the powdery glaze</span>
-      <span>lives a quieter script in invisible rays</span>
+      <span>lives a quieter script in invisible rays.</span>
       <span>A little water can go a long way,</span>
       <span>into making the page convey.</span>
     </div>

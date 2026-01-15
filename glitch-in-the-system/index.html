@@ -7,10 +7,12 @@
   <meta name="robots" content="noindex,nofollow" />
 
   <!--
-    Ops note:
-    This page is intentionally "official-looking".
-    Puzzle layer is not visible to normal users.
-    If you're solving: GO TO THE MAZDA.
+    GitHub Pages-like 404.
+    NOTE: There are deliberate decoys.
+    If you think you found the clue instantly, you found the decoy.
+
+    Decoy: "check /robots.txt"
+    Real: pay attention to "headers" + "integrity" and what changes when you add #fleet
   -->
 
   <style>
@@ -24,7 +26,6 @@
       --font:-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji","Segoe UI Emoji";
       --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
-
     html, body { height:100%; }
     body{
       margin:0;
@@ -32,8 +33,6 @@
       color:var(--text);
       font-family:var(--font);
     }
-
-    /* Centered layout similar to the GitHub Pages 404 */
     .page{
       min-height:100%;
       display:flex;
@@ -41,12 +40,11 @@
       justify-content:center;
       padding: 72px 16px 40px;
     }
-
     .content{
       width: min(760px, 100%);
       text-align:center;
+      position:relative;
     }
-
     h1{
       font-weight: 300;
       font-size: 96px;
@@ -55,14 +53,12 @@
       line-height: 1;
       color: #2f363d;
     }
-
     h2{
       margin: 0 0 10px;
       font-weight: 600;
       font-size: 20px;
       color: var(--muted);
     }
-
     p{
       margin: 0 auto 12px;
       font-size: 16px;
@@ -70,19 +66,16 @@
       line-height: 1.6;
       max-width: 620px;
     }
-
     code{
       font-family: var(--mono);
       font-size: 13px;
       color: var(--muted2);
     }
-
     a{
       color: var(--link);
       text-decoration: none;
     }
     a:hover{ text-decoration: underline; }
-
     .spacer{ height: 18px; }
 
     .footer{
@@ -94,12 +87,9 @@
       color: var(--muted2);
       text-decoration: none;
     }
-    .footer a:hover{
-      text-decoration: underline;
-    }
+    .footer a:hover{ text-decoration: underline; }
     .sep{ margin: 0 10px; color: var(--border); }
 
-    /* Octocat mark (simple, subtle) */
     .mark{
       margin: 18px auto 0;
       width: 34px;
@@ -108,23 +98,41 @@
       display:block;
     }
 
-    /* Hidden clue layer: text blends into background until selected */
-    .whiteout{
-      margin-top: 18px;
-      color: rgba(0,0,0,0.03); /* nearly invisible */
-      user-select:text;
+    /* "Official-ish" diagnostics block */
+    .diag{
+      margin: 22px auto 0;
+      max-width: 620px;
+      text-align:left;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      background: #f6f8fa;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: #3d444d;
     }
-    ::selection{
-      background: rgba(9,105,218,0.20);
-      color: #0b1f3a;
+    .diag .row{
+      display:flex;
+      gap:10px;
+      padding: 4px 0;
+      border-bottom: 1px dashed rgba(208,215,222,.9);
     }
+    .diag .row:last-child{ border-bottom:none; }
+    .diag .k{ width: 165px; color: #57606a; }
+    .diag .v{ flex:1; }
 
-    /* Tiny invisible metadata that won’t change layout */
-    .meta{
+    /* hidden payload container (not visible, not "grey hint text") */
+    .vault{
       position:absolute;
       left:-9999px;
       top:-9999px;
       font-family: var(--mono);
+    }
+
+    /* selection remains normal; no obvious “highlight this” clue */
+    ::selection{
+      background: rgba(9,105,218,0.20);
+      color: #0b1f3a;
     }
   </style>
 </head>
@@ -133,12 +141,14 @@
   <div class="page">
     <div class="content" role="main" aria-label="404 page">
       <h1>404</h1>
-
       <h2>File not found</h2>
 
       <div class="spacer"></div>
 
-      <p>The site configured at this address does not contain the requested file.</p>
+      <!-- Layer: zero-width encoding embedded in normal text (invisible to users) -->
+      <p id="msg1">
+        The site configured at this address does not contain the requested file.
+      </p>
 
       <p>
         If this is your site, make sure that the filename case matches the URL as well as any
@@ -158,17 +168,26 @@
         for more information about using <strong>GitHub Pages</strong>.
       </p>
 
-      <!-- Hidden, selectable message (does not affect official look) -->
-      <p class="whiteout" aria-label="hidden hint">
-        Operational directive: go to the Mazda.
-      </p>
+      <!-- Diagnostics: looks normal, but hides an acrostic in values (not colored as hint) -->
+      <div class="diag" aria-label="diagnostics">
+        <div class="row"><div class="k">Status</div><div class="v">404 Not Found</div></div>
+        <div class="row"><div class="k">Method</div><div class="v">GET</div></div>
+        <div class="row"><div class="k">Edge</div><div class="v" id="edge">SEA-01</div></div>
+        <div class="row"><div class="k">Cache</div><div class="v">MISS</div></div>
+
+        <!-- The next 5 rows: first character of each value spells MAZDA (but values look plausible) -->
+        <div class="row"><div class="k">Integrity</div><div class="v">Mismatched ETag on origin</div></div>
+        <div class="row"><div class="k">Routing</div><div class="v">Apex host unresolved</div></div>
+        <div class="row"><div class="k">Resolver</div><div class="v">Zone delegated elsewhere</div></div>
+        <div class="row"><div class="k">TLS</div><div class="v">DNSError on cert lookup</div></div>
+        <div class="row"><div class="k">Next</div><div class="v">Alternate path required</div></div>
+      </div>
 
       <div class="footer" aria-label="footer">
         <a href="https://www.githubstatus.com/" target="_blank" rel="noopener noreferrer">GitHub Status</a>
         <span class="sep">—</span>
         <a href="https://twitter.com/githubstatus" target="_blank" rel="noopener noreferrer">@githubstatus</a>
 
-        <!-- Simple Octocat mark (SVG) -->
         <svg class="mark" viewBox="0 0 16 16" aria-hidden="true">
           <path fill="#57606a" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
             0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01
@@ -180,16 +199,156 @@
         </svg>
       </div>
 
-      <!-- Metadata (view-source/DOM inspection) -->
-      <div class="meta" data-clue="MAZDA" data-action="go-to-the-mazda"></div>
+      <!-- Offscreen vault:
+           - rot13 of base64 (or base64 of rot13) chained in JS below.
+           - This is not visible and not “grey hint text”.
+      -->
+      <div class="vault"
+           data-a="tb gb gur znmqn"
+           data-b="VTJGc2RHVmtYMTl1YjI1bA=="
+           data-c="gur znmqn"
+           data-note="decoy: robots.txt">
+      </div>
     </div>
   </div>
 
   <script>
-    // Console breadcrumb: only for players who open DevTools.
-    // Does not change visuals.
-    console.log("%c404: File not found", "color:#6e7781;font-family:system-ui;font-size:12px;");
-    console.log("%cPuzzle hint:%c go to the Mazda", "color:#6e7781;font-family:system-ui;font-size:12px;", "color:#0969da;font-weight:700;");
+    /* ===========================
+       LAYER 0: keep visuals “official”
+       =========================== */
+
+    /* ===========================
+       LAYER 1: zero-width encoding
+       We embed zero-width chars into msg1 at runtime so the HTML source looks clean.
+       Decoder is available via console for puzzle solvers who notice odd string length.
+       =========================== */
+
+    // Zero-width mapping:
+    // ZWSP (\u200B) = 0, ZWNJ (\u200C) = 1
+    // We encode "MAZDA" as 5-bit uppercase letters (A=0..Z=25), each 5 bits.
+    function encodeZW(text){
+      const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      const bits = [];
+      for (const ch of text){
+        const n = A.indexOf(ch);
+        if (n < 0) continue;
+        const b = n.toString(2).padStart(5,"0");
+        bits.push(b);
+      }
+      const flat = bits.join("");
+      return flat.split("").map(x => x === "0" ? "\u200B" : "\u200C").join("");
+    }
+
+    function decodeZW(str){
+      const zs = [];
+      for (const ch of str){
+        if (ch === "\u200B") zs.push("0");
+        else if (ch === "\u200C") zs.push("1");
+      }
+      const bitstr = zs.join("");
+      const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      let out = "";
+      for (let i=0;i+5<=bitstr.length;i+=5){
+        const n = parseInt(bitstr.slice(i,i+5),2);
+        if (Number.isFinite(n) && n >= 0 && n < 26) out += A[n];
+      }
+      return out;
+    }
+
+    // Embed the payload invisibly into a normal sentence.
+    (function embedZW(){
+      const target = document.getElementById("msg1");
+      const payload = encodeZW("MAZDA");
+      // Insert between words so it’s invisible but present in DOM text.
+      target.textContent = target.textContent.replace("address", "address" + payload);
+    })();
+
+    /* ===========================
+       LAYER 2: hash-gated change (#fleet)
+       Adding #fleet changes the diagnostics in a subtle way, acting as a “next step”.
+       =========================== */
+    function applyHashMode(){
+      const edge = document.getElementById("edge");
+      if (location.hash.toLowerCase() === "#fleet"){
+        edge.textContent = "SEA-01 (fleet)";
+      } else {
+        edge.textContent = "SEA-01";
+      }
+    }
+    window.addEventListener("hashchange", applyHashMode);
+    applyHashMode();
+
+    /* ===========================
+       LAYER 3: keyboard unlock reveals ROT13 clue
+       Custom sequence: M A Z D A (five keys). No UI changes until complete.
+       =========================== */
+    const seq = ["m","a","z","d","a"];
+    let idx = 0;
+
+    function rot13(s){
+      return s.replace(/[a-zA-Z]/g, c => {
+        const base = c <= "Z" ? 65 : 97;
+        return String.fromCharCode(((c.charCodeAt(0) - base + 13) % 26) + base);
+      });
+    }
+
+    document.addEventListener("keydown", (e) => {
+      const k = (e.key || "").toLowerCase();
+      if (!k) return;
+      if (k === seq[idx]){
+        idx++;
+        if (idx === seq.length){
+          idx = 0;
+          // Reveal only in console, to preserve “official” look.
+          const vault = document.querySelector(".vault");
+          const a = vault.getAttribute("data-a"); // "tb gb gur znmqn" (rot13 -> "go to the mazda")
+          console.log("%cUnlocked:", "color:#6e7781;font-family:system-ui;font-size:12px;");
+          console.log("%c" + rot13(a), "color:#0969da;font-weight:700;");
+          console.log("%cNext: inspect the 'vault' attributes and chain them.", "color:#6e7781;font-family:system-ui;font-size:12px;");
+        }
+      } else {
+        idx = (k === seq[0]) ? 1 : 0;
+      }
+    });
+
+    /* ===========================
+       LAYER 4: cipher chain in vault
+       data-a: ROT13("tb gb gur znmqn") => "go to the mazda"
+       data-b: Base64("Q2FsdGVkX19ub25l") => "Cal...__none" style decoy-ish marker
+       data-c: "gur znmqn" => ROT13 => "the mazda"
+       We keep it “puzzle-y”: solvers must decide what matters.
+       =========================== */
+
+    function b64decode(s){
+      try { return atob(s); } catch { return null; }
+    }
+
+    /* ===========================
+       LAYER 5: console behavior: decoy by default, real hint if hash + decode
+       =========================== */
+    (function consoleLayer(){
+      const vault = document.querySelector(".vault");
+      const b = vault.getAttribute("data-b");
+      const decoded = b64decode(b) || "";
+      // Default: looks normal/boring
+      console.log("%c404: File not found", "color:#6e7781;font-family:system-ui;font-size:12px;");
+      console.log("%cRef: edge=" + document.getElementById("edge").textContent, "color:#6e7781;font-family:system-ui;font-size:12px;");
+
+      // Only if they discover #fleet AND run a decode path do they see the stronger breadcrumb.
+      if (location.hash.toLowerCase() === "#fleet" && decoded){
+        // This is intentionally not the final answer, but a reliable nudge.
+        console.log("%cTelemetry:", "color:#6e7781;font-family:system-ui;font-size:12px;");
+        console.log("%cTry decodeZW(document.getElementById('msg1').textContent)", "color:#0969da;font-weight:700;");
+      }
+    })();
+
+    /* ===========================
+       Optional: expose helpers for puzzle solvers (they still must find them).
+       Not advertised in UI.
+       =========================== */
+    window.decodeZW = decodeZW;
+    window.rot13 = rot13;
+    window.b64decode = b64decode;
   </script>
 </body>
 </html>

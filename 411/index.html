@@ -10,61 +10,75 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 
 <style>
-body {
+html, body {
   margin: 0;
-  height: 100vh;
+  height: 100%;
+  overflow: hidden;
   background: #fdfdfd;
   font-family: system-ui, sans-serif;
-  overflow: hidden;
 }
 
-/* ===== Pastel overlay ===== */
+/* ===== HIDDEN WORD ===== */
+#inspect {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 16vw;
+  font-weight: 900;
+  letter-spacing: .3em;
+  color: #777;
+  opacity: .18;
+  mix-blend-mode: luminosity;
+  filter: contrast(200%) brightness(70%);
+  text-shadow:
+    0 0 25px rgba(0,0,0,.35),
+    0 0 80px rgba(255,255,255,.4);
+  pointer-events: none;
+  user-select: none;
+  z-index: 2;
+}
+
+/* ===== PASTEL WASH ===== */
 #pastel {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(circle at 20% 30%, #f7b7d2, transparent 55%),
-    radial-gradient(circle at 80% 20%, #b7ccff, transparent 55%),
-    radial-gradient(circle at 50% 80%, #fff0b3, transparent 55%),
-    linear-gradient(120deg, rgba(255,180,200,.6), rgba(180,200,255,.6));
+    radial-gradient(circle at 20% 30%, #f7b7d2 0%, transparent 60%),
+    radial-gradient(circle at 80% 20%, #b7ccff 0%, transparent 60%),
+    radial-gradient(circle at 50% 80%, #fff0b3 0%, transparent 60%),
+    linear-gradient(120deg, rgba(255,180,200,.55), rgba(180,200,255,.55));
   mix-blend-mode: multiply;
   z-index: 5;
   transition: opacity 1.2s ease;
 }
 
-
-/* ===== INSPECT hidden in color ===== */
-#inspect {
-  position: absolute;
+/* ===== FINAL URL ===== */
+#final {
+  position: fixed;
   inset: 0;
   display: grid;
   place-items: center;
-  font-size: 14vw;
-  font-weight: 900;
-  letter-spacing: .25em;
-  color: #ffffff;
-  opacity: 0.12;               /* was ~0.06 */
-  mix-blend-mode: overlay;     /* NEW — this is key */
-  filter: contrast(140%);
-  pointer-events: none;
-  user-select: none;
+  font-size: 2.8rem;
+  font-weight: 600;
+  opacity: 0;
+  z-index: 1;
+  transition: opacity 1.2s ease;
 }
 
-  #inspect {
-  text-shadow:
-    0 0 25px rgba(0,0,0,.15),
-    0 0 60px rgba(255,255,255,.2);
+#final span {
+  color: #111;
 }
-  
-/* ===== Buttons ===== */
+
+/* ===== BUTTON GRID ===== */
 #buttons {
-  position: absolute;
+  position: fixed;
   inset: 0;
   display: grid;
   grid-template-columns: repeat(10, 1fr);
   grid-template-rows: repeat(5, 1fr);
-  gap: 10px;
-  padding: 30px;
+  gap: 12px;
+  padding: 32px;
   opacity: 0;
   pointer-events: none;
   transition: opacity 1s ease;
@@ -72,45 +86,26 @@ body {
 }
 
 .button {
-  background: rgba(255,255,255,.7);
-  border-radius: 14px;
-  backdrop-filter: blur(10px);
+  background: rgba(255,255,255,.75);
+  border-radius: 16px;
+  backdrop-filter: blur(12px);
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   font-size: .7rem;
   cursor: pointer;
-  box-shadow: 0 10px 30px rgba(0,0,0,.12);
+  box-shadow: 0 12px 30px rgba(0,0,0,.15);
   transition: transform .3s ease;
 }
 
 .button:hover {
-  transform: scale(1.1);
+  transform: scale(1.12);
 }
 
 .button i {
-  font-size: 1.2rem;
+  font-size: 1.4rem;
   margin-bottom: 6px;
-}
-
-/* ===== Final URL ===== */
-#final {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-size: 2.5rem;
-  font-weight: 600;
-  letter-spacing: .05em;
-  opacity: 0;
-  transition: opacity 1.2s ease;
-  z-index: 1;
-}
-
-/* YOU change this URL */
-#final span {
-  color: #111;
 }
 </style>
 </head>
@@ -123,7 +118,6 @@ body {
 
 <div id="inspect">INSPECT</div>
 <div id="pastel"></div>
-
 <div id="buttons"></div>
 
 <script>
@@ -131,8 +125,8 @@ const labels = [
 "Peel","Echo","Drift","Fade","Unlock","Trace","Veil","Shift","Open","Thin",
 "Crack","Signal","Lift","Ghost","Mirror","Pulse","Layer","Quiet","Hidden","Seek",
 "Bleed","Blur","Reveal","Cipher","Tone","Mask","Fold","Slip","Soft","Ink",
-"Mark","Shell","Veer","Slip","Echo","Hush","Glow","Break","Slip","Veil",
-"Ghost","Lift","Peel","Thin","Open","Blur","Fade","Layer","Shift","Seek"
+"Mark","Shell","Veer","Hush","Glow","Break","Veil","Ghost","Lift","Fold",
+"Peel","Thin","Open","Blur","Fade","Layer","Shift","Seek","Quiet","Crack"
 ];
 
 const icons = [
@@ -143,14 +137,13 @@ const icons = [
 ];
 
 const container = document.getElementById("buttons");
+
 labels.forEach((label, i) => {
-  const btn = document.createElement("div");
-  btn.className = "button";
-  btn.innerHTML = `<i class="fa-solid ${icons[i % icons.length]}"></i>${label}`;
-  btn.onclick = () => {
-    if (label === "Peel") peel();
-  };
-  container.appendChild(btn);
+  const b = document.createElement("div");
+  b.className = "button";
+  b.innerHTML = `<i class="fa-solid ${icons[i % icons.length]}"></i>${label}`;
+  b.onclick = () => { if (label === "Peel") peel(); };
+  container.appendChild(b);
 });
 
 let opened = false;
@@ -160,7 +153,7 @@ setInterval(() => {
   if (window.outerWidth - window.innerWidth > 160 || window.outerHeight - window.innerHeight > 160) {
     if (!opened) {
       opened = true;
-      setTimeout(showButtons, 30000); // 30 seconds
+      setTimeout(showButtons, 30000);
     }
   }
 }, 500);

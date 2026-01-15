@@ -3,423 +3,193 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>404 — Page Not Found</title>
+  <title>404</title>
   <meta name="robots" content="noindex,nofollow" />
 
   <!--
-    If you're reading this, you're already on the right track.
-    The "page" isn't the destination.
-    Hint: follow the car brand hiding in plain sight.
+    Ops note:
+    This page is intentionally "official-looking".
+    Puzzle layer is not visible to normal users.
+    If you're solving: GO TO THE MAZDA.
   -->
 
   <style>
     :root{
-      --bg:#0b1020;
-      --panel:#0f1733;
-      --text:#e8ecff;
-      --muted:#aab2d5;
-      --accent:#7c5cff;
-      --danger:#ff4d6d;
-      --ok:#21c07a;
+      --bg:#ffffff;
+      --text:#24292f;
+      --muted:#57606a;
+      --muted2:#6e7781;
+      --link:#0969da;
+      --border:#d0d7de;
+      --font:-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji","Segoe UI Emoji";
       --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
     }
-    *{box-sizing:border-box}
+
+    html, body { height:100%; }
     body{
       margin:0;
-      min-height:100vh;
-      font-family:var(--sans);
+      background:var(--bg);
       color:var(--text);
-      background:
-        radial-gradient(900px 600px at 15% 20%, rgba(124,92,255,.18), transparent 60%),
-        radial-gradient(800px 500px at 85% 70%, rgba(255,77,109,.10), transparent 55%),
-        linear-gradient(180deg, #070b16, var(--bg));
+      font-family:var(--font);
+    }
+
+    /* Centered layout similar to the GitHub Pages 404 */
+    .page{
+      min-height:100%;
       display:flex;
-      align-items:center;
+      align-items:flex-start;
       justify-content:center;
-      padding:32px;
+      padding: 72px 16px 40px;
     }
-    .wrap{
-      width:min(980px, 100%);
-      display:grid;
-      grid-template-columns: 1.2fr .8fr;
-      gap:24px;
+
+    .content{
+      width: min(760px, 100%);
+      text-align:center;
     }
-    @media (max-width: 860px){
-      .wrap{grid-template-columns:1fr}
-    }
-    .card{
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
-      border: 1px solid rgba(255,255,255,.10);
-      border-radius: 18px;
-      padding: 24px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.35);
-      position:relative;
-      overflow:hidden;
-    }
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      gap:10px;
-      font-family:var(--mono);
-      font-size:12px;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-      color:var(--muted);
-      margin-bottom:14px;
-    }
-    .dot{
-      width:10px;height:10px;border-radius:999px;
-      background:var(--danger);
-      box-shadow:0 0 20px rgba(255,77,109,.45);
-    }
+
     h1{
-      margin:0 0 10px 0;
-      font-size:48px;
-      line-height:1.05;
-      letter-spacing:-.02em;
-    }
-    .sub{
-      margin:0 0 18px 0;
-      color:var(--muted);
-      font-size:16px;
-      line-height:1.55;
-      max-width:62ch;
+      font-weight: 300;
+      font-size: 96px;
+      letter-spacing: 2px;
+      margin: 0 0 18px;
+      line-height: 1;
+      color: #2f363d;
     }
 
-    .actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:12px;
-      margin-top:14px;
-    }
-    button, a.btn{
-      appearance:none;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      color:var(--text);
-      padding: 10px 14px;
-      border-radius:12px;
-      cursor:pointer;
-      text-decoration:none;
-      font-weight:600;
-      transition: transform .12s ease, background .12s ease, border-color .12s ease;
-    }
-    button:hover, a.btn:hover{
-      transform: translateY(-1px);
-      background: rgba(255,255,255,.10);
-      border-color: rgba(255,255,255,.22);
-    }
-    .primary{
-      border-color: rgba(124,92,255,.45);
-      background: rgba(124,92,255,.16);
+    h2{
+      margin: 0 0 10px;
+      font-weight: 600;
+      font-size: 20px;
+      color: var(--muted);
     }
 
-    .side h2{
-      margin:0 0 10px 0;
-      font-size:16px;
-      color:var(--muted);
-      letter-spacing:.02em;
-      text-transform:uppercase;
-      font-family:var(--mono);
-    }
-    .panel{
-      background: rgba(0,0,0,.20);
-      border: 1px solid rgba(255,255,255,.10);
-      border-radius: 16px;
-      padding: 16px;
-      margin-bottom:14px;
-    }
-    .kv{
-      display:grid;
-      grid-template-columns: 140px 1fr;
-      gap:10px;
-      font-family:var(--mono);
-      font-size:13px;
-      color:var(--muted);
-    }
-    .kv b{color:var(--text); font-weight:700}
-
-    .status{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:14px;
-      margin-top:10px;
-      padding-top:12px;
-      border-top:1px dashed rgba(255,255,255,.12);
-      font-family:var(--mono);
-      font-size:12px;
-      color:var(--muted);
-    }
-    .ok{
-      display:inline-flex; align-items:center; gap:8px;
-      color: rgba(33,192,122,.95);
-    }
-    .ok .dot{
-      background:var(--ok);
-      box-shadow:0 0 18px rgba(33,192,122,.35);
+    p{
+      margin: 0 auto 12px;
+      font-size: 16px;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 620px;
     }
 
-    /* Glitch-ish 404 label */
-    .glitch{
-      position:relative;
-      display:inline-block;
-      font-family:var(--mono);
-      letter-spacing:.08em;
-      text-transform:uppercase;
-      font-size:12px;
-      color:rgba(232,236,255,.85);
-      margin-bottom:10px;
+    code{
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--muted2);
     }
-    .glitch:before, .glitch:after{
-      content:attr(data-text);
-      position:absolute;
-      left:0; top:0;
-      opacity:.55;
-      clip-path: inset(0 0 0 0);
-    }
-    .glitch:before{ transform: translate(1px,0); color: rgba(124,92,255,.85); }
-    .glitch:after{ transform: translate(-1px,0); color: rgba(255,77,109,.75); }
 
-    /* Hidden clue layers */
-    .ghost{
-      position:absolute;
-      inset:auto 18px 18px auto;
-      font-family:var(--mono);
-      font-size:11px;
-      color:rgba(232,236,255,.15);
-      user-select:none;
-      pointer-events:none;
+    a{
+      color: var(--link);
+      text-decoration: none;
     }
-    /* highlight-to-reveal: text is there but blends in */
+    a:hover{ text-decoration: underline; }
+
+    .spacer{ height: 18px; }
+
+    .footer{
+      margin-top: 28px;
+      color: var(--muted2);
+      font-size: 13px;
+    }
+    .footer a{
+      color: var(--muted2);
+      text-decoration: none;
+    }
+    .footer a:hover{
+      text-decoration: underline;
+    }
+    .sep{ margin: 0 10px; color: var(--border); }
+
+    /* Octocat mark (simple, subtle) */
+    .mark{
+      margin: 18px auto 0;
+      width: 34px;
+      height: 34px;
+      opacity: 0.35;
+      display:block;
+    }
+
+    /* Hidden clue layer: text blends into background until selected */
     .whiteout{
-      color: rgba(232,236,255,.06);
+      margin-top: 18px;
+      color: rgba(0,0,0,0.03); /* nearly invisible */
+      user-select:text;
     }
     ::selection{
-      background: rgba(124,92,255,.55);
-      color:#fff;
+      background: rgba(9,105,218,0.20);
+      color: #0b1f3a;
     }
-    .tiny{
-      font-size:11px;
-      color:rgba(170,178,213,.95);
-      line-height:1.5;
-    }
-    .hintline{
-      display:flex;
-      gap:10px;
-      align-items:flex-start;
-      font-family:var(--mono);
-      font-size:12px;
-      color:rgba(170,178,213,.95);
-    }
-    .hintline .k{
-      width:18px;
-      height:18px;
-      border-radius:6px;
-      background: rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.10);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      color: rgba(232,236,255,.85);
-      flex:0 0 auto;
+
+    /* Tiny invisible metadata that won’t change layout */
+    .meta{
+      position:absolute;
+      left:-9999px;
+      top:-9999px;
+      font-family: var(--mono);
     }
   </style>
 </head>
 
 <body>
-  <main class="wrap" aria-label="404 page">
-    <section class="card">
-      <div class="badge"><span class="dot" aria-hidden="true"></span> ERROR ROUTING</div>
-      <div class="glitch" data-text="404 — Page Not Found">404 — Page Not Found</div>
+  <div class="page">
+    <div class="content" role="main" aria-label="404 page">
+      <h1>404</h1>
 
-      <!-- Acrostic clue: first letters spell MAZDA -->
-      <h1>
-        <span>M</span>issing page.
-        <br />
-        <span>A</span>ccess denied.
-        <br />
-        <span>Z</span>ero results.
-        <br />
-        <span>D</span>ead end.
-        <br />
-        <span>A</span>lternate route required.
-      </h1>
+      <h2>File not found</h2>
 
-      <p class="sub">
-        The resource you’re looking for is not available at this address. Validate the URL, or return to a known route.
+      <div class="spacer"></div>
+
+      <p>The site configured at this address does not contain the requested file.</p>
+
+      <p>
+        If this is your site, make sure that the filename case matches the URL as well as any
+        file permissions.
       </p>
 
-      <!-- “Highlight to reveal” clue -->
-      <p class="sub whiteout" aria-label="hidden hint">
-        Operational note: If you’re stuck, stop looking at the page and start looking for the car.
+      <p>
+        For root URLs (like <code>http://example.com/</code>) you must provide an <code>index.html</code> file.
       </p>
 
-      <div class="actions">
-        <a class="btn primary" href="#" id="homeBtn">Go Home</a>
-        <button type="button" id="retryBtn">Retry</button>
-        <button type="button" id="supportBtn">Contact Support</button>
+      <div class="spacer"></div>
+
+      <p>
+        <a href="https://docs.github.com/pages" target="_blank" rel="noopener noreferrer">
+          Read the full documentation
+        </a>
+        for more information about using <strong>GitHub Pages</strong>.
+      </p>
+
+      <!-- Hidden, selectable message (does not affect official look) -->
+      <p class="whiteout" aria-label="hidden hint">
+        Operational directive: go to the Mazda.
+      </p>
+
+      <div class="footer" aria-label="footer">
+        <a href="https://www.githubstatus.com/" target="_blank" rel="noopener noreferrer">GitHub Status</a>
+        <span class="sep">—</span>
+        <a href="https://twitter.com/githubstatus" target="_blank" rel="noopener noreferrer">@githubstatus</a>
+
+        <!-- Simple Octocat mark (SVG) -->
+        <svg class="mark" viewBox="0 0 16 16" aria-hidden="true">
+          <path fill="#57606a" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+            0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01
+            1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95
+            0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27
+            2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82
+            1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01
+            2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+        </svg>
       </div>
 
-      <div class="status">
-        <div>Ref: <span id="ref"></span></div>
-        <div class="ok"><span class="dot" aria-hidden="true"></span> Systems nominal</div>
-      </div>
-
-      <!-- Tiny ghost text (visually subtle) -->
-      <div class="ghost" aria-hidden="true">
-        go to the mazda
-      </div>
-    </section>
-
-    <aside class="card side">
-      <h2>Diagnostics</h2>
-
-      <div class="panel">
-        <div class="kv">
-          <div>HTTP</div><div><b>404</b> Not Found</div>
-          <div>Method</div><div><b>GET</b></div>
-          <div>Edge</div><div><b>SEA</b>-01</div>
-          <div>Trace</div><div><b id="trace"></b></div>
-          <div>Next hop</div><div><b>—</b></div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="hintline">
-          <div class="k">i</div>
-          <div>
-            If you believe this is a configuration issue, validate routing and confirm you’re targeting the correct asset.
-            <div class="tiny" style="margin-top:8px">
-              Pro tip: puzzle-solvers typically check console output, view-source, and selection highlights.
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h2 style="margin-top:0">Search</h2>
-        <div style="display:flex; gap:10px; align-items:center;">
-          <input
-            id="search"
-            type="text"
-            placeholder="Search site…"
-            style="
-              width:100%;
-              padding:10px 12px;
-              border-radius:12px;
-              border:1px solid rgba(255,255,255,.12);
-              background: rgba(0,0,0,.18);
-              color: var(--text);
-              outline:none;
-              font-family: var(--mono);
-            "
-          />
-          <button type="button" id="searchBtn">Go</button>
-        </div>
-        <div class="tiny" id="searchMsg" style="margin-top:10px; color: rgba(170,178,213,.85)"></div>
-      </div>
-
-      <!-- Another hidden clue via data-attribute -->
-      <div
-        class="panel"
-        data-route="M.A.Z.D.A"
-        data-note="This panel intentionally contains metadata."
-      >
-        <div class="tiny">
-          Nothing to see here. Just standard telemetry.
-        </div>
-      </div>
-    </aside>
-  </main>
+      <!-- Metadata (view-source/DOM inspection) -->
+      <div class="meta" data-clue="MAZDA" data-action="go-to-the-mazda"></div>
+    </div>
+  </div>
 
   <script>
-    // Deterministic-ish IDs so the page feels “real”
-    const rand = () => Math.random().toString(16).slice(2, 10).toUpperCase();
-    const ref = `ERR-${rand()}-${rand()}`;
-    const trace = `trace_${rand()}_${Date.now().toString(16).toUpperCase()}`;
-
-    document.getElementById("ref").textContent = ref;
-    document.getElementById("trace").textContent = trace;
-
-    // Hidden meaning: console breadcrumb
-    // (Players who open DevTools will see it.)
-    console.log("%c404 routing mismatch detected.", "color:#ff4d6d;font-weight:700;");
-    console.log("%cIf you're solving the puzzle: stop chasing the URL. Go to the %cMazda%c.",
-      "color:#aab2d5;",
-      "color:#21c07a;font-weight:800;",
-      "color:#aab2d5;"
-    );
-
-    // “Go Home” is intentionally a decoy (keeps them here) unless they’ve found the hint.
-    // You can swap this behavior if you want it to actually navigate somewhere.
-    document.getElementById("homeBtn").addEventListener("click", (e) => {
-      e.preventDefault();
-      toast("Home route unavailable. Re-evaluate the target asset.");
-    });
-
-    document.getElementById("retryBtn").addEventListener("click", () => {
-      toast("Retry failed. Cache miss persists.");
-      // subtle screen shake
-      document.body.animate(
-        [{ transform: "translateX(0px)" }, { transform: "translateX(-4px)" }, { transform: "translateX(4px)" }, { transform: "translateX(0px)" }],
-        { duration: 180, iterations: 1 }
-      );
-    });
-
-    document.getElementById("supportBtn").addEventListener("click", () => {
-      toast("Support queue: 404. Recommendation: follow the physical clue.");
-    });
-
-    // Search box: entering certain terms yields nudges
-    const search = document.getElementById("search");
-    const searchMsg = document.getElementById("searchMsg");
-    document.getElementById("searchBtn").addEventListener("click", runSearch);
-    search.addEventListener("keydown", (e) => { if (e.key === "Enter") runSearch(); });
-
-    function runSearch(){
-      const q = (search.value || "").trim().toLowerCase();
-      if (!q) {
-        searchMsg.textContent = "No query provided.";
-        return;
-      }
-      const rules = [
-        { match: ["help","hint","clue"], msg: "Look for what’s hidden in plain sight. Start with the headline." },
-        { match: ["car","vehicle","auto"], msg: "Correct direction. Now be specific." },
-        { match: ["mazda","miata","cx-5","rx-7"], msg: "Bingo. Action item: go to the Mazda." },
-        { match: ["404","error","not found"], msg: "This page is behaving as designed. Solve the layer below UI." },
-      ];
-      const hit = rules.find(r => r.match.includes(q));
-      searchMsg.textContent = hit ? hit.msg : "No results. Try fewer assumptions.";
-    }
-
-    // Minimal toast (no dependencies)
-    function toast(message){
-      const el = document.createElement("div");
-      el.textContent = message;
-      el.style.cssText = `
-        position: fixed;
-        left: 50%;
-        bottom: 22px;
-        transform: translateX(-50%);
-        padding: 10px 14px;
-        border-radius: 12px;
-        background: rgba(15,23,51,.92);
-        border: 1px solid rgba(255,255,255,.14);
-        color: rgba(232,236,255,.95);
-        font: 12px/1.4 var(--mono);
-        box-shadow: 0 16px 40px rgba(0,0,0,.35);
-        z-index: 9999;
-        max-width: min(720px, 92vw);
-        text-align: center;
-      `;
-      document.body.appendChild(el);
-      el.animate([{ opacity: 0, transform: "translateX(-50%) translateY(6px)" }, { opacity: 1, transform: "translateX(-50%) translateY(0px)" }], { duration: 140 });
-      setTimeout(() => {
-        el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180 }).onfinish = () => el.remove();
-      }, 1800);
-    }
+    // Console breadcrumb: only for players who open DevTools.
+    // Does not change visuals.
+    console.log("%c404: File not found", "color:#6e7781;font-family:system-ui;font-size:12px;");
+    console.log("%cPuzzle hint:%c go to the Mazda", "color:#6e7781;font-family:system-ui;font-size:12px;", "color:#0969da;font-weight:700;");
   </script>
 </body>
 </html>

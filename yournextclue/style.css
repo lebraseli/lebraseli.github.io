@@ -644,3 +644,60 @@ html[data-theme="light"] .prow{ background: rgba(255,255,255,.45); }
     line-height: 1.55;
   }
 }
+
+
+/* =========================================================
+   HARD FIX: eliminate bottom blue/yellow haze (dark + light)
+   - Root/base is clean (no glow)
+   - Glow lives ONLY in html::before and is CLIPPED to top
+   - Works even with glass/backdrop-filter transparency
+   ========================================================= */
+
+html, body{
+  background: none !important;
+}
+
+/* clean base backdrop (no glow) */
+html[data-theme="dark"]{
+  --bg-base: linear-gradient(180deg, #0b1221 0%, #070b14 100%);
+  --bg-glow:
+    radial-gradient(900px 520px at 22% 8%, rgba(70,110,220,.14), transparent 60%),
+    radial-gradient(860px 520px at 86% 10%, rgba(190,160,70,.12), transparent 60%);
+}
+
+html[data-theme="light"]{
+  --bg-base: linear-gradient(180deg, #f4f6ff 0%, #eef1ff 70%, #f2f4ff 100%);
+  --bg-glow:
+    radial-gradient(1200px 800px at 20% 15%, rgba(122,166,255,.16), transparent 60%),
+    radial-gradient(1000px 700px at 85% 10%, rgba(208,168,79,.14), transparent 55%);
+}
+
+/* base is always applied */
+html{
+  background: var(--bg-base) !important;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* glow layer: clipped to top so it CANNOT bleed into the bottom */
+html::before{
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+
+  background: var(--bg-glow);
+
+  /* HARD cutoff (works everywhere) */
+  clip-path: inset(0 0 45% 0);
+
+  /* Soft fade (supported browsers) */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 85%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 85%);
+}
+
+/* Ensure body doesn't reintroduce the old --bg */
+body{
+  background: transparent !important;
+}

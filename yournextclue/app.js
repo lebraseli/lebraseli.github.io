@@ -1,3 +1,4 @@
+// app.js
 (() => {
   "use strict";
 
@@ -22,7 +23,17 @@
   };
 
   const POEM =
-`Don’t overthink it—read carefully.`;
+`Echoes of leaves still drift in your mind,
+Lingering high where the treetops aligned.
+In a new kind of height the answer now hides,
+Somewhere the stairway quietly guides.
+Beyond the floor where the busy feet roam,
+Every step feels closer to home.
+Deeper inside where the ceilings grow,
+Riddles begin to softly glow.
+Out of the noise and daily gloom,
+Onward you move to a quieter room.
+Mysteries wait for the ones who assume.`;
 
   /* =========================
      DOM HELPERS

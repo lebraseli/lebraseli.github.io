@@ -23,6 +23,51 @@ body {
   background: var(--bg);
 }
 
+/* =========================================================
+   Kill bottom blue/yellow hue overlap (light + dark)
+   Strategy:
+   - Make the page background a clean solid/linear base
+   - Render all “glow” gradients ONLY in a fixed top overlay
+   ========================================================= */
+
+body{
+  /* Override any gradient-heavy background on the body */
+  background: var(--bg-base) !important;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Top-only glow layer */
+body::before{
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+
+  /* Glow only lives in the top region, then fades out completely */
+  background: var(--bg-glow);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 40%, transparent 75%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 40%, transparent 75%);
+  pointer-events: none;
+}
+
+/* ---------- Dark theme: clean base + top-only glow ---------- */
+html[data-theme="dark"]{
+  --bg-base: linear-gradient(180deg, #0b1221 0%, #070b14 100%);
+  --bg-glow:
+    radial-gradient(900px 520px at 22% 0%, rgba(70,110,220,.10), transparent 55%),
+    radial-gradient(860px 520px at 86% 0%, rgba(190,160,70,.10), transparent 55%);
+}
+
+/* ---------- Light theme: clean base + top-only glow ---------- */
+html[data-theme="light"]{
+  --bg-base: linear-gradient(180deg, #f4f6ff 0%, #eef1ff 70%, #f2f4ff 100%);
+  --bg-glow:
+    radial-gradient(1200px 800px at 20% 15%, rgba(122,166,255,.16), transparent 60%),
+    radial-gradient(1000px 700px at 85% 10%, rgba(208,168,79,.14), transparent 55%);
+}
+
+
 /* Prevent accidental “dead UI” from overlays */
 *::before,
 *::after { pointer-events: none; }

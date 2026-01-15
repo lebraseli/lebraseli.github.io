@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>404 — Page Not Found</title>
+  <meta name="robots" content="noindex,nofollow" />
+
+  <!--
+    If you're reading this, you're already on the right track.
+    The "page" isn't the destination.
+    Hint: follow the car brand hiding in plain sight.
+  -->
+
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#0f1733;
+      --text:#e8ecff;
+      --muted:#aab2d5;
+      --accent:#7c5cff;
+      --danger:#ff4d6d;
+      --ok:#21c07a;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:var(--sans);
+      color:var(--text);
+      background:
+        radial-gradient(900px 600px at 15% 20%, rgba(124,92,255,.18), transparent 60%),
+        radial-gradient(800px 500px at 85% 70%, rgba(255,77,109,.10), transparent 55%),
+        linear-gradient(180deg, #070b16, var(--bg));
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:32px;
+    }
+    .wrap{
+      width:min(980px, 100%);
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:24px;
+    }
+    @media (max-width: 860px){
+      .wrap{grid-template-columns:1fr}
+    }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      position:relative;
+      overflow:hidden;
+    }
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      font-family:var(--mono);
+      font-size:12px;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:var(--muted);
+      margin-bottom:14px;
+    }
+    .dot{
+      width:10px;height:10px;border-radius:999px;
+      background:var(--danger);
+      box-shadow:0 0 20px rgba(255,77,109,.45);
+    }
+    h1{
+      margin:0 0 10px 0;
+      font-size:48px;
+      line-height:1.05;
+      letter-spacing:-.02em;
+    }
+    .sub{
+      margin:0 0 18px 0;
+      color:var(--muted);
+      font-size:16px;
+      line-height:1.55;
+      max-width:62ch;
+    }
+
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      margin-top:14px;
+    }
+    button, a.btn{
+      appearance:none;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color:var(--text);
+      padding: 10px 14px;
+      border-radius:12px;
+      cursor:pointer;
+      text-decoration:none;
+      font-weight:600;
+      transition: transform .12s ease, background .12s ease, border-color .12s ease;
+    }
+    button:hover, a.btn:hover{
+      transform: translateY(-1px);
+      background: rgba(255,255,255,.10);
+      border-color: rgba(255,255,255,.22);
+    }
+    .primary{
+      border-color: rgba(124,92,255,.45);
+      background: rgba(124,92,255,.16);
+    }
+
+    .side h2{
+      margin:0 0 10px 0;
+      font-size:16px;
+      color:var(--muted);
+      letter-spacing:.02em;
+      text-transform:uppercase;
+      font-family:var(--mono);
+    }
+    .panel{
+      background: rgba(0,0,0,.20);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom:14px;
+    }
+    .kv{
+      display:grid;
+      grid-template-columns: 140px 1fr;
+      gap:10px;
+      font-family:var(--mono);
+      font-size:13px;
+      color:var(--muted);
+    }
+    .kv b{color:var(--text); font-weight:700}
+
+    .status{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      margin-top:10px;
+      padding-top:12px;
+      border-top:1px dashed rgba(255,255,255,.12);
+      font-family:var(--mono);
+      font-size:12px;
+      color:var(--muted);
+    }
+    .ok{
+      display:inline-flex; align-items:center; gap:8px;
+      color: rgba(33,192,122,.95);
+    }
+    .ok .dot{
+      background:var(--ok);
+      box-shadow:0 0 18px rgba(33,192,122,.35);
+    }
+
+    /* Glitch-ish 404 label */
+    .glitch{
+      position:relative;
+      display:inline-block;
+      font-family:var(--mono);
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      font-size:12px;
+      color:rgba(232,236,255,.85);
+      margin-bottom:10px;
+    }
+    .glitch:before, .glitch:after{
+      content:attr(data-text);
+      position:absolute;
+      left:0; top:0;
+      opacity:.55;
+      clip-path: inset(0 0 0 0);
+    }
+    .glitch:before{ transform: translate(1px,0); color: rgba(124,92,255,.85); }
+    .glitch:after{ transform: translate(-1px,0); color: rgba(255,77,109,.75); }
+
+    /* Hidden clue layers */
+    .ghost{
+      position:absolute;
+      inset:auto 18px 18px auto;
+      font-family:var(--mono);
+      font-size:11px;
+      color:rgba(232,236,255,.15);
+      user-select:none;
+      pointer-events:none;
+    }
+    /* highlight-to-reveal: text is there but blends in */
+    .whiteout{
+      color: rgba(232,236,255,.06);
+    }
+    ::selection{
+      background: rgba(124,92,255,.55);
+      color:#fff;
+    }
+    .tiny{
+      font-size:11px;
+      color:rgba(170,178,213,.95);
+      line-height:1.5;
+    }
+    .hintline{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      font-family:var(--mono);
+      font-size:12px;
+      color:rgba(170,178,213,.95);
+    }
+    .hintline .k{
+      width:18px;
+      height:18px;
+      border-radius:6px;
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.10);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color: rgba(232,236,255,.85);
+      flex:0 0 auto;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="wrap" aria-label="404 page">
+    <section class="card">
+      <div class="badge"><span class="dot" aria-hidden="true"></span> ERROR ROUTING</div>
+      <div class="glitch" data-text="404 — Page Not Found">404 — Page Not Found</div>
+
+      <!-- Acrostic clue: first letters spell MAZDA -->
+      <h1>
+        <span>M</span>issing page.
+        <br />
+        <span>A</span>ccess denied.
+        <br />
+        <span>Z</span>ero results.
+        <br />
+        <span>D</span>ead end.
+        <br />
+        <span>A</span>lternate route required.
+      </h1>
+
+      <p class="sub">
+        The resource you’re looking for is not available at this address. Validate the URL, or return to a known route.
+      </p>
+
+      <!-- “Highlight to reveal” clue -->
+      <p class="sub whiteout" aria-label="hidden hint">
+        Operational note: If you’re stuck, stop looking at the page and start looking for the car.
+      </p>
+
+      <div class="actions">
+        <a class="btn primary" href="#" id="homeBtn">Go Home</a>
+        <button type="button" id="retryBtn">Retry</button>
+        <button type="button" id="supportBtn">Contact Support</button>
+      </div>
+
+      <div class="status">
+        <div>Ref: <span id="ref"></span></div>
+        <div class="ok"><span class="dot" aria-hidden="true"></span> Systems nominal</div>
+      </div>
+
+      <!-- Tiny ghost text (visually subtle) -->
+      <div class="ghost" aria-hidden="true">
+        go to the mazda
+      </div>
+    </section>
+
+    <aside class="card side">
+      <h2>Diagnostics</h2>
+
+      <div class="panel">
+        <div class="kv">
+          <div>HTTP</div><div><b>404</b> Not Found</div>
+          <div>Method</div><div><b>GET</b></div>
+          <div>Edge</div><div><b>SEA</b>-01</div>
+          <div>Trace</div><div><b id="trace"></b></div>
+          <div>Next hop</div><div><b>—</b></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="hintline">
+          <div class="k">i</div>
+          <div>
+            If you believe this is a configuration issue, validate routing and confirm you’re targeting the correct asset.
+            <div class="tiny" style="margin-top:8px">
+              Pro tip: puzzle-solvers typically check console output, view-source, and selection highlights.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2 style="margin-top:0">Search</h2>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <input
+            id="search"
+            type="text"
+            placeholder="Search site…"
+            style="
+              width:100%;
+              padding:10px 12px;
+              border-radius:12px;
+              border:1px solid rgba(255,255,255,.12);
+              background: rgba(0,0,0,.18);
+              color: var(--text);
+              outline:none;
+              font-family: var(--mono);
+            "
+          />
+          <button type="button" id="searchBtn">Go</button>
+        </div>
+        <div class="tiny" id="searchMsg" style="margin-top:10px; color: rgba(170,178,213,.85)"></div>
+      </div>
+
+      <!-- Another hidden clue via data-attribute -->
+      <div
+        class="panel"
+        data-route="M.A.Z.D.A"
+        data-note="This panel intentionally contains metadata."
+      >
+        <div class="tiny">
+          Nothing to see here. Just standard telemetry.
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    // Deterministic-ish IDs so the page feels “real”
+    const rand = () => Math.random().toString(16).slice(2, 10).toUpperCase();
+    const ref = `ERR-${rand()}-${rand()}`;
+    const trace = `trace_${rand()}_${Date.now().toString(16).toUpperCase()}`;
+
+    document.getElementById("ref").textContent = ref;
+    document.getElementById("trace").textContent = trace;
+
+    // Hidden meaning: console breadcrumb
+    // (Players who open DevTools will see it.)
+    console.log("%c404 routing mismatch detected.", "color:#ff4d6d;font-weight:700;");
+    console.log("%cIf you're solving the puzzle: stop chasing the URL. Go to the %cMazda%c.",
+      "color:#aab2d5;",
+      "color:#21c07a;font-weight:800;",
+      "color:#aab2d5;"
+    );
+
+    // “Go Home” is intentionally a decoy (keeps them here) unless they’ve found the hint.
+    // You can swap this behavior if you want it to actually navigate somewhere.
+    document.getElementById("homeBtn").addEventListener("click", (e) => {
+      e.preventDefault();
+      toast("Home route unavailable. Re-evaluate the target asset.");
+    });
+
+    document.getElementById("retryBtn").addEventListener("click", () => {
+      toast("Retry failed. Cache miss persists.");
+      // subtle screen shake
+      document.body.animate(
+        [{ transform: "translateX(0px)" }, { transform: "translateX(-4px)" }, { transform: "translateX(4px)" }, { transform: "translateX(0px)" }],
+        { duration: 180, iterations: 1 }
+      );
+    });
+
+    document.getElementById("supportBtn").addEventListener("click", () => {
+      toast("Support queue: 404. Recommendation: follow the physical clue.");
+    });
+
+    // Search box: entering certain terms yields nudges
+    const search = document.getElementById("search");
+    const searchMsg = document.getElementById("searchMsg");
+    document.getElementById("searchBtn").addEventListener("click", runSearch);
+    search.addEventListener("keydown", (e) => { if (e.key === "Enter") runSearch(); });
+
+    function runSearch(){
+      const q = (search.value || "").trim().toLowerCase();
+      if (!q) {
+        searchMsg.textContent = "No query provided.";
+        return;
+      }
+      const rules = [
+        { match: ["help","hint","clue"], msg: "Look for what’s hidden in plain sight. Start with the headline." },
+        { match: ["car","vehicle","auto"], msg: "Correct direction. Now be specific." },
+        { match: ["mazda","miata","cx-5","rx-7"], msg: "Bingo. Action item: go to the Mazda." },
+        { match: ["404","error","not found"], msg: "This page is behaving as designed. Solve the layer below UI." },
+      ];
+      const hit = rules.find(r => r.match.includes(q));
+      searchMsg.textContent = hit ? hit.msg : "No results. Try fewer assumptions.";
+    }
+
+    // Minimal toast (no dependencies)
+    function toast(message){
+      const el = document.createElement("div");
+      el.textContent = message;
+      el.style.cssText = `
+        position: fixed;
+        left: 50%;
+        bottom: 22px;
+        transform: translateX(-50%);
+        padding: 10px 14px;
+        border-radius: 12px;
+        background: rgba(15,23,51,.92);
+        border: 1px solid rgba(255,255,255,.14);
+        color: rgba(232,236,255,.95);
+        font: 12px/1.4 var(--mono);
+        box-shadow: 0 16px 40px rgba(0,0,0,.35);
+        z-index: 9999;
+        max-width: min(720px, 92vw);
+        text-align: center;
+      `;
+      document.body.appendChild(el);
+      el.animate([{ opacity: 0, transform: "translateX(-50%) translateY(6px)" }, { opacity: 1, transform: "translateX(-50%) translateY(0px)" }], { duration: 140 });
+      setTimeout(() => {
+        el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180 }).onfinish = () => el.remove();
+      }, 1800);
+    }
+  </script>
+</body>
+</html>

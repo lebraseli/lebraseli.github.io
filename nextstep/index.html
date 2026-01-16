@@ -48,6 +48,7 @@
       border: 1px solid var(--border);
       box-shadow: var(--shadow);
       backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
       padding: 22px;
     }
 
@@ -96,34 +97,67 @@
       justify-content: space-between;
     }
 
-    /* Hello page */
+    /* =========================
+       HELLO PAGE (upgraded look)
+       ========================= */
     #helloPage {
       display: none;
       background: #ffffff;
-      color: #000000;
+      color: #0b0f17;
       overflow: auto;
     }
 
-    #helloPage .helloWrap {
-      width: min(900px, 92vw);
-      margin: 0 auto;
-      padding: 72px 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    /* Clean, centered layout with premium typography rhythm */
+    #helloPage .helloShell {
+      min-height: 100vh;
+      width: 100%;
+      display: grid;
+      place-items: center;
+      padding: 56px 20px;
+      background:
+        radial-gradient(900px 500px at 15% 15%, rgba(90, 125, 255, 0.10), transparent 60%),
+        radial-gradient(800px 500px at 85% 30%, rgba(255, 95, 200, 0.08), transparent 65%),
+        #ffffff;
+    }
+
+    #helloPage .helloCard {
+      width: min(920px, 92vw);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      box-shadow:
+        0 20px 60px rgba(2, 6, 23, 0.10),
+        0 2px 10px rgba(2, 6, 23, 0.06);
+      padding: clamp(22px, 3.2vw, 44px);
     }
 
     #helloPage .helloText {
-      font-size: 18px;
-      line-height: 1.7;
-      letter-spacing: 0.2px;
-      white-space: pre-wrap;
+      margin: 0;
+      font-size: clamp(16px, 1.45vw, 19px);
+      line-height: 1.75;
+      letter-spacing: 0.1px;
+      color: rgba(2, 6, 23, 0.88);
+      white-space: pre-wrap; /* preserves your controlled line breaks */
+      text-wrap: pretty;
+    }
+
+    /* Subtle “reading column” effect without adding any words */
+    #helloPage .helloCard::before {
+      content: "";
+      display: block;
+      height: 2px;
+      width: 64px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(90,125,255,0.55), rgba(255,95,200,0.45));
+      margin-bottom: 18px;
+      opacity: 0.7;
     }
 
     @media (max-width: 420px) {
       .row { grid-template-columns: 1fr; }
       .btn { width: 100%; }
       .meta { flex-direction: column; gap: 6px; }
-      #helloPage .helloWrap { padding: 48px 0; }
-      #helloPage .helloText { font-size: 16px; }
+      #helloPage .helloShell { padding: 40px 14px; }
     }
   </style>
 </head>
@@ -155,8 +189,10 @@
 
   <!-- Hello Page -->
   <main id="helloPage" class="page">
-    <div class="helloWrap">
-      <div class="helloText">When approaching a demanding problem, it is helpful to slow down and observe carefully, since haste can obscure important structure. Many people tink progress depends on speed alone, while others understand patience reveals deeper patterns. A careful reader wil notice that assumptions must be questioned before conclusions are formed. It is therefor wise to examine every detail, even those that seem insignificant at first. Over time, insight begins to develp through repetition and reflection. In this process, clarity does not emerge instantly, but is prited gradually as understanding takes shape.</div>
+    <div class="helloShell">
+      <section class="helloCard" aria-label="Clue">
+        <p class="helloText">When approaching a demanding problem, it is helpful to slow down and observe carefully, since haste can obscure important structure. Many people tink progress depends on speed alone, while others understand patience reveals deeper patterns. A careful reader wil notice that assumptions must be questioned before conclusions are formed. It is therefor wise to examine every detail, even those that seem insignificant at first. Over time, insight begins to develp through repetition and reflection. In this process, clarity does not emerge instantly, but is prited gradually as understanding takes shape.</p>
+      </section>
     </div>
   </main>
 
@@ -173,7 +209,7 @@
 
       function routeToHello() {
         gatePage.style.display = "none";
-        helloPage.style.display = "grid";
+        helloPage.style.display = "block";
       }
 
       gateForm.addEventListener("submit", (e) => {

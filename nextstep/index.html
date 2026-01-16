@@ -17,10 +17,7 @@
       --radius: 18px;
     }
 
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
     html, body {
       height: 100%;
       margin: 0;
@@ -54,17 +51,8 @@
       padding: 22px;
     }
 
-    .headline {
-      margin: 0 0 6px;
-      font-size: 18px;
-      font-weight: 650;
-    }
-
-    .subhead {
-      margin: 0 0 16px;
-      font-size: 13px;
-      color: var(--muted);
-    }
+    .headline { margin: 0 0 6px; font-size: 18px; font-weight: 650; }
+    .subhead { margin: 0 0 16px; font-size: 13px; color: var(--muted); }
 
     .row {
       display: grid;
@@ -82,11 +70,7 @@
       color: var(--text);
       outline: none;
     }
-
-    .input::placeholder {
-      color: rgba(255,255,255,0.35);
-    }
-
+    .input::placeholder { color: rgba(255,255,255,0.35); }
     .input:focus {
       border-color: rgba(150,175,255,0.55);
       box-shadow: 0 0 0 4px rgba(110,140,255,0.18);
@@ -102,10 +86,7 @@
       color: var(--text);
       cursor: pointer;
     }
-
-    .btn:active {
-      transform: translateY(1px);
-    }
+    .btn:active { transform: translateY(1px); }
 
     .meta {
       margin-top: 14px;
@@ -120,28 +101,29 @@
       display: none;
       background: #ffffff;
       color: #000000;
+      overflow: auto;
     }
 
     #helloPage .helloWrap {
-      width: 100%;
-      height: 100%;
-      display: grid;
-      place-items: center;
-      font-size: 28px;
-      font-weight: 650;
+      width: min(900px, 92vw);
+      margin: 0 auto;
+      padding: 72px 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+
+    #helloPage .helloText {
+      font-size: 18px;
+      line-height: 1.7;
+      letter-spacing: 0.2px;
+      white-space: pre-wrap;
     }
 
     @media (max-width: 420px) {
-      .row {
-        grid-template-columns: 1fr;
-      }
-      .btn {
-        width: 100%;
-      }
-      .meta {
-        flex-direction: column;
-        gap: 6px;
-      }
+      .row { grid-template-columns: 1fr; }
+      .btn { width: 100%; }
+      .meta { flex-direction: column; gap: 6px; }
+      #helloPage .helloWrap { padding: 48px 0; }
+      #helloPage .helloText { font-size: 16px; }
     }
   </style>
 </head>
@@ -154,7 +136,6 @@
       <p class="subhead">Enter the key. No match, no action.</p>
 
       <form id="gateForm" class="row" autocomplete="off">
-        <!-- KEY CHANGE: type="text" -->
         <input
           id="keyInput"
           class="input"
@@ -174,7 +155,9 @@
 
   <!-- Hello Page -->
   <main id="helloPage" class="page">
-    <div class="helloWrap">hello</div>
+    <div class="helloWrap">
+      <div class="helloText">When approaching a demanding problem, it is helpful to slow down and observe carefully, since haste can obscure important structure. Many people tink progress depends on speed alone, while others understand patience reveals deeper patterns. A careful reader wil notice that assumptions must be questioned before conclusions are formed. It is therefor wise to examine every detail, even those that seem insignificant at first. Over time, insight begins to develp through repetition and reflection. In this process, clarity does not emerge instantly, but is prited gradually as understanding takes shape.</div>
+    </div>
   </main>
 
   <script>

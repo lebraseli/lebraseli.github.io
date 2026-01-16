@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gate</title>
+  <style>
+    :root {
+      --bg1: #0b0f17;
+      --bg2: #070a10;
+      --card: rgba(255, 255, 255, 0.06);
+      --card2: rgba(255, 255, 255, 0.10);
+      --text: rgba(255, 255, 255, 0.92);
+      --muted: rgba(255, 255, 255, 0.60);
+      --border: rgba(255, 255, 255, 0.14);
+      --shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; }
+
+    body {
+      background:
+        radial-gradient(1200px 800px at 20% 20%, rgba(90, 125, 255, 0.20), transparent 55%),
+        radial-gradient(900px 650px at 80% 35%, rgba(255, 95, 200, 0.14), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    /* Page containers */
+    .page {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    /* Gate card */
+    .card {
+      width: min(560px, 100%);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, var(--card), rgba(255,255,255,0.03));
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      padding: 22px;
+      position: relative;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      background: linear-gradient(120deg, rgba(255,255,255,0.18), transparent 40%, rgba(255,255,255,0.12));
+      pointer-events: none;
+      mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+      -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+      padding: 1px;
+      box-sizing: border-box;
+      opacity: 0.8;
+    }
+
+    .headline {
+      font-size: 18px;
+      letter-spacing: 0.2px;
+      margin: 0 0 6px 0;
+      font-weight: 650;
+    }
+
+    .subhead {
+      margin: 0 0 16px 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .input {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(0,0,0,0.35);
+      color: var(--text);
+      padding: 12px 14px;
+      outline: none;
+      font-size: 14px;
+      transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    }
+
+    .input::placeholder { color: rgba(255,255,255,0.35); }
+
+    .input:focus {
+      border-color: rgba(150, 175, 255, 0.55);
+      box-shadow: 0 0 0 4px rgba(110, 140, 255, 0.18);
+      background: rgba(0,0,0,0.45);
+    }
+
+    .btn {
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.06));
+      color: var(--text);
+      padding: 12px 14px;
+      font-size: 13px;
+      font-weight: 650;
+      cursor: pointer;
+      transition: transform 120ms ease, background 160ms ease, border-color 160ms ease;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .btn:hover { border-color: rgba(255,255,255,0.28); }
+    .btn:active { transform: translateY(1px); }
+
+    /* Small footer text */
+    .meta {
+      margin-top: 14px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.45);
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    /* "Hello" page */
+    #helloPage {
+      display: none;
+      background: #ffffff;
+      color: #000000;
+      overflow: auto;
+    }
+    #helloPage .helloWrap {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+    #helloPage .helloText {
+      font-size: 28px;
+      font-weight: 650;
+      letter-spacing: 0.2px;
+    }
+
+    /* Optional: prevent selection on bg */
+    .noselect { user-select: none; }
+
+    @media (max-width: 420px) {
+      .row { grid-template-columns: 1fr; }
+      .btn { width: 100%; }
+      .meta { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Gate Page -->
+  <main id="gatePage" class="page">
+    <section class="card" aria-label="Key gate">
+      <h1 class="headline noselect">Access</h1>
+      <p class="subhead noselect">Enter the key. No match, no action.</p>
+
+      <form id="gateForm" class="row" autocomplete="off" spellcheck="false">
+        <input
+          id="keyInput"
+          class="input"
+          type="password"
+          inputmode="text"
+          placeholder="Key"
+          aria-label="Key"
+        />
+        <button class="btn" type="submit" aria-label="Submit key">Continue</button>
+      </form>
+
+      <div class="meta noselect">
+        <span>Secure gate</span>
+        <span>v0.1</span>
+      </div>
+    </section>
+  </main>
+
+  <!-- Hello Page -->
+  <main id="helloPage" class="page" aria-label="Hello page">
+    <div class="helloWrap">
+      <div class="helloText">hello</div>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      // Hard-gated key
+      const REQUIRED_KEY = "ua3mu6m64agm1aufg56jsnk5";
+
+      const gatePage = document.getElementById("gatePage");
+      const helloPage = document.getElementById("helloPage");
+      const gateForm = document.getElementById("gateForm");
+      const keyInput = document.getElementById("keyInput");
+
+      // Zero side-effects: do not show errors, do not shake, do not hint.
+      // Only on exact match do we route to hello.
+      function routeToHello() {
+        gatePage.style.display = "none";
+        helloPage.style.display = "grid";
+        // Clear any sensitive input immediately.
+        keyInput.value = "";
+      }
+
+      gateForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        const entered = (keyInput.value || "").trim();
+
+        // Strict match only. Anything else: no action.
+        if (entered === REQUIRED_KEY) {
+          routeToHello();
+        }
+      });
+
+      // Optional: allow Enter key naturally via form submit; no other listeners.
+      // Ensure focus is on input on load for smooth UX.
+      window.addEventListener("load", () => {
+        try { keyInput.focus(); } catch (_) {}
+      });
+    })();
+  </script>
+</body>
+</html>

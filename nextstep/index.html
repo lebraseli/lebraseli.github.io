@@ -209,7 +209,9 @@ const REQUIRED_KEY = "ua3m64g1fg5jsnk"; const gatePage = document.getElementById
 
       gateForm.addEventListener("submit", (e) => {
         e.preventDefault();
-        if (keyInput.value.trim() === REQUIRED_KEY) {
+const normalize = s => s.split("").sort().join("");
+
+if (normalize(keyInput.value.trim()) === normalize(REQUIRED_KEY)) {
           routeToHello();
         }
       });

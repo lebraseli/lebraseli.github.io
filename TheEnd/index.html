@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Riddle Gate</title>
+  <title>Clue</title>
   <style>
     :root {
       color-scheme: dark;
@@ -92,7 +92,7 @@
     .reveal-screen {
       min-height: 100vh;
       width: 100%;
-      padding: 28px;
+      padding: 20px 28px 16px;
       display: grid;
       place-items: center;
       background: transparent;
@@ -100,7 +100,7 @@
 
     .shell {
       width: min(100%, 860px);
-      min-height: min(780px, calc(100vh - 56px));
+      min-height: auto;
       position: relative;
       overflow: hidden;
       border-radius: 34px;
@@ -386,11 +386,11 @@
     @media (max-width: 700px) {
       .page,
       .reveal-screen {
-        padding: 14px;
+        padding: 12px 14px 10px;
       }
 
       .shell {
-        min-height: calc(100vh - 28px);
+        min-height: auto;
         padding: 28px 20px 24px;
         border-radius: 26px;
       }

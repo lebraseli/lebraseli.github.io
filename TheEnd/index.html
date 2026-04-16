@@ -183,9 +183,9 @@
 
     h1 {
       margin: 0 0 14px;
-      max-width: 9ch;
+      max-width: 12ch;
       font-family: Georgia, "Times New Roman", serif;
-      font-size: clamp(2.8rem, 6vw, 5.2rem);
+      font-size: clamp(2.2rem, 5vw, 3.6rem);
       line-height: 0.95;
       font-weight: 600;
       letter-spacing: -0.03em;
@@ -321,8 +321,9 @@
     }
 
     .reveal-wrap {
-      transform: translateY(18px);
+      transform: translateY(22px);
       opacity: 0;
+      transition: opacity 1400ms ease 250ms, transform 1400ms ease 250ms;
       transition: opacity 1100ms ease 180ms, transform 1100ms ease 180ms;
     }
 
@@ -442,7 +443,7 @@
       <div class="eyebrow">Private Entry</div>
       <h1>Enter the six-character code</h1>
       <p class="subtext">
-        A single code unlocks what waits beyond. Enter the correct sequence to reveal the hidden verse.
+        A single code unlocks what waits beyond. 
       </p>
 
       <section aria-label="Code entry">

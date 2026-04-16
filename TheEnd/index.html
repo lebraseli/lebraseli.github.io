@@ -4,119 +4,251 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Riddle Gate</title>
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkR4j8VV9J6h0g8Wc2XxI1C7n0Jz8y+7C2wA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
     :root {
-      --bg-1: #0b1020;
-      --bg-2: #11182d;
+      --bg-1: #071126;
+      --bg-2: #111b34;
+      --text: #eef2ff;
+      --muted: #aeb8d5;
       --panel: rgba(255, 255, 255, 0.08);
       --panel-border: rgba(255, 255, 255, 0.14);
-      --text: #edf2ff;
-      --muted: #aab6d3;
-      --accent: #d9b36c;
-      --accent-soft: rgba(217, 179, 108, 0.18);
-      --success: #cfa45b;
-      --shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-      --radius: 24px;
+      --box-bg: rgba(255,255,255,0.05);
+      --box-border: rgba(255,255,255,0.14);
+      --accent: #d8b16b;
+      --accent-strong: #e2bc78;
+      --accent-soft: rgba(216, 177, 107, 0.16);
+      --status: #f1cd8b;
+      --shadow: 0 24px 70px rgba(0,0,0,0.40);
+      --reveal-bg-1: #150d08;
+      --reveal-bg-2: #2a160d;
     }
 
     body.light {
-      --bg-1: #f3f5fb;
-      --bg-2: #e8edf8;
-      --panel: rgba(255, 255, 255, 0.74);
-      --panel-border: rgba(24, 33, 56, 0.10);
-      --text: #182138;
-      --muted: #5d6a85;
-      --accent: #b8863b;
-      --accent-soft: rgba(184, 134, 59, 0.16);
-      --success: #a57429;
-      --shadow: 0 20px 60px rgba(36, 49, 79, 0.12);
-    }
-
-    :root {
-      --bg-1: #0b1020;
-      --bg-2: #11182d;
-      --panel: rgba(255, 255, 255, 0.08);
-      --panel-border: rgba(255, 255, 255, 0.14);
-      --text: #edf2ff;
-      --muted: #aab6d3;
-      --accent: #d9b36c;
-      --accent-soft: rgba(217, 179, 108, 0.18);
-      --success: #cfa45b;
-      --shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-      --radius: 24px;
+      --bg-1: #eef2f8;
+      --bg-2: #dde5f1;
+      --text: #1c2740;
+      --muted: #5f6d88;
+      --panel: rgba(255, 255, 255, 0.72);
+      --panel-border: rgba(28, 39, 64, 0.10);
+      --box-bg: rgba(255,255,255,0.66);
+      --box-border: rgba(28, 39, 64, 0.12);
+      --accent: #b9812f;
+      --accent-strong: #9f6f27;
+      --accent-soft: rgba(185, 129, 47, 0.14);
+      --status: #9f6f27;
+      --shadow: 0 24px 70px rgba(42,57,89,0.14);
+      --reveal-bg-1: #f6ede2;
+      --reveal-bg-2: #ead8c3;
     }
 
     * {
       box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
 
-    html, body {
+    html {
       margin: 0;
       min-height: 100%;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: var(--text);
-      background:
-        radial-gradient(circle at top left, rgba(217, 179, 108, 0.14), transparent 30%),
-        radial-gradient(circle at bottom right, rgba(255, 255, 255, 0.06), transparent 28%),
-        linear-gradient(145deg, var(--bg-1), var(--bg-2));
+      background: var(--bg-1);
+      overscroll-behavior: none;
     }
 
     body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(216,177,107,0.12), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(255,255,255,0.05), transparent 24%),
+        linear-gradient(145deg, var(--bg-1), var(--bg-2));
+      background-color: var(--bg-1);
+      transition: background 220ms ease, color 220ms ease;
+      overscroll-behavior: none;
+    }
+
+    .page {
+      min-height: 100vh;
+      width: 100%;
       display: grid;
       place-items: center;
-      padding: 32px;
+      padding: 28px;
     }
 
     .shell {
-      width: 100%;
-      max-width: 760px;
-      padding: 48px;
-      border-radius: var(--radius);
-      background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.05));
-      border: 1px solid var(--panel-border);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      box-shadow: var(--shadow);
+      width: min(100%, 860px);
+      border-radius: 30px;
+      padding: 52px;
       position: relative;
       overflow: hidden;
+      background: linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.04));
+      border: 1px solid var(--panel-border);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.04) 48%, transparent 100%);
+      pointer-events: none;
     }
 
     .theme-toggle {
       position: absolute;
       top: 22px;
       right: 22px;
-      width: 46px;
-      height: 46px;
+      width: 48px;
+      height: 48px;
+      border: 1px solid var(--panel-border);
       border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.16);
       background: rgba(255,255,255,0.08);
       color: var(--text);
+      cursor: pointer;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      cursor: pointer;
-      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background 180ms ease;
+      transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease, border-color 180ms ease;
       z-index: 2;
     }
 
     .theme-toggle:hover {
       transform: translateY(-1px);
-      box-shadow: 0 10px 24px rgba(0,0,0,0.18);
-      border-color: rgba(217,179,108,0.45);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.15);
       background: rgba(255,255,255,0.12);
     }
 
-    .theme-toggle:focus-visible {
+    body.light .theme-toggle {
+      background: rgba(255,255,255,0.88);
+      border-color: rgba(28,39,64,0.14);
+      box-shadow: 0 8px 22px rgba(42,57,89,0.08);
+    }
+
+    .theme-icon {
+      position: relative;
+      width: 20px;
+      height: 20px;
+      display: inline-block;
+    }
+
+    .theme-icon.sun::before {
+      content: "☀";
+      font-size: 20px;
+      line-height: 20px;
+    }
+
+    .theme-icon.moon::before {
+      content: "☾";
+      font-size: 22px;
+      line-height: 20px;
+    }
+
+    .eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.24em;
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(2.4rem, 6vw, 4.6rem);
+      line-height: 0.98;
+      font-weight: 600;
+      max-width: 9ch;
+    }
+
+    .subtext {
+      margin: 0 0 34px;
+      max-width: 34ch;
+      font-size: 1.04rem;
+      line-height: 1.75;
+      color: var(--muted);
+    }
+
+    .code-area {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .digit {
+      width: 96px;
+      height: 112px;
+      border-radius: 24px;
+      border: 1px solid var(--box-border);
+      background: var(--box-bg);
+      color: var(--text);
+      text-align: center;
+      font-size: 3rem;
+      font-weight: 700;
       outline: none;
+      text-transform: uppercase;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+      transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    }
+
+    .digit:focus {
+      transform: translateY(-1px);
+      border-color: rgba(216,177,107,0.7);
       box-shadow: 0 0 0 5px var(--accent-soft);
     }
 
-    .tries {
-      color: var(--muted);
-      font-size: 0.95rem;
+    body.light .digit {
+      background: rgba(255,255,255,0.72);
+      border-color: rgba(28,39,64,0.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.65);
+    }
+
+    .controls {
       margin-bottom: 18px;
+    }
+
+    .button {
+      appearance: none;
+      border: 1px solid rgba(216,177,107,0.45);
+      border-radius: 999px;
+      padding: 14px 28px;
+      background: linear-gradient(180deg, rgba(216,177,107,0.16), rgba(216,177,107,0.08));
+      color: #fff8ea;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px rgba(0,0,0,0.18);
+      border-color: rgba(216,177,107,0.62);
+    }
+
+    body.light .button {
+      color: #fff;
+      background: linear-gradient(180deg, #ca9443, #b37d2d);
+      border-color: #a97328;
+      box-shadow: 0 12px 24px rgba(185,129,47,0.22);
+    }
+
+    body.light .button:hover {
+      background: linear-gradient(180deg, #d19b48, #ba8430);
+    }
+
+    .tries {
+      font-size: 0.98rem;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .status {
+      min-height: 28px;
+      font-size: 1rem;
+      color: var(--status);
     }
 
     .locked .digit,
@@ -124,242 +256,177 @@
       opacity: 0.55;
       pointer-events: none;
     }
+
+    .reveal-screen {
+      min-height: 100vh;
       width: 100%;
-      max-width: 760px;
-      padding: 48px;
-      border-radius: var(--radius);
-      background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.05));
-      border: 1px solid var(--panel-border);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      box-shadow: var(--shadow);
-      position: relative;
-      overflow: hidden;
+      display: none;
+      place-items: center;
+      padding: 28px;
+      background:
+        radial-gradient(circle at top center, rgba(255,185,85,0.18), transparent 22%),
+        radial-gradient(circle at center, rgba(255,140,40,0.08), transparent 30%),
+        linear-gradient(180deg, var(--reveal-bg-1), var(--reveal-bg-2));
     }
 
-    .shell::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.04) 45%, transparent 100%);
-      pointer-events: none;
+    .reveal-screen.active {
+      display: grid;
     }
 
-    .eyebrow {
-      letter-spacing: 0.24em;
-      text-transform: uppercase;
-      font-size: 0.72rem;
-      color: var(--muted);
-      margin-bottom: 14px;
-    }
-
-    h1 {
-      font-family: Georgia, "Times New Roman", serif;
-      font-size: clamp(2.2rem, 5vw, 3.8rem);
-      line-height: 1.04;
-      font-weight: 600;
-      margin: 0 0 14px;
-    }
-
-    .subtext {
-      margin: 0 0 32px;
-      font-size: 1.02rem;
-      line-height: 1.7;
-      color: var(--muted);
-      max-width: 58ch;
-    }
-
-    .code-area {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 18px;
-    }
-
-    .digit {
-      width: 72px;
-      height: 82px;
-      border-radius: 18px;
-      border: 1px solid rgba(255,255,255,0.14);
-      background: rgba(255,255,255,0.06);
-      color: var(--text);
-      font-size: 2rem;
-      font-weight: 600;
+    .reveal-wrap {
+      width: min(100%, 980px);
       text-align: center;
-      outline: none;
-      transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+      color: #fff8ec;
+    }
+
+    body.light .reveal-wrap {
+      color: #2b1b10;
+    }
+
+    .reveal-mark {
       text-transform: uppercase;
+      letter-spacing: 0.28em;
+      font-size: 0.78rem;
+      margin-bottom: 20px;
+      opacity: 0.86;
     }
 
-    .digit:focus {
-      transform: translateY(-1px);
-      border-color: rgba(217,179,108,0.7);
-      box-shadow: 0 0 0 5px var(--accent-soft);
-      background: rgba(255,255,255,0.09);
-    }
-
-    .hint-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-      margin-bottom: 18px;
-    }
-
-    .hint {
-      color: var(--muted);
-      font-size: 0.95rem;
-    }
-
-    .button {
-      appearance: none;
-      border: 1px solid rgba(217,179,108,0.35);
-      background: linear-gradient(180deg, rgba(217,179,108,0.18), rgba(217,179,108,0.1));
-      color: #fff8ea;
-      padding: 12px 18px;
-      border-radius: 999px;
-      font-size: 0.95rem;
+    .reveal-title {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(2.6rem, 7vw, 5.4rem);
+      line-height: 1.02;
       font-weight: 600;
-      cursor: pointer;
-      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+      margin: 0 0 30px;
     }
 
-    .button:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 10px 24px rgba(0,0,0,0.28);
-      border-color: rgba(217,179,108,0.55);
+    .riddle-frame {
+      padding: 38px 34px;
+      border-radius: 28px;
+      border: 1px solid rgba(255, 225, 175, 0.22);
+      background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+      box-shadow: 0 22px 70px rgba(0,0,0,0.24);
     }
 
-    .status {
-      min-height: 26px;
-      font-size: 0.96rem;
-      color: #f5d9a2;
-      margin-bottom: 10px;
-      opacity: 0.92;
-    }
-
-    .riddle-card {
-      margin-top: 30px;
-      padding: 34px 30px;
-      border-radius: 22px;
-      border: 1px solid rgba(217,179,108,0.22);
-      background: linear-gradient(180deg, rgba(217,179,108,0.10), rgba(255,255,255,0.04));
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
-      opacity: 0;
-      transform: translateY(14px);
-      pointer-events: none;
-      transition: opacity 500ms ease, transform 500ms ease;
-    }
-
-    .riddle-card.revealed {
-      opacity: 1;
-      transform: translateY(0);
-      pointer-events: auto;
-    }
-
-    .riddle-label {
-      text-transform: uppercase;
-      letter-spacing: 0.22em;
-      color: #e8cb93;
-      font-size: 0.75rem;
-      margin-bottom: 18px;
+    body.light .riddle-frame {
+      border-color: rgba(159,111,39,0.20);
+      background: rgba(255,255,255,0.45);
+      box-shadow: 0 20px 60px rgba(126,92,45,0.12);
     }
 
     .riddle {
       margin: 0;
       white-space: pre-line;
       font-family: Georgia, "Times New Roman", serif;
-      font-size: clamp(1.35rem, 2.8vw, 2rem);
-      line-height: 1.75;
-      color: #fff8ec;
-      text-shadow: 0 1px 0 rgba(0,0,0,0.18);
+      font-size: clamp(2rem, 5vw, 4rem);
+      line-height: 1.6;
     }
 
-    .footer-note {
-      margin-top: 28px;
-      color: rgba(170,182,211,0.78);
-      font-size: 0.85rem;
-      letter-spacing: 0.02em;
-    }
-
-    @media (max-width: 640px) {
-      body {
-        padding: 18px;
+    @media (max-width: 700px) {
+      .page,
+      .reveal-screen {
+        padding: 16px;
       }
 
       .shell {
-        padding: 28px 20px;
+        padding: 28px 22px 24px;
+        border-radius: 24px;
+      }
+
+      h1 {
+        max-width: none;
+        font-size: clamp(2.2rem, 11vw, 3.6rem);
+      }
+
+      .subtext {
+        font-size: 1rem;
+        max-width: none;
       }
 
       .code-area {
-        justify-content: center;
+        gap: 10px;
       }
 
       .digit {
-        width: 52px;
-        height: 64px;
-        font-size: 1.55rem;
-        border-radius: 14px;
+        width: 58px;
+        height: 72px;
+        border-radius: 18px;
+        font-size: 2rem;
+      }
+
+      .riddle-frame {
+        padding: 28px 22px;
+      }
+
+      .riddle {
+        font-size: clamp(1.8rem, 8vw, 2.6rem);
       }
     }
   </style>
 </head>
 <body>
-  <main class="shell" id="shell">
-    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle light and dark mode">
-      <i class="fa-solid fa-moon" id="themeIcon"></i>
-    </button>
-    <div class="eyebrow">Private Entry</div>
-    <h1>Enter the six-character code</h1>
-    <p class="subtext">
-      A single phrase unlocks what waits beyond. Enter the correct sequence to reveal the hidden verse.
-    </p>
+  <section class="page" id="entryScreen">
+    <main class="shell" id="shell">
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle light and dark mode">
+        <span class="theme-icon moon" id="themeIcon"></span>
+      </button>
 
-    <section aria-label="Code entry">
-      <div class="code-area" id="codeArea">
-        <input class="digit" type="text" maxlength="1" inputmode="text" autocomplete="off" />
-        <input class="digit" type="text" maxlength="1" inputmode="text" autocomplete="off" />
-        <input class="digit" type="text" maxlength="1" inputmode="text" autocomplete="off" />
-        <input class="digit" type="text" maxlength="1" inputmode="text" autocomplete="off" />
-        <input class="digit" type="text" maxlength="1" inputmode="text" autocomplete="off" />
-        <input class="digit" type="text" maxlength="1" inputmode="text" autocomplete="off" />
-      </div>
+      <div class="eyebrow">Private Entry</div>
+      <h1>Enter the six-character code</h1>
+      <p class="subtext">
+        A single code unlocks what waits beyond. Enter the correct sequence to reveal the hidden verse.
+      </p>
 
-      <div class="hint-row">
-        <button class="button" id="unlockBtn" type="button">Unlock</button>
-      </div>
+      <section aria-label="Code entry">
+        <div class="code-area">
+          <input class="digit" type="text" maxlength="1" autocomplete="off" inputmode="text" />
+          <input class="digit" type="text" maxlength="1" autocomplete="off" inputmode="text" />
+          <input class="digit" type="text" maxlength="1" autocomplete="off" inputmode="text" />
+          <input class="digit" type="text" maxlength="1" autocomplete="off" inputmode="text" />
+          <input class="digit" type="text" maxlength="1" autocomplete="off" inputmode="text" />
+          <input class="digit" type="text" maxlength="1" autocomplete="off" inputmode="text" />
+        </div>
 
-      <div class="tries" id="triesText">3 attempts remaining</div>
-      <div class="status" id="status" aria-live="polite"></div>
-    </section>
+        <div class="controls">
+          <button class="button" id="unlockBtn" type="button">Unlock</button>
+        </div>
 
-    <section class="riddle-card" id="riddleCard" aria-hidden="true">
-      <div class="riddle-label">Riddle Revealed</div>
-      <p class="riddle">I dance without feet,
+        <div class="tries" id="triesText">3 attempts remaining</div>
+        <div class="status" id="status" aria-live="polite"></div>
+      </section>
+    </main>
+  </section>
+
+  <section class="reveal-screen" id="revealScreen">
+    <div class="reveal-wrap">
+      <div class="reveal-mark">Riddle Revealed</div>
+      <h2 class="reveal-title">The Hidden Verse</h2>
+      <div class="riddle-frame">
+        <p class="riddle">I dance without feet,
 I hunger yet never eat,
 Feed me and I grow tall—
 Starve me, and I fall.</p>
-    </section>
-
-    
-  </main>
+      </div>
+    </div>
+  </section>
 
   <script>
     const inputs = Array.from(document.querySelectorAll('.digit'));
     const unlockBtn = document.getElementById('unlockBtn');
     const triesText = document.getElementById('triesText');
+    const status = document.getElementById('status');
+    const shell = document.getElementById('shell');
     const themeToggle = document.getElementById('themeToggle');
     const themeIcon = document.getElementById('themeIcon');
-    const shell = document.getElementById('shell');
-    const status = document.getElementById('status');
-    const riddleCard = document.getElementById('riddleCard');
+    const entryScreen = document.getElementById('entryScreen');
+    const revealScreen = document.getElementById('revealScreen');
 
     const validCodes = ['3HL3NO', '3HL3N0'];
     const maxAttempts = 3;
+
     const attemptsKey = 'riddle_attempts_remaining';
     const lockedKey = 'riddle_locked';
     const themeKey = 'riddle_theme';
+    const solvedKey = 'riddle_solved';
 
     function getCode() {
       return inputs.map(input => input.value.toUpperCase()).join('');
@@ -382,34 +449,51 @@ Starve me, and I fall.</p>
       localStorage.setItem(lockedKey, value ? 'true' : 'false');
     }
 
-    function updateAttemptsUI() {
-      const remaining = getRemainingAttempts();
-      if (isLocked()) {
-        triesText.textContent = 'No attempts remaining.';
-        shell.classList.add('locked');
-        status.textContent = 'This page has been locked after 3 incorrect attempts.';
-      } else {
-        triesText.textContent = `${remaining} attempt${remaining === 1 ? '' : 's'} remaining`;
-        shell.classList.remove('locked');
-      }
+    function isSolved() {
+      return localStorage.getItem(solvedKey) === 'true';
+    }
+
+    function setSolved(value) {
+      localStorage.setItem(solvedKey, value ? 'true' : 'false');
     }
 
     function applyTheme(theme) {
       if (theme === 'light') {
         document.body.classList.add('light');
-        themeIcon.className = 'fa-solid fa-sun';
+        themeIcon.className = 'theme-icon sun';
       } else {
         document.body.classList.remove('light');
-        themeIcon.className = 'fa-solid fa-moon';
+        themeIcon.className = 'theme-icon moon';
       }
       localStorage.setItem(themeKey, theme);
     }
 
-    function revealRiddle() {
+    function updateAttemptsUI() {
+      const remaining = getRemainingAttempts();
+
+      if (isLocked()) {
+        triesText.textContent = 'No attempts remaining.';
+        shell.classList.add('locked');
+        status.textContent = 'This page has been locked after 3 incorrect attempts.';
+      } else {
+        triesText.textContent = remaining === 1 ? '1 attempt remaining' : `${remaining} attempts remaining`;
+        shell.classList.remove('locked');
+      }
+    }
+
+    function showRevealScreen() {
+      entryScreen.style.display = 'none';
+      revealScreen.classList.add('active');
+    }
+
+    function showEntryScreen() {
+      entryScreen.style.display = 'grid';
+      revealScreen.classList.remove('active');
+    }
+
+    function handleUnlock() {
       if (isLocked()) {
         updateAttemptsUI();
-        riddleCard.classList.remove('revealed');
-        riddleCard.setAttribute('aria-hidden', 'true');
         return;
       }
 
@@ -417,15 +501,13 @@ Starve me, and I fall.</p>
 
       if (code.length !== 6) {
         status.textContent = 'Please enter all six characters.';
-        riddleCard.classList.remove('revealed');
-        riddleCard.setAttribute('aria-hidden', 'true');
         return;
       }
 
       if (validCodes.includes(code)) {
         status.textContent = 'Code accepted.';
-        riddleCard.classList.add('revealed');
-        riddleCard.setAttribute('aria-hidden', 'false');
+        setSolved(true);
+        showRevealScreen();
         return;
       }
 
@@ -435,12 +517,8 @@ Starve me, and I fall.</p>
       if (remaining === 0) {
         setLocked(true);
         status.textContent = 'This page has been locked after 3 incorrect attempts.';
-        riddleCard.classList.remove('revealed');
-        riddleCard.setAttribute('aria-hidden', 'true');
       } else {
-        status.textContent = `That code is not correct. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`;
-        riddleCard.classList.remove('revealed');
-        riddleCard.setAttribute('aria-hidden', 'true');
+        status.textContent = `That code is not correct. ${remaining === 1 ? '1 attempt remaining.' : `${remaining} attempts remaining.`}`;
       }
 
       updateAttemptsUI();
@@ -448,15 +526,13 @@ Starve me, and I fall.</p>
 
     inputs.forEach((input, index) => {
       input.addEventListener('input', (e) => {
-        const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        e.target.value = value;
+        const clean = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        e.target.value = clean;
 
-        if (value && index < inputs.length - 1) {
+        if (clean && index < inputs.length - 1) {
           inputs[index + 1].focus();
           inputs[index + 1].select();
         }
-
-        
       });
 
       input.addEventListener('keydown', (e) => {
@@ -474,7 +550,7 @@ Starve me, and I fall.</p>
 
         if (e.key === 'Enter') {
           e.preventDefault();
-          unlockBtn.focus();
+          handleUnlock();
         }
       });
 
@@ -491,15 +567,15 @@ Starve me, and I fall.</p>
 
         const nextIndex = Math.min(pasted.length, inputs.length - 1);
         inputs[nextIndex].focus();
-              });
+      });
     });
+
+    unlockBtn.addEventListener('click', handleUnlock);
 
     themeToggle.addEventListener('click', () => {
       const nextTheme = document.body.classList.contains('light') ? 'dark' : 'light';
       applyTheme(nextTheme);
     });
-
-    unlockBtn.addEventListener('click', revealRiddle);
 
     const savedTheme = localStorage.getItem(themeKey) || 'dark';
     applyTheme(savedTheme);
@@ -509,7 +585,13 @@ Starve me, and I fall.</p>
     }
 
     updateAttemptsUI();
-    inputs[0].focus();
+
+    if (isSolved()) {
+      showRevealScreen();
+    } else {
+      showEntryScreen();
+      inputs[0].focus();
+    }
   </script>
 </body>
 </html>

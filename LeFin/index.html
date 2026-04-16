@@ -321,21 +321,17 @@
     }
 
     .reveal-wrap {
+      width: min(100%, 980px);
+      text-align: center;
+      color: var(--reveal-text);
       transform: translateY(22px);
       opacity: 0;
       transition: opacity 1400ms ease 250ms, transform 1400ms ease 250ms;
-      transition: opacity 1100ms ease 180ms, transform 1100ms ease 180ms;
     }
 
     .reveal-screen.active .reveal-wrap {
       transform: translateY(0);
       opacity: 1;
-    }
-
-    .reveal-wrap {
-      width: min(100%, 980px);
-      text-align: center;
-      color: var(--reveal-text);
     }
 
     .reveal-mark {
@@ -441,14 +437,13 @@
       </button>
 
       <div class="eyebrow">Private Entry</div>
-      <h1>Enter the six-character code</h1>
+      <h1>Enter the five-character code</h1>
       <p class="subtext">
-        A single code unlocks what waits beyond. 
+        A single code unlocks what waits beyond.
       </p>
 
       <section aria-label="Code entry">
         <div class="code-area">
-          <input class="digit" type="text" maxlength="1" autocomplete="off" inputmode="text" />
           <input class="digit" type="text" maxlength="1" autocomplete="off" inputmode="text" />
           <input class="digit" type="text" maxlength="1" autocomplete="off" inputmode="text" />
           <input class="digit" type="text" maxlength="1" autocomplete="off" inputmode="text" />
@@ -490,8 +485,8 @@ Starve me, and I fall.</p>
     const entryScreen = document.getElementById('entryScreen');
     const revealScreen = document.getElementById('revealScreen');
 
-    const validCodes = ['3HL0N3', '3HLON3'];
-    const resetCode = '135791';
+    const validCodes = ['37NI3'];
+    const resetCode = '13579';
     const maxAttempts = 3;
 
     const attemptsKey = 'riddle_attempts_remaining';
@@ -577,8 +572,8 @@ Starve me, and I fall.</p>
     function handleUnlock() {
       const code = getCode();
 
-      if (code.length !== 6) {
-        status.textContent = 'Please enter all six characters.';
+      if (code.length !== 5) {
+        status.textContent = 'Please enter all five characters.';
         return;
       }
 
@@ -652,7 +647,7 @@ Starve me, and I fall.</p>
         const pasted = (e.clipboardData.getData('text') || '')
           .toUpperCase()
           .replace(/[^A-Z0-9]/g, '')
-          .slice(0, 6);
+          .slice(0, 5);
 
         pasted.split('').forEach((char, i) => {
           if (inputs[i]) {

@@ -301,16 +301,34 @@
     }
 
     .reveal-screen {
-      display: none;
+      display: grid;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
       background:
         radial-gradient(circle at top center, rgba(255,186,89,0.20), transparent 22%),
         radial-gradient(circle at center, rgba(255,138,44,0.09), transparent 32%),
         linear-gradient(180deg, var(--reveal-bg-1), var(--reveal-bg-2));
       background-attachment: fixed;
+      transition: opacity 900ms ease, visibility 900ms ease;
     }
 
     .reveal-screen.active {
       display: grid;
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .reveal-wrap {
+      transform: translateY(18px);
+      opacity: 0;
+      transition: opacity 1100ms ease 180ms, transform 1100ms ease 180ms;
+    }
+
+    .reveal-screen.active .reveal-wrap {
+      transform: translateY(0);
+      opacity: 1;
     }
 
     .reveal-wrap {
@@ -454,7 +472,7 @@
       <div class="riddle-frame">
         <p class="riddle">I dance without feet,
 I hunger yet never eat,
-Feed me and I grow tall—
+Feed me and I grow tall,
 Starve me, and I fall.</p>
       </div>
     </div>
@@ -542,13 +560,17 @@ Starve me, and I fall.</p>
 
     function showRevealScreen() {
       entryScreen.style.display = 'none';
-      revealScreen.classList.add('active');
+      revealScreen.style.display = 'grid';
+      requestAnimationFrame(() => {
+        revealScreen.classList.add('active');
+      });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function showEntryScreen() {
-      entryScreen.style.display = 'grid';
       revealScreen.classList.remove('active');
+      revealScreen.style.display = 'none';
+      entryScreen.style.display = 'grid';
     }
 
     function handleUnlock() {
@@ -658,12 +680,9 @@ Starve me, and I fall.</p>
 
     updateAttemptsUI();
 
-    if (isSolved()) {
-      showRevealScreen();
-    } else {
-      showEntryScreen();
-      inputs[0].focus();
-    }
+    setSolved(false);
+    showEntryScreen();
+    inputs[0].focus();
   </script>
 </body>
 </html>

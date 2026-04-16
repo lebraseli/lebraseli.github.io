@@ -4,7 +4,36 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Riddle Gate</title>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkR4j8VV9J6h0g8Wc2XxI1C7n0Jz8y+7C2wA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
+    :root {
+      --bg-1: #0b1020;
+      --bg-2: #11182d;
+      --panel: rgba(255, 255, 255, 0.08);
+      --panel-border: rgba(255, 255, 255, 0.14);
+      --text: #edf2ff;
+      --muted: #aab6d3;
+      --accent: #d9b36c;
+      --accent-soft: rgba(217, 179, 108, 0.18);
+      --success: #cfa45b;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+      --radius: 24px;
+    }
+
+    body.light {
+      --bg-1: #f3f5fb;
+      --bg-2: #e8edf8;
+      --panel: rgba(255, 255, 255, 0.74);
+      --panel-border: rgba(24, 33, 56, 0.10);
+      --text: #182138;
+      --muted: #5d6a85;
+      --accent: #b8863b;
+      --accent-soft: rgba(184, 134, 59, 0.16);
+      --success: #a57429;
+      --shadow: 0 20px 60px rgba(36, 49, 79, 0.12);
+    }
+
     :root {
       --bg-1: #0b1020;
       --bg-2: #11182d;
@@ -41,6 +70,60 @@
     }
 
     .shell {
+      width: 100%;
+      max-width: 760px;
+      padding: 48px;
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.05));
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .theme-toggle {
+      position: absolute;
+      top: 22px;
+      right: 22px;
+      width: 46px;
+      height: 46px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background 180ms ease;
+      z-index: 2;
+    }
+
+    .theme-toggle:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+      border-color: rgba(217,179,108,0.45);
+      background: rgba(255,255,255,0.12);
+    }
+
+    .theme-toggle:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 5px var(--accent-soft);
+    }
+
+    .tries {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-bottom: 18px;
+    }
+
+    .locked .digit,
+    .locked .button {
+      opacity: 0.55;
+      pointer-events: none;
+    }
       width: 100%;
       max-width: 760px;
       padding: 48px;
@@ -223,7 +306,10 @@
   </style>
 </head>
 <body>
-  <main class="shell">
+  <main class="shell" id="shell">
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle light and dark mode">
+      <i class="fa-solid fa-moon" id="themeIcon"></i>
+    </button>
     <div class="eyebrow">Private Entry</div>
     <h1>Enter the six-character code</h1>
     <p class="subtext">
@@ -241,14 +327,11 @@
       </div>
 
       <div class="hint-row">
-        <div class="hint">Accepted endings: <strong>O</strong> or <strong>0</strong></div>
         <button class="button" id="unlockBtn" type="button">Unlock</button>
       </div>
 
-      <div class="status" id="status" aria-live="polite"></div>
-    </section>
-
-    <section class="riddle-card" id="riddleCard" aria-hidden="true">
+      <div class="tries" id="triesText">3 attempts remaining</div>
+      <div class="status"card" id="riddleCard" aria-hidden="true">
       <div class="riddle-label">Riddle Revealed</div>
       <p class="riddle">I dance without feet,
 I hunger yet never eat,
@@ -256,32 +339,108 @@ Feed me and I grow tall—
 Starve me, and I fall.</p>
     </section>
 
-    <div class="footer-note">Designed as a clean, elegant single-page reveal.</div>
+    
   </main>
 
   <script>
     const inputs = Array.from(document.querySelectorAll('.digit'));
     const unlockBtn = document.getElementById('unlockBtn');
+    const triesText = document.getElementById('triesText');
+    const themeToggle = document.getElementById('themeToggle');
+    const themeIcon = document.getElementById('themeIcon');
+    const shell = document.getElementById('shell');
     const status = document.getElementById('status');
     const riddleCard = document.getElementById('riddleCard');
 
     const validCodes = ['3HL3NO', '3HL3N0'];
+    const maxAttempts = 3;
+    const attemptsKey = 'riddle_attempts_remaining';
+    const lockedKey = 'riddle_locked';
+    const themeKey = 'riddle_theme';
 
     function getCode() {
       return inputs.map(input => input.value.toUpperCase()).join('');
     }
 
+    function getRemainingAttempts() {
+      const stored = parseInt(localStorage.getItem(attemptsKey), 10);
+      return Number.isNaN(stored) ? maxAttempts : stored;
+    }
+
+    function setRemainingAttempts(value) {
+      localStorage.setItem(attemptsKey, String(value));
+    }
+
+    function isLocked() {
+      return localStorage.getItem(lockedKey) === 'true';
+    }
+
+    function setLocked(value) {
+      localStorage.setItem(lockedKey, value ? 'true' : 'false');
+    }
+
+    function updateAttemptsUI() {
+      const remaining = getRemainingAttempts();
+      if (isLocked()) {
+        triesText.textContent = 'No attempts remaining.';
+        shell.classList.add('locked');
+        status.textContent = 'This page has been locked after 3 incorrect attempts.';
+      } else {
+        triesText.textContent = `${remaining} attempt${remaining === 1 ? '' : 's'} remaining`;
+        shell.classList.remove('locked');
+      }
+    }
+
+    function applyTheme(theme) {
+      if (theme === 'light') {
+        document.body.classList.add('light');
+        themeIcon.className = 'fa-solid fa-sun';
+      } else {
+        document.body.classList.remove('light');
+        themeIcon.className = 'fa-solid fa-moon';
+      }
+      localStorage.setItem(themeKey, theme);
+    }
+
     function revealRiddle() {
+      if (isLocked()) {
+        updateAttemptsUI();
+        riddleCard.classList.remove('revealed');
+        riddleCard.setAttribute('aria-hidden', 'true');
+        return;
+      }
+
       const code = getCode();
+
+      if (code.length !== 6) {
+        status.textContent = 'Please enter all six characters.';
+        riddleCard.classList.remove('revealed');
+        riddleCard.setAttribute('aria-hidden', 'true');
+        return;
+      }
+
       if (validCodes.includes(code)) {
         status.textContent = 'Code accepted.';
         riddleCard.classList.add('revealed');
         riddleCard.setAttribute('aria-hidden', 'false');
+        return;
+      }
+
+      const remaining = Math.max(0, getRemainingAttempts() - 1);
+      setRemainingAttempts(remaining);
+
+      if (remaining === 0) {
+        setLocked(true);
+        status.textContent = 'This page has been locked after 3 incorrect attempts.';
+        riddleCard.classList.remove('revealed');
+        riddleCard.setAttribute('aria-hidden', 'true');
       } else {
-        status.textContent = code.length === 6 ? 'That code is not correct.' : 'Please enter all six characters.';
+        status.textContent = `That code is not correct. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`;
         riddleCard.classList.remove('revealed');
         riddleCard.setAttribute('aria-hidden', 'true');
       }
+
+      updateAttemptsUI();
     }
 
     inputs.forEach((input, index) => {
@@ -294,9 +453,7 @@ Starve me, and I fall.</p>
           inputs[index + 1].select();
         }
 
-        if (getCode().length === 6) {
-          revealRiddle();
-        }
+        
       });
 
       input.addEventListener('keydown', (e) => {
@@ -313,7 +470,8 @@ Starve me, and I fall.</p>
         }
 
         if (e.key === 'Enter') {
-          revealRiddle();
+          e.preventDefault();
+          unlockBtn.focus();
         }
       });
 
@@ -330,11 +488,24 @@ Starve me, and I fall.</p>
 
         const nextIndex = Math.min(pasted.length, inputs.length - 1);
         inputs[nextIndex].focus();
-        revealRiddle();
-      });
+              });
+    });
+
+    themeToggle.addEventListener('click', () => {
+      const nextTheme = document.body.classList.contains('light') ? 'dark' : 'light';
+      applyTheme(nextTheme);
     });
 
     unlockBtn.addEventListener('click', revealRiddle);
+
+    const savedTheme = localStorage.getItem(themeKey) || 'dark';
+    applyTheme(savedTheme);
+
+    if (localStorage.getItem(attemptsKey) === null) {
+      setRemainingAttempts(maxAttempts);
+    }
+
+    updateAttemptsUI();
     inputs[0].focus();
   </script>
 </body>

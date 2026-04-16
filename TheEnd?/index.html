@@ -34,20 +34,6 @@
       --shadow: 0 20px 60px rgba(36, 49, 79, 0.12);
     }
 
-    :root {
-      --bg-1: #0b1020;
-      --bg-2: #11182d;
-      --panel: rgba(255, 255, 255, 0.08);
-      --panel-border: rgba(255, 255, 255, 0.14);
-      --text: #edf2ff;
-      --muted: #aab6d3;
-      --accent: #d9b36c;
-      --accent-soft: rgba(217, 179, 108, 0.18);
-      --success: #cfa45b;
-      --shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-      --radius: 24px;
-    }
-
     * {
       box-sizing: border-box;
     }
@@ -67,6 +53,7 @@
       display: grid;
       place-items: center;
       padding: 32px;
+      transition: background 200ms ease, color 200ms ease;
     }
 
     .shell {
@@ -81,6 +68,7 @@
       box-shadow: var(--shadow);
       position: relative;
       overflow: hidden;
+      transition: background 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
     }
 
     .theme-toggle {
@@ -111,30 +99,6 @@
     .theme-toggle:focus-visible {
       outline: none;
       box-shadow: 0 0 0 5px var(--accent-soft);
-    }
-
-    .tries {
-      color: var(--muted);
-      font-size: 0.95rem;
-      margin-bottom: 18px;
-    }
-
-    .locked .digit,
-    .locked .button {
-      opacity: 0.55;
-      pointer-events: none;
-    }
-      width: 100%;
-      max-width: 760px;
-      padding: 48px;
-      border-radius: var(--radius);
-      background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.05));
-      border: 1px solid var(--panel-border);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      box-shadow: var(--shadow);
-      position: relative;
-      overflow: hidden;
     }
 
     .shell::before {
@@ -201,15 +165,10 @@
     .hint-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-end;
       gap: 16px;
       flex-wrap: wrap;
       margin-bottom: 18px;
-    }
-
-    .hint {
-      color: var(--muted);
-      font-size: 0.95rem;
     }
 
     .button {
@@ -225,10 +184,20 @@
       transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
     }
 
+    body.light .button {
+      color: #2b1a05;
+    }
+
     .button:hover {
       transform: translateY(-1px);
       box-shadow: 0 10px 24px rgba(0,0,0,0.28);
       border-color: rgba(217,179,108,0.55);
+    }
+
+    .tries {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-bottom: 18px;
     }
 
     .status {
@@ -237,6 +206,10 @@
       color: #f5d9a2;
       margin-bottom: 10px;
       opacity: 0.92;
+    }
+
+    body.light .status {
+      color: #9a6920;
     }
 
     .riddle-card {
@@ -266,6 +239,10 @@
       margin-bottom: 18px;
     }
 
+    body.light .riddle-label {
+      color: #9a6d2b;
+    }
+
     .riddle {
       margin: 0;
       white-space: pre-line;
@@ -276,11 +253,15 @@
       text-shadow: 0 1px 0 rgba(0,0,0,0.18);
     }
 
-    .footer-note {
-      margin-top: 28px;
-      color: rgba(170,182,211,0.78);
-      font-size: 0.85rem;
-      letter-spacing: 0.02em;
+    body.light .riddle {
+      color: #2b1d10;
+      text-shadow: none;
+    }
+
+    .locked .digit,
+    .locked .button {
+      opacity: 0.55;
+      pointer-events: none;
     }
 
     @media (max-width: 640px) {
@@ -310,6 +291,7 @@
     <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle light and dark mode">
       <i class="fa-solid fa-moon" id="themeIcon"></i>
     </button>
+
     <div class="eyebrow">Private Entry</div>
     <h1>Enter the six-character code</h1>
     <p class="subtext">
@@ -317,7 +299,7 @@
     </p>
 
     <section aria-label="Code entry">
-      <div class="code-area" id="codeArea">
+      <div class="code-area">
         <input class="digit" type="text" maxlength="1" inputmode="text" autocomplete="off" />
         <input class="digit" type="text" maxlength="1" inputmode="text" autocomplete="off" />
         <input class="digit" type="text" maxlength="1" inputmode="text" autocomplete="off" />
@@ -331,15 +313,16 @@
       </div>
 
       <div class="tries" id="triesText">3 attempts remaining</div>
-      <div class="status"card" id="riddleCard" aria-hidden="true">
+      <div class="status" id="status" aria-live="polite"></div>
+    </section>
+
+    <section class="riddle-card" id="riddleCard" aria-hidden="true">
       <div class="riddle-label">Riddle Revealed</div>
       <p class="riddle">I dance without feet,
 I hunger yet never eat,
 Feed me and I grow tall—
 Starve me, and I fall.</p>
     </section>
-
-    
   </main>
 
   <script>
@@ -381,6 +364,7 @@ Starve me, and I fall.</p>
 
     function updateAttemptsUI() {
       const remaining = getRemainingAttempts();
+
       if (isLocked()) {
         triesText.textContent = 'No attempts remaining.';
         shell.classList.add('locked');
@@ -452,8 +436,6 @@ Starve me, and I fall.</p>
           inputs[index + 1].focus();
           inputs[index + 1].select();
         }
-
-        
       });
 
       input.addEventListener('keydown', (e) => {
@@ -488,7 +470,7 @@ Starve me, and I fall.</p>
 
         const nextIndex = Math.min(pasted.length, inputs.length - 1);
         inputs[nextIndex].focus();
-              });
+      });
     });
 
     themeToggle.addEventListener('click', () => {

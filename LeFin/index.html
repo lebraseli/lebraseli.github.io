@@ -340,15 +340,15 @@
       border: 1px solid rgba(255, 225, 175, 0.22);
       background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
       box-shadow: 0 24px 70px rgba(0,0,0,0.22);
+      overflow: hidden;
+      max-height: 220px;
+      transition: max-height 1.8s ease;
     }
 
     body.light .riddle-frame {
       border-color: rgba(159,111,39,0.18);
       background: rgba(255,255,255,0.46);
       box-shadow: 0 20px 60px rgba(126,92,45,0.10);
-      overflow: hidden;
-      max-height: 400px;
-      transition: max-height 1.8s ease;
     }
 
     .riddle {
@@ -474,7 +474,7 @@
 
   <section class="reveal-screen" id="revealScreen">
     <div class="reveal-wrap">
-      <div class="riddle-frame">
+      <div class="riddle-frame" id="riddleFrame">
         <p class="riddle" id="mainRiddle">Here, the hunt concludes.</p>
       </div>
     </div>
@@ -496,6 +496,7 @@
     const revealScreen = document.getElementById('revealScreen');
     const epilogueText = document.getElementById('epilogueText');
     const mainRiddle = document.getElementById('mainRiddle');
+    const riddleFrame = document.getElementById('riddleFrame');
 
     const validCodes = ['37NI3'];
     const resetCode = '13579';
@@ -517,6 +518,7 @@ Held close in hands?`;
 
     let epilogueTimeout;
     let riddleSwapTimeout;
+    let riddleInnerTimeout;
 
     function getCode() {
       return inputs.map((input) => input.value.toUpperCase()).join('');
@@ -544,10 +546,6 @@ Held close in hands?`;
 
     function setLocked(value) {
       localStorage.setItem(lockedKey, value ? 'true' : 'false');
-    }
-
-    function isSolved() {
-      return localStorage.getItem(solvedKey) === 'true';
     }
 
     function setSolved(value) {
@@ -578,32 +576,43 @@ Held close in hands?`;
       }
     }
 
-    function scheduleEpilogueSequence() {
+    function resetRevealState() {
       clearTimeout(epilogueTimeout);
       clearTimeout(riddleSwapTimeout);
+      clearTimeout(riddleInnerTimeout);
 
       epilogueText.style.opacity = '0';
       mainRiddle.style.opacity = '1';
       mainRiddle.textContent = 'Here, the hunt concludes.';
 
+      requestAnimationFrame(() => {
+        riddleFrame.style.maxHeight = '220px';
+      });
+    }
+
+    function scheduleEpilogueSequence() {
+      resetRevealState();
+
       epilogueTimeout = setTimeout(() => {
         epilogueText.style.opacity = '1';
       }, 10000);
 
-setTimeout(() => {
-  mainRiddle.style.opacity = '0';
+      riddleSwapTimeout = setTimeout(() => {
+        mainRiddle.style.opacity = '0';
 
-  setTimeout(() => {
-    mainRiddle.textContent = cardsRiddle;
+        riddleInnerTimeout = setTimeout(() => {
+          mainRiddle.textContent = cardsRiddle;
 
-    const frame = document.querySelector('.riddle-frame');
-    frame.style.maxHeight = frame.scrollHeight + 'px';
+          riddleFrame.style.maxHeight = '220px';
+          void riddleFrame.offsetHeight;
 
-    mainRiddle.style.opacity = '1';
-  }, 2500);
-}, 25000);
+          const targetHeight = mainRiddle.scrollHeight + 80;
+          riddleFrame.style.maxHeight = targetHeight + 'px';
+
+          mainRiddle.style.opacity = '1';
+        }, 2500);
+      }, 25000);
     }
-    
 
     function showRevealScreen() {
       entryScreen.style.display = 'none';
@@ -614,18 +623,11 @@ setTimeout(() => {
       });
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
-
       scheduleEpilogueSequence();
     }
 
     function showEntryScreen() {
-      clearTimeout(epilogueTimeout);
-      clearTimeout(riddleSwapTimeout);
-
-      epilogueText.style.opacity = '0';
-      mainRiddle.style.opacity = '1';
-      mainRiddle.textContent = 'Here, the hunt concludes.';
-
+      resetRevealState();
       revealScreen.classList.remove('active');
       revealScreen.style.display = 'none';
       entryScreen.style.display = 'grid';

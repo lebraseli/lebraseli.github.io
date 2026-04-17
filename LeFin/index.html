@@ -346,6 +346,9 @@
       border-color: rgba(159,111,39,0.18);
       background: rgba(255,255,255,0.46);
       box-shadow: 0 20px 60px rgba(126,92,45,0.10);
+      overflow: hidden;
+      max-height: 400px;
+      transition: max-height 1.8s ease;
     }
 
     .riddle {
@@ -508,7 +511,7 @@ And queens as well,
 In ordered ranks
 Where numbers dwell.
 I shuffle fate
-Within my bands—
+Within my bands,
 What am I,
 Held close in hands?`;
 
@@ -587,15 +590,20 @@ Held close in hands?`;
         epilogueText.style.opacity = '1';
       }, 10000);
 
-      riddleSwapTimeout = setTimeout(() => {
-        mainRiddle.style.opacity = '0';
+setTimeout(() => {
+  mainRiddle.style.opacity = '0';
 
-        setTimeout(() => {
-          mainRiddle.textContent = cardsRiddle;
-          mainRiddle.style.opacity = '1';
-        }, 2500);
-      }, 25000);
+  setTimeout(() => {
+    mainRiddle.textContent = cardsRiddle;
+
+    const frame = document.querySelector('.riddle-frame');
+    frame.style.maxHeight = frame.scrollHeight + 'px';
+
+    mainRiddle.style.opacity = '1';
+  }, 2500);
+}, 25000);
     }
+    
 
     function showRevealScreen() {
       entryScreen.style.display = 'none';

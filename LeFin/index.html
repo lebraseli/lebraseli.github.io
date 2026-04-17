@@ -334,23 +334,6 @@
       opacity: 1;
     }
 
-    .reveal-mark {
-      margin-bottom: 22px;
-      font-size: 0.78rem;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      opacity: 0.88;
-    }
-
-    .reveal-title {
-      margin: 0 0 30px;
-      font-family: Georgia, "Times New Roman", serif;
-      font-size: clamp(2.8rem, 7vw, 5.5rem);
-      line-height: 1.02;
-      font-weight: 600;
-      letter-spacing: -0.02em;
-    }
-
     .riddle-frame {
       padding: 40px 34px;
       border-radius: 30px;
@@ -371,9 +354,27 @@
       font-family: Georgia, "Times New Roman", serif;
       font-size: clamp(2.1rem, 5vw, 4rem);
       line-height: 1.58;
+      transition: opacity 2.5s ease;
+      opacity: 1;
     }
 
-    
+    #epilogueText {
+      position: fixed;
+      bottom: 48px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.3rem;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      opacity: 0;
+      transition: opacity 3s ease;
+      pointer-events: none;
+      z-index: 9999;
+      text-align: center;
+      width: 100%;
+    }
+
     @media (max-width: 900px) {
       .shell {
         min-height: auto;
@@ -427,25 +428,13 @@
       .riddle {
         font-size: clamp(1.9rem, 8vw, 2.8rem);
       }
-    }
-    
+
       #epilogueText {
-      position: fixed;
-      bottom: 48px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-family: Georgia, "Times New Roman", serif;
-      font-size: 1.3rem;
-      letter-spacing: 0.04em;
-      color: var(--muted);
-      opacity: 0;
-      transition: opacity 3s ease;
-      pointer-events: none;
-      z-index: 9999;
-      text-align: center;
-      width: 100%;
+        bottom: 32px;
+        font-size: 1.05rem;
+        padding: 0 20px;
+      }
     }
-    
   </style>
 </head>
 <body>
@@ -483,15 +472,15 @@
   <section class="reveal-screen" id="revealScreen">
     <div class="reveal-wrap">
       <div class="riddle-frame">
-        <p class="riddle">Here, the hunt concludes.</p>
+        <p class="riddle" id="mainRiddle">Here, the hunt concludes.</p>
       </div>
     </div>
   </section>
-  
+
   <div id="epilogueText">
     But there is an epilogue.
   </div>
-  
+
   <script>
     const inputs = Array.from(document.querySelectorAll('.digit'));
     const unlockBtn = document.getElementById('unlockBtn');
@@ -502,6 +491,8 @@
     const themeIcon = document.getElementById('themeIcon');
     const entryScreen = document.getElementById('entryScreen');
     const revealScreen = document.getElementById('revealScreen');
+    const epilogueText = document.getElementById('epilogueText');
+    const mainRiddle = document.getElementById('mainRiddle');
 
     const validCodes = ['37NI3'];
     const resetCode = '13579';
@@ -511,6 +502,18 @@
     const lockedKey = 'riddle_locked';
     const themeKey = 'riddle_theme';
     const solvedKey = 'riddle_solved';
+
+    const cardsRiddle = `I carry kings,
+And queens as well,
+In ordered ranks
+Where numbers dwell.
+I shuffle fate
+Within my bands—
+What am I,
+Held close in hands?`;
+
+    let epilogueTimeout;
+    let riddleSwapTimeout;
 
     function getCode() {
       return inputs.map((input) => input.value.toUpperCase()).join('');
@@ -572,11 +575,31 @@
       }
     }
 
-      function showRevealScreen() {
+    function scheduleEpilogueSequence() {
+      clearTimeout(epilogueTimeout);
+      clearTimeout(riddleSwapTimeout);
+
+      epilogueText.style.opacity = '0';
+      mainRiddle.style.opacity = '1';
+      mainRiddle.textContent = 'Here, the hunt concludes.';
+
+      epilogueTimeout = setTimeout(() => {
+        epilogueText.style.opacity = '1';
+      }, 10000);
+
+      riddleSwapTimeout = setTimeout(() => {
+        mainRiddle.style.opacity = '0';
+
+        setTimeout(() => {
+          mainRiddle.textContent = cardsRiddle;
+          mainRiddle.style.opacity = '1';
+        }, 2500);
+      }, 25000);
+    }
+
+    function showRevealScreen() {
       entryScreen.style.display = 'none';
       revealScreen.style.display = 'grid';
-
-      document.getElementById('epilogueText').style.opacity = '0';
 
       requestAnimationFrame(() => {
         revealScreen.classList.add('active');
@@ -584,12 +607,17 @@
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
-      setTimeout(() => {
-        document.getElementById('epilogueText').style.opacity = '1';
-      }, 10000);
+      scheduleEpilogueSequence();
     }
 
     function showEntryScreen() {
+      clearTimeout(epilogueTimeout);
+      clearTimeout(riddleSwapTimeout);
+
+      epilogueText.style.opacity = '0';
+      mainRiddle.style.opacity = '1';
+      mainRiddle.textContent = 'Here, the hunt concludes.';
+
       revealScreen.classList.remove('active');
       revealScreen.style.display = 'none';
       entryScreen.style.display = 'grid';
@@ -705,8 +733,6 @@
     setSolved(false);
     showEntryScreen();
     inputs[0].focus();
-
-    
   </script>
 </body>
 </html>

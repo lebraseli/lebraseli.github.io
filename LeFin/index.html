@@ -373,6 +373,7 @@
       line-height: 1.58;
     }
 
+    
     @media (max-width: 900px) {
       .shell {
         min-height: auto;
@@ -427,6 +428,21 @@
         font-size: clamp(1.9rem, 8vw, 2.8rem);
       }
     }
+    
+    #epilogueText {
+      position: fixed;
+      bottom: 48px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.3rem;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      opacity: 0;
+      transition: opacity 3s ease;
+      pointer-events: none;
+    }
+    
   </style>
 </head>
 <body>
@@ -468,7 +484,11 @@
       </div>
     </div>
   </section>
-
+  
+  <div id="epilogueText">
+    But there is an epilogue.
+  </div>
+  
   <script>
     const inputs = Array.from(document.querySelectorAll('.digit'));
     const unlockBtn = document.getElementById('unlockBtn');
@@ -556,6 +576,10 @@
         revealScreen.classList.add('active');
       });
       window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      setTimeout(() => {
+        document.getElementById('epilogueText').style.opacity = '1';
+      }, 10000);
     }
 
     function showEntryScreen() {
@@ -674,6 +698,8 @@
     setSolved(false);
     showEntryScreen();
     inputs[0].focus();
+
+    
   </script>
 </body>
 </html>

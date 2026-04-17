@@ -429,7 +429,7 @@
       }
     }
     
-    #epilogueText {
+      #epilogueText {
       position: fixed;
       bottom: 48px;
       left: 50%;
@@ -441,6 +441,9 @@
       opacity: 0;
       transition: opacity 3s ease;
       pointer-events: none;
+      z-index: 9999;
+      text-align: center;
+      width: 100%;
     }
     
   </style>
@@ -569,12 +572,16 @@
       }
     }
 
-    function showRevealScreen() {
+      function showRevealScreen() {
       entryScreen.style.display = 'none';
       revealScreen.style.display = 'grid';
+
+      document.getElementById('epilogueText').style.opacity = '0';
+
       requestAnimationFrame(() => {
         revealScreen.classList.add('active');
       });
+
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
       setTimeout(() => {

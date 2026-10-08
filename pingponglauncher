@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Launcher control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --table:#1C4E86; --table-deep:#123764; --line:#F4F7FB; --net:#B9C7D8;
+    --ball:#F7931E; --rubber:#D3242C; --rubber-deep:#9E151C; --ink:#0E2440;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--table-deep);color:var(--line);
+       font:16px/1.5 "Barlow",system-ui,sans-serif;padding:28px 20px}
+  .layout{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:1fr 220px;gap:28px;align-items:start}
+  main{min-width:0}
+  header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin-bottom:18px}
+  h1{font:700 2.6rem/1 "Barlow Condensed",sans-serif;margin:0;flex:1 1 auto}
+  #connect{font:600 1.15rem "Barlow Condensed",sans-serif;padding:12px 22px;border-radius:999px;
+           border:2px solid var(--line);background:transparent;color:var(--line);cursor:pointer}
+  #connect:hover{background:var(--line);color:var(--ink)}
+  #status{width:100%;margin:0;color:var(--net)}
+  #status.on{color:#8FE3A8}
+  /* the table: white edge line */
+  .table{background:var(--table);border:3px solid var(--line);border-radius:4px}
+  fieldset{border:0;margin:0;padding:0}
+  fieldset:disabled{opacity:.45}
+  .row{padding:22px 28px 26px;border-bottom:2px solid rgba(244,247,251,.55)}
+  .row:last-child{border-bottom:0}
+  .row.servo{border-top:2px solid rgba(244,247,251,.55)}
+  .row-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .row label{font:600 1.6rem "Barlow Condensed",sans-serif}
+  .row output{font:700 3.4rem/1 "Barlow Condensed",sans-serif;min-width:4ch;text-align:right}
+  .row.both output{color:var(--ball)}
+  /* BIG horizontal sliders */
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:72px;margin:0;
+                    background:transparent;cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:16px;background:var(--line);border-radius:8px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:64px;height:64px;border-radius:50%;
+       margin-top:-24px;border:none;
+       background:radial-gradient(circle at 35% 35%,#FFC27A,var(--ball) 60%);box-shadow:0 3px 0 rgba(0,0,0,.3)}
+  input[type=range]::-moz-range-track{height:16px;background:var(--line);border-radius:8px}
+  input[type=range]::-moz-range-thumb{width:64px;height:64px;border-radius:50%;border:none;background:var(--ball)}
+  .scale{display:flex;justify-content:space-between;color:var(--net);font-size:.95rem;margin-top:2px}
+  /* servo row: smaller handle, gate band */
+  .servo input[type=range]::-webkit-slider-thumb{width:44px;height:44px;margin-top:-14px;
+       background:var(--line);box-shadow:0 3px 0 rgba(0,0,0,.3)}
+  .servo .row-head output{font-size:2.4rem}
+  .track{position:relative}
+  .servo input[type=range]::-webkit-slider-runnable-track{background:linear-gradient(to right,var(--line) 0 56.1%,var(--ball) 56.1% 74.4%,var(--line) 74.4%)}
+  .servo input[type=range]::-moz-range-track{background:linear-gradient(to right,var(--line) 0 56.1%,var(--ball) 56.1% 74.4%,var(--line) 74.4%)}
+  .scale .gate{color:var(--ball)}
+  /* gate: two big buttons, lit = current state */
+  .gatebtns{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
+  .gbtn{height:76px;border-radius:12px;border:3px solid var(--line);background:transparent;color:var(--line);
+        font:700 2rem "Barlow Condensed",sans-serif;cursor:pointer;transition:background .08s,color .08s}
+  .gbtn:hover{background:rgba(244,247,251,.12)}
+  .gbtn.on{background:var(--ball);border-color:var(--ball);color:var(--ink)}
+  .gbtn:active{transform:translateY(2px)}
+  /* STOP: pinned to the corner, always reachable */
+  .stopzone{position:sticky;top:28px;display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:120px}
+  #stop{width:180px;height:180px;border-radius:50%;border:8px solid var(--line);cursor:pointer;
+        background:radial-gradient(circle at 40% 35%,#EF4A50,var(--rubber) 55%,var(--rubber-deep));
+        color:#fff;font:700 2.6rem "Barlow Condensed",sans-serif;
+        box-shadow:0 8px 0 var(--rubber-deep),0 10px 30px rgba(0,0,0,.45);transition:transform .08s,box-shadow .08s}
+  #stop:active,#stop.hit{transform:translateY(6px);box-shadow:0 2px 0 var(--rubber-deep),0 4px 14px rgba(0,0,0,.45)}
+  .hint{margin:0;color:var(--net);font-size:.95rem}
+  :focus-visible{outline:3px solid var(--ball);outline-offset:4px}
+  @media (max-width:900px){
+    .layout{grid-template-columns:1fr}
+    body{padding-bottom:200px}
+    .stopzone{position:fixed;right:16px;bottom:16px;top:auto;padding:0;z-index:10}
+    .hint{display:none}
+  }
+  @media (max-width:640px){
+    .row{padding:18px 16px 22px}
+    .row output{font-size:2.6rem}
+    #stop{width:130px;height:130px;font-size:2rem}
+  }
+  @media (prefers-reduced-motion:reduce){#stop{transition:none}}
+</style>
+</head>
+<body>
+<div class="layout">
+<main>
+  <header>
+    <h1>Launcher control</h1>
+    <button id="connect">Connect launcher</button>
+    <p id="status" role="status" aria-live="polite">Plug the Argon in by USB, then press Connect launcher.</p>
+  </header>
+
+  <div class="table">
+    <fieldset id="controls" disabled>
+      <div class="row">
+        <div class="row-head"><label for="top">Top motor</label><output id="topV" for="top">0%</output></div>
+        <input id="top" type="range" min="0" max="100" value="0">
+        <div class="scale"><span>0%</span><span>100%</span></div>
+      </div>
+      <div class="row">
+        <div class="row-head"><label for="bottom">Bottom motor</label><output id="botV" for="bottom">0%</output></div>
+        <input id="bottom" type="range" min="0" max="100" value="0">
+        <div class="scale"><span>0%</span><span>100%</span></div>
+      </div>
+      <div class="row both">
+        <div class="row-head"><label for="both">Both motors</label><output id="bothV" for="both">0%</output></div>
+        <input id="both" type="range" min="0" max="100" value="0">
+        <div class="scale"><span>0%</span><span>100%</span></div>
+      </div>
+    </fieldset>
+    <fieldset id="controls2" disabled>
+      <div class="row servo">
+        <div class="row-head"><label id="gateL">Gate</label><output id="servoV" aria-live="polite">Closed</output></div>
+        <div class="gatebtns" role="group" aria-labelledby="gateL">
+          <button id="gClosed" class="gbtn on" aria-pressed="true">Closed</button>
+          <button id="gOpen" class="gbtn" aria-pressed="false">Open</button>
+        </div>
+        <input id="servo" type="range" min="0" max="180" value="134" aria-label="Gate servo angle" style="margin-top:14px">
+        <div class="scale"><span>0°</span><span class="gate">Calibrate: drag · Open 101 · Closed 134</span><span>180°</span></div>
+      </div>
+    </fieldset>
+  </div>
+</main>
+
+<aside class="stopzone">
+  <button id="stop" aria-label="Stop both motors">STOP</button>
+  <p class="hint">or press space</p>
+</aside>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const topS = $('top'), bot = $('bottom'), both = $('both');
+const GATE_CLOSED = 134, GATE_OPEN = 101;          // servo angles
+let gateOpen = false;
+const servoS = $('servo'); let servoAngle = GATE_CLOSED;
+const enc = new TextEncoder();
+let port = null, writer = null, chain = Promise.resolve();
+const pending = {};
+
+const pwm = pct => Math.round(pct * 2.55);
+function show(){
+  $('topV').textContent = topS.value + '%';
+  $('botV').textContent = bot.value + '%';
+  $('bothV').textContent = both.value + '%';
+  $('servoV').textContent = servoAngle + '°' + (servoAngle==GATE_OPEN ? ' · Open' : servoAngle==GATE_CLOSED ? ' · Closed' : '');
+  servoS.value = servoAngle;
+  $('gOpen').classList.toggle('on', gateOpen);   $('gOpen').setAttribute('aria-pressed', gateOpen);
+  $('gClosed').classList.toggle('on', !gateOpen); $('gClosed').setAttribute('aria-pressed', !gateOpen);
+}
+function send(line){
+  if (!writer) return;
+  chain = chain.then(() => writer.write(enc.encode(line + '\n'))).catch(lost);
+}
+function flush(){
+  for (const k of Object.keys(pending)){ send(k + pending[k]); delete pending[k]; }
+}
+
+topS.addEventListener('input', () => {
+  both.value = Math.round((+topS.value + +bot.value) / 2);
+  pending.U = pwm(topS.value); show();
+});
+bot.addEventListener('input', () => {
+  both.value = Math.round((+topS.value + +bot.value) / 2);
+  pending.L = pwm(bot.value); show();
+});
+both.addEventListener('input', () => {
+  topS.value = bot.value = both.value;
+  pending.U = pending.L = pwm(both.value); show();
+});
+function setGate(open){ gateOpen = open; servoAngle = open ? GATE_OPEN : GATE_CLOSED; pending.S = servoAngle; show(); }
+servoS.addEventListener('input', () => { servoAngle = +servoS.value; gateOpen = (servoAngle <= GATE_OPEN); pending.S = servoAngle; show(); });
+$('gOpen').addEventListener('click', () => setGate(true));
+$('gClosed').addEventListener('click', () => setGate(false));
+
+function stopAll(){
+  topS.value = bot.value = both.value = 0;
+  delete pending.U; delete pending.L;
+  gateOpen = false; servoAngle = GATE_CLOSED; delete pending.S;            // the Argon closes the gate itself when the motors stop
+  send('X'); show();
+  const b = $('stop'); b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 150);
+}
+$('stop').addEventListener('click', stopAll);
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space'){ e.preventDefault(); stopAll(); }
+});
+
+function setConnected(on, msg){
+  $('controls').disabled = $('controls2').disabled = !on;
+  $('status').textContent = msg;
+  $('status').classList.toggle('on', on);
+  $('connect').textContent = on ? 'Connected' : 'Connect launcher';
+}
+function lost(){
+  writer = null; port = null;
+  topS.value = bot.value = both.value = 0; show();
+  setConnected(false, 'Connection lost. Motors stop on their own within 1.5 s. Plug back in and press Connect launcher.');
+}
+
+$('connect').addEventListener('click', async () => {
+  if (!('serial' in navigator)){
+    setConnected(false, 'This browser can\u2019t talk to USB devices. Open this page in Chrome or Edge.');
+    return;
+  }
+  if (writer) return;
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 115200 });
+    writer = port.writable.getWriter();
+    topS.value = bot.value = both.value = 0; show();
+    gateOpen = false; send('X'); send('S' + GATE_CLOSED);
+    setConnected(true, 'Connected. Motors start at 0%. Space bar or STOP to stop.');
+  } catch (err){
+    const busy = /open|busy|in use/i.test(String(err));
+    setConnected(false, busy
+      ? 'The Argon is busy. Close the serial monitor in VS Code, then press Connect launcher.'
+      : 'No launcher selected. Press Connect launcher and pick the Argon from the list.');
+    port = null; writer = null;
+  }
+});
+if ('serial' in navigator) navigator.serial.addEventListener('disconnect', lost);
+
+setInterval(flush, 60);                         // send slider changes ~16x per second
+setInterval(() => send('H'), 400);              // heartbeat: Argon stops motors if this goes quiet
+show();
+</script>
+</body>
+</html>

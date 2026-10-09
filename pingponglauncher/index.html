@@ -59,6 +59,18 @@
   .gbtn:hover{background:rgba(244,247,251,.12)}
   .gbtn.on{background:var(--ball);border-color:var(--ball);color:var(--ink)}
   .gbtn:active{transform:translateY(2px)}
+  .gbtn.fire{width:100%;margin-top:12px;background:var(--ball);border-color:var(--ball);color:var(--ink)}
+  .gbtn.fire:hover{filter:brightness(1.08)}
+  .gbtn.serve{background:var(--rubber);border-color:var(--rubber);color:var(--line)}
+  #serveHint{margin-top:6px;color:var(--net);font-size:.85rem}
+  .gset{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;color:var(--net);font-size:.9rem}
+  .gset label{display:flex;flex-direction:column;gap:4px}
+  .gset input{font:600 1rem "Barlow",sans-serif;padding:6px 8px;border-radius:8px;border:2px solid var(--line);background:transparent;color:var(--line);width:100%}
+  .gset .hint{grid-column:1/-1;font-size:.82rem}
+  .gset a{color:var(--ball)}
+  .firems{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;color:var(--net)}
+  .firems input{width:80px;font:600 1rem "Barlow",sans-serif;padding:6px 8px;border-radius:8px;border:2px solid var(--line);background:transparent;color:var(--line)}
+  .firems .hint{flex-basis:100%;font-size:.85rem}
   /* STOP: pinned to the corner, always reachable */
   .stopzone{position:sticky;top:28px;display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:120px}
   #stop{width:180px;height:180px;border-radius:50%;border:8px solid var(--line);cursor:pointer;
@@ -116,8 +128,18 @@
           <button id="gClosed" class="gbtn on" aria-pressed="true">Closed</button>
           <button id="gOpen" class="gbtn" aria-pressed="false">Open</button>
         </div>
+        <button id="serve" class="gbtn fire serve">Fastest legal serve</button>
+        <div class="hint" id="serveHint">Top 90% · Bottom 10% · spins up 2 s, then fires one ball</div>
+        <button id="fire1" class="gbtn fire">Fire 1 ball</button>
+        <div class="gset">
+          <label>Closed angle<input id="gClosedA" type="number" min="0" max="180" step="1"></label>
+          <label>Open angle<input id="gOpenA" type="number" min="0" max="180" step="1"></label>
+          <label>Travel time (ms)<input id="gTravel" type="number" min="20" max="500" step="10"></label>
+          <label>Hold open (ms)<input id="openMs" type="number" min="0" max="500" step="10"></label>
+          <span class="hint">Travel: raise if it doesn't open fully · Hold: no ball &rarr; raise, two balls &rarr; lower · <a href="#" id="gReset">reset</a></span>
+        </div>
         <input id="servo" type="range" min="0" max="180" value="134" aria-label="Gate servo angle" style="margin-top:14px">
-        <div class="scale"><span>0°</span><span class="gate">Calibrate: drag · Open 101 · Closed 134</span><span>180°</span></div>
+        <div class="scale"><span>0°</span><span class="gate" id="gLabel">Calibrate: drag</span><span>180°</span></div>
       </div>
     </fieldset>
   </div>
@@ -132,9 +154,25 @@
 <script>
 const $ = id => document.getElementById(id);
 const topS = $('top'), bot = $('bottom'), both = $('both');
-const GATE_CLOSED = 134, GATE_OPEN = 101;          // servo angles
+const DEF = {closed:134, open:101, travel:100, hold:30};   // gate defaults
+let G = Object.assign({}, DEF);
+try { Object.assign(G, JSON.parse(localStorage.getItem('gateSettings') || '{}')); } catch(e) {}
+let GATE_CLOSED = G.closed, GATE_OPEN = G.open;
 let gateOpen = false;
 const servoS = $('servo'); let servoAngle = GATE_CLOSED;
+function fillGate(){ $('gClosedA').value=G.closed; $('gOpenA').value=G.open; $('gTravel').value=G.travel; $('openMs').value=G.hold;
+  $('gLabel').textContent = 'Calibrate: drag · Open ' + G.open + ' · Closed ' + G.closed; }
+function sendGate(){ if (!writer) return; send('C' + G.closed); send('O' + G.open); send('T' + G.travel); }
+function saveGate(){
+  const n = (id, lo, hi, d) => { const v = Math.round(+$(id).value); return isFinite(v) && $(id).value !== '' ? Math.max(lo, Math.min(hi, v)) : d; };
+  G.closed = n('gClosedA',0,180,G.closed); G.open = n('gOpenA',0,180,G.open); G.travel = n('gTravel',20,500,G.travel); G.hold = n('openMs',0,500,G.hold);
+  GATE_CLOSED = G.closed; GATE_OPEN = G.open;
+  try { localStorage.setItem('gateSettings', JSON.stringify(G)); } catch(e) {}
+  fillGate(); sendGate();
+  if (!gateOpen) { servoAngle = GATE_CLOSED; } show();
+}
+['gClosedA','gOpenA','gTravel','openMs'].forEach(id => $(id).addEventListener('change', saveGate));
+$('gReset').addEventListener('click', e => { e.preventDefault(); G = Object.assign({}, DEF); fillGate(); saveGate(); });
 const enc = new TextEncoder();
 let port = null, writer = null, chain = Promise.resolve();
 const pending = {};
@@ -173,6 +211,20 @@ function setGate(open){ gateOpen = open; servoAngle = open ? GATE_OPEN : GATE_CL
 servoS.addEventListener('input', () => { servoAngle = +servoS.value; gateOpen = (servoAngle <= GATE_OPEN); pending.S = servoAngle; show(); });
 $('gOpen').addEventListener('click', () => setGate(true));
 $('gClosed').addEventListener('click', () => setGate(false));
+$('serve').addEventListener('click', () => {           // fastest legal serve: 90 / 10, spin up, one ball
+  const ms = G.hold;
+  delete pending.U; delete pending.L; delete pending.S;
+  topS.value = 90; bot.value = 10; both.value = 0;
+  send('V' + ms);
+  gateOpen = false; servoAngle = GATE_CLOSED; show();
+  $('serveHint').textContent = 'Spinning up… fires in ~2 s (0.3 s if already at serve speed)';
+  setTimeout(() => $('serveHint').textContent = 'Top 90% · Bottom 10% · spins up 2 s, then fires one ball', 2600);
+});
+$('fire1').addEventListener('click', () => {           // one ball: Argon opens, waits, closes
+  const ms = G.hold;
+  delete pending.S; send('B' + ms);
+  gateOpen = false; servoAngle = GATE_CLOSED; show();
+});
 
 function stopAll(){
   topS.value = bot.value = both.value = 0;
@@ -209,7 +261,7 @@ $('connect').addEventListener('click', async () => {
     await port.open({ baudRate: 115200 });
     writer = port.writable.getWriter();
     topS.value = bot.value = both.value = 0; show();
-    gateOpen = false; send('X'); send('S' + GATE_CLOSED);
+    gateOpen = false; send('X'); sendGate(); send('S' + GATE_CLOSED);
     setConnected(true, 'Connected. Motors start at 0%. Space bar or STOP to stop.');
   } catch (err){
     const busy = /open|busy|in use/i.test(String(err));
@@ -221,6 +273,7 @@ $('connect').addEventListener('click', async () => {
 });
 if ('serial' in navigator) navigator.serial.addEventListener('disconnect', lost);
 
+fillGate();
 setInterval(flush, 60);                         // send slider changes ~16x per second
 setInterval(() => send('H'), 400);              // heartbeat: Argon stops motors if this goes quiet
 show();

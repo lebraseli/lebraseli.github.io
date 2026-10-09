@@ -61,6 +61,9 @@
   .gbtn:active{transform:translateY(2px)}
   .gbtn.fire{width:100%;margin-top:12px;background:var(--ball);border-color:var(--ball);color:var(--ink)}
   .gbtn.fire:hover{filter:brightness(1.08)}
+  .gbtn.rapid{background:transparent;color:var(--ball)}
+  .gbtn.rapid.on{background:var(--ball);color:var(--ink)}
+  #rapidHint{margin-top:6px;color:var(--net);font-size:.85rem}
   .gbtn.serve{background:var(--rubber);border-color:var(--rubber);color:var(--line)}
   #serveHint{margin-top:6px;color:var(--net);font-size:.85rem}
   .gset{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;color:var(--net);font-size:.9rem}
@@ -131,6 +134,8 @@
         <button id="serve" class="gbtn fire serve">Fastest legal serve</button>
         <div class="hint" id="serveHint">Top 90% · Bottom 10% · spins up 2 s, then fires one ball</div>
         <button id="fire1" class="gbtn fire">Fire 1 ball</button>
+        <button id="rapid" class="gbtn fire rapid" aria-pressed="false">Rapid fire: OFF</button>
+        <div class="hint" id="rapidHint">One ball every 0.7 s while a wheel is spinning</div>
         <div class="gset">
           <label>Closed angle<input id="gClosedA" type="number" min="0" max="180" step="1"></label>
           <label>Open angle<input id="gOpenA" type="number" min="0" max="180" step="1"></label>
@@ -207,8 +212,8 @@ both.addEventListener('input', () => {
   topS.value = bot.value = both.value;
   pending.U = pending.L = pwm(both.value); show();
 });
-function setGate(open){ gateOpen = open; servoAngle = open ? GATE_OPEN : GATE_CLOSED; pending.S = servoAngle; show(); }
-servoS.addEventListener('input', () => { servoAngle = +servoS.value; gateOpen = (servoAngle <= GATE_OPEN); pending.S = servoAngle; show(); });
+function setGate(open){ setRapid(false); gateOpen = open; servoAngle = open ? GATE_OPEN : GATE_CLOSED; pending.S = servoAngle; show(); }
+servoS.addEventListener('input', () => { setRapid(false); servoAngle = +servoS.value; gateOpen = (servoAngle <= GATE_OPEN); pending.S = servoAngle; show(); });
 $('gOpen').addEventListener('click', () => setGate(true));
 $('gClosed').addEventListener('click', () => setGate(false));
 $('serve').addEventListener('click', () => {           // fastest legal serve: 90 / 10, spin up, one ball
@@ -220,6 +225,14 @@ $('serve').addEventListener('click', () => {           // fastest legal serve: 9
   $('serveHint').textContent = 'Spinning up… fires in ~2 s (0.3 s if already at serve speed)';
   setTimeout(() => $('serveHint').textContent = 'Top 90% · Bottom 10% · spins up 2 s, then fires one ball', 2600);
 });
+let rapidOn = false;
+function setRapid(on){ rapidOn = on; const b = $('rapid'); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
+  b.textContent = 'Rapid fire: ' + (on ? 'ON' : 'OFF'); }
+$('rapid').addEventListener('click', () => {
+  const on = !rapidOn; delete pending.S; send('H'); send('T' + G.travel); send('R' + (on ? 1 : 0)); setRapid(on);
+  $('rapidHint').textContent = on && +topS.value === 0 && +bot.value === 0 ? 'Turn a wheel on: rapid fire waits for spinning wheels' : 'One ball every 0.7 s while a wheel is spinning';
+  if (!on) { gateOpen = false; servoAngle = GATE_CLOSED; show(); }
+});
 $('fire1').addEventListener('click', () => {           // one ball: Argon opens, waits, closes
   const ms = G.hold;
   delete pending.S; send('B' + ms);
@@ -230,7 +243,7 @@ function stopAll(){
   topS.value = bot.value = both.value = 0;
   delete pending.U; delete pending.L;
   gateOpen = false; servoAngle = GATE_CLOSED; delete pending.S;            // the Argon closes the gate itself when the motors stop
-  send('X'); show();
+  send('X'); setRapid(false); show();
   const b = $('stop'); b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 150);
 }
 $('stop').addEventListener('click', stopAll);

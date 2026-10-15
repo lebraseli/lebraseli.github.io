@@ -1,0 +1,97 @@
+/*  Radar scanner  --  Arduino Nano + SG90 + HC-SR04
+ *
+ *  Wiring
+ *    SG90    orange/signal -> D9      red -> 5V     brown -> GND
+ *    HC-SR04 TRIG -> D11  ECHO -> D12  VCC -> 5V    GND   -> GND
+ *
+ *  Streams one line per reading:   angle,distance_cm
+ *  distance = -1 means no echo came back.
+ */
+
+#include <Servo.h>
+
+const uint8_t PIN_SERVO = 9;
+const uint8_t PIN_TRIG  = 11;
+const uint8_t PIN_ECHO  = 12;
+
+const int ANGLE_MIN = 15;
+const int ANGLE_MAX = 165;
+const int ANGLE_STEP = 1;
+
+/*  THE ONE KNOB  ------------------------------------------------------------
+ *  Range and speed trade directly against each other and there is no way
+ *  around it: sound travels 1 cm out and back in 58 microseconds.
+ *
+ *      150 cm  ->  8.7 ms listening  ->  ~89 readings/sec
+ *      300 cm  -> 17.4 ms listening  ->  ~50 readings/sec
+ *      400 cm  -> 23.2 ms listening  ->  ~39 readings/sec
+ *
+ *  Everything below derives from this number. Change it alone.
+ */
+const int MAX_RANGE_CM = 300;
+
+const unsigned long ECHO_TIMEOUT_US = (unsigned long)MAX_RANGE_CM * 58UL;
+// +2.5 ms of silence so the sensor never hears its own previous echo
+const unsigned long PERIOD_US = ECHO_TIMEOUT_US + 2500UL;
+
+// The horn trails the command at speed, which would put the up-sweep and the
+// down-sweep in different places and draw the wall twice. Raise this if you
+// see a doubled wall; lower it if the two passes cross over each other.
+const int LAG_DEG = 1;
+
+// Set true if the map reads left-right backwards versus the real world.
+const bool MIRROR = false;
+
+Servo sweeper;
+unsigned long nextTick = 0;
+
+long pingOnce() {
+  digitalWrite(PIN_TRIG, LOW);
+  delayMicroseconds(3);
+  digitalWrite(PIN_TRIG, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(PIN_TRIG, LOW);
+
+  unsigned long us = pulseIn(PIN_ECHO, HIGH, ECHO_TIMEOUT_US);
+  if (us == 0) return -1;
+  return (long)(us / 58UL);
+}
+
+// dir is +1 while sweeping up, -1 while sweeping down
+void reportAt(int angle, int dir) {
+  sweeper.write(angle);            // returns at once; the horn keeps moving
+  long d = pingOnce();
+
+  int reported = angle - LAG_DEG * dir;
+  if (reported < 0) reported = 0;
+  if (reported > 180) reported = 180;
+  if (MIRROR) reported = 180 - reported;
+
+  Serial.print(reported);
+  Serial.print(',');
+  Serial.println(d);
+
+  // hold the cadence steady whatever the ping cost
+  nextTick += PERIOD_US;
+  long wait = (long)(nextTick - micros());
+  while (wait > 16000) { delayMicroseconds(16000); wait -= 16000; }
+  if (wait > 0) delayMicroseconds((unsigned int)wait);
+  if ((long)(micros() - nextTick) > (long)PERIOD_US) nextTick = micros();
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(PIN_TRIG, OUTPUT);
+  pinMode(PIN_ECHO, INPUT);
+  digitalWrite(PIN_TRIG, LOW);
+
+  sweeper.attach(PIN_SERVO);
+  sweeper.write(ANGLE_MIN);
+  delay(700);
+  nextTick = micros();
+}
+
+void loop() {
+  for (int a = ANGLE_MIN; a <= ANGLE_MAX; a += ANGLE_STEP) reportAt(a, +1);
+  for (int a = ANGLE_MAX; a >= ANGLE_MIN; a -= ANGLE_STEP) reportAt(a, -1);
+}

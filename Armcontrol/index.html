@@ -1705,6 +1705,7 @@ function onLine(chunk){
   while ((i = rxBuf.indexOf('\n')) >= 0){
     const line = rxBuf.slice(0, i).trim(); rxBuf = rxBuf.slice(i+1);
     if (readyResolve && /^[APL] /.test(line)){ const r = readyResolve; readyResolve = null; r(true); }
+    if (line === 'B' && ready){ lastSent = ''; write('V ' + speed + '\n'); sendPose(true); setStatus('The Nano restarted (power dip?): pose re-sent', 'ok'); continue; }
     if (line[0] === 'A'){
       const a = line.slice(1).trim().split(/\s+/).map(Number);
       if (a.length === 4 && a.every(isFinite)) document.getElementById('actual').textContent = 'ARM ' + a.join(' · ');

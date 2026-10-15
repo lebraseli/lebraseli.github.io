@@ -1,97 +1,536 @@
-/*  Radar scanner  --  Arduino Nano + SG90 + HC-SR04
- *
- *  Wiring
- *    SG90    orange/signal -> D9      red -> 5V     brown -> GND
- *    HC-SR04 TRIG -> D11  ECHO -> D12  VCC -> 5V    GND   -> GND
- *
- *  Streams one line per reading:   angle,distance_cm
- *  distance = -1 means no echo came back.
- */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Radar scanner</title>
+<style>
+  :root{
+    --ink:#0B1622;
+    --ground:#122236;
+    --grid:#1F3A57;
+    --haze:#4E8FB3;
+    --plot:#EAF3F9;
+    --alert:#F2A33C;
+    --quiet:#7F9AB4;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:var(--ink);
+    color:var(--plot);
+    font-family:"Avenir Next","Segoe UI",Inter,system-ui,sans-serif;
+    display:flex; flex-direction:column;
+    overflow:hidden;
+  }
+  #scope{flex:1; min-height:0; position:relative}
+  canvas{position:absolute; inset:0; width:100%; height:100%}
 
-#include <Servo.h>
+  #readout{
+    flex:0 0 auto;
+    display:flex; flex-wrap:wrap; align-items:baseline; gap:2.4rem;
+    padding:1rem 1.6rem 1.3rem;
+    border-top:1px solid var(--grid);
+    font-variant-numeric:tabular-nums;
+  }
+  .stat{display:flex; flex-direction:column; gap:.15rem}
+  .stat b{font-size:1.9rem; font-weight:600; letter-spacing:-.02em; line-height:1}
+  .stat b i{font-style:normal; font-size:.95rem; font-weight:500; color:var(--quiet); margin-left:.15rem}
+  .stat span{font-size:.78rem; color:var(--quiet)}
+  .stat.near b{color:var(--alert)}
+  .stat.live b{font-size:2.7rem}
+  .stat.live.stale b{color:var(--quiet)}
+  .key{align-self:center; display:flex; flex-direction:column; gap:.35rem}
+  .key span{display:flex; align-items:center; gap:.5rem; font-size:.78rem; color:var(--quiet)}
+  .key i{width:26px; height:0; flex:0 0 auto}
+  .key i.solid{border-top:2px solid var(--plot)}
+  .key i.dash{border-top:2px dashed var(--haze)}
 
-const uint8_t PIN_SERVO = 9;
-const uint8_t PIN_TRIG  = 11;
-const uint8_t PIN_ECHO  = 12;
+  #status{margin-left:auto; align-self:center; text-align:right; max-width:30ch}
+  #status p{margin:0; font-size:.85rem; color:var(--quiet); line-height:1.45}
 
-const int ANGLE_MIN = 15;
-const int ANGLE_MAX = 165;
-const int ANGLE_STEP = 1;
+  button{
+    font:inherit; font-size:.95rem; font-weight:600;
+    color:var(--ink); background:var(--plot);
+    border:0; border-radius:2px; padding:.6rem 1.15rem;
+    cursor:pointer; margin-top:.5rem;
+  }
+  button:hover{background:#fff}
+  button:focus-visible{outline:2px solid var(--alert); outline-offset:2px}
 
-/*  THE ONE KNOB  ------------------------------------------------------------
- *  Range and speed trade directly against each other and there is no way
- *  around it: sound travels 1 cm out and back in 58 microseconds.
- *
- *      150 cm  ->  8.7 ms listening  ->  ~89 readings/sec
- *      300 cm  -> 17.4 ms listening  ->  ~50 readings/sec
- *      400 cm  -> 23.2 ms listening  ->  ~39 readings/sec
- *
- *  Everything below derives from this number. Change it alone.
- */
-const int MAX_RANGE_CM = 300;
+  #curtain{
+    position:absolute; inset:0; display:grid; place-content:center;
+    text-align:center; gap:.4rem; padding:2rem; background:var(--ink);
+  }
+  #curtain h1{font-size:1.35rem; font-weight:600; margin:0 0 .3rem}
+  #curtain p{margin:0; color:var(--quiet); font-size:.92rem; line-height:1.55; max-width:46ch}
+  .hidden{display:none !important}
+</style>
+</head>
+<body>
 
-const unsigned long ECHO_TIMEOUT_US = (unsigned long)MAX_RANGE_CM * 58UL;
-// +2.5 ms of silence so the sensor never hears its own previous echo
-const unsigned long PERIOD_US = ECHO_TIMEOUT_US + 2500UL;
+<div id="scope">
+  <canvas id="cv"></canvas>
+  <div id="curtain">
+    <h1 id="ctitle">Plug in the Nano</h1>
+    <p id="ctext">Pick the serial port once. After that this page reconnects on its own every time the board is plugged in.</p>
+    <div><button id="connect">Choose serial port</button></div>
+  </div>
+</div>
 
-// The horn trails the command at speed, which would put the up-sweep and the
-// down-sweep in different places and draw the wall twice. Raise this if you
-// see a doubled wall; lower it if the two passes cross over each other.
-const int LAG_DEG = 1;
+<div id="readout">
+  <div class="stat live"><b id="vLive">—</b><span id="lLive">live distance</span></div>
+  <div class="stat"><b id="vMedian">—</b><span>median distance</span></div>
+  <div class="stat near"><b id="vNear">—</b><span id="lNear">nearest contact</span></div>
+  <div class="stat"><b id="vRange">—</b><span>scale, outer ring</span></div>
+  <div class="stat"><b id="vCount">0°</b><span>arc beyond range</span></div>
+  <div class="key">
+    <span><i class="solid"></i>surface found</span>
+    <span><i class="dash"></i>nothing within range</span>
+  </div>
+  <div id="status"><p id="msg">Waiting for a board.</p></div>
+</div>
 
-// Set true if the map reads left-right backwards versus the real world.
-const bool MIRROR = false;
+<script>
+"use strict";
 
-Servo sweeper;
-unsigned long nextTick = 0;
+const BAUD = 115200;
+const SENSOR_MAX = 320;   // must be >= MAX_RANGE_CM in the sketch, or nothing draws
+const LADDER = [25, 40, 60, 100, 150, 200, 250, 300];     // outer-ring choices, cm
+const SETTLE_MS = 700;   // a closer scale must look right this long before zooming in
+const TRAIL = 22;        // degrees of afterglow behind the beam
+const WALL_WIN = 7;      // +/- degrees pooled into each wall point
+const HIST = 4;          // passes remembered per direction, median'd over time
+const HIST_MS = 7000;    // and forgotten after this long, however few there are
+// Smoothing is for noise, not for change. If a reading disagrees with a
+// direction's history by more than this, the world moved: drop the history and
+// believe the new value at once. The spatial median still guards the line.
+const CHANGE_CM = d => Math.max(9, 0.15 * d);
+const LIVE_MS = 150;     // how often the live number refreshes
+const LIVE_ARC = 3;      // +/- degrees pooled into it, so it means one direction
+const LIVE_WIN_MS = 400; // how far back it looks for those readings
+const SMOOTH = 3;        // +/- degrees of final averaging, to take off the stairs
+// A wide median window lets one stray hit claim 15 degrees of arc. Require
+// real support before calling a direction measured, or the line invents
+// surfaces across angles where the beam actually heard nothing back.
+const NEAR_DEG = 3;      // a hit must be at least this close to count
+const MIN_HITS = 3;      // and this many must agree inside the window
+// A miss is information: it means nothing is out there, so the wall sits at
+// the edge of the scale rather than vanishing. The line is never broken.
+const ZOOM_TAU = 230;    // ms; how quickly the scale glides to a new value
+const RING_FADE = 450;   // ms; cross-fade between old and new ring labels
 
-long pingOnce() {
-  digitalWrite(PIN_TRIG, LOW);
-  delayMicroseconds(3);
-  digitalWrite(PIN_TRIG, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(PIN_TRIG, LOW);
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+const curtain = document.getElementById("curtain");
+const ctitle = document.getElementById("ctitle");
+const ctext = document.getElementById("ctext");
+const btn = document.getElementById("connect");
+const msg = document.getElementById("msg");
 
-  unsigned long us = pulseIn(PIN_ECHO, HIGH, ECHO_TIMEOUT_US);
-  if (us == 0) return -1;
-  return (long)(us / 58UL);
+const contacts = new Map();  // angle -> {d, t}   exactly one reading per direction
+let liveAngle = null;
+let rangeIdx = 4, wantIdx = 4, wantSince = 0;
+let targetRange = LADDER[4];     // the scale we want
+let shownRange  = LADDER[4];     // the scale actually drawn, eased toward target
+let oldRange = null, ringFade = 0;   // outgoing ring set, cross-faded out
+let lastFrame = 0;
+let port = null, reader = null, keepReading = false;
+let lines = 0, misses = 0, lastLine = 0;
+const seen = new Map();   // every direction the beam has visited, hit or miss
+let recent = [], tickAt = 0, liveD = null, liveA = null;
+
+/* ---------- serial ---------- */
+
+async function openPort(p){
+  if (port) return;
+  try{
+    await p.open({ baudRate: BAUD });
+  }catch(err){
+    say("Could not open the port: " + err.message + " Close the Arduino Serial Monitor first.");
+    return;
+  }
+  port = p;
+  keepReading = true;
+  curtain.classList.add("hidden");
+  say("Connected. Sweeping.");
+  readLoop();
 }
 
-// dir is +1 while sweeping up, -1 while sweeping down
-void reportAt(int angle, int dir) {
-  sweeper.write(angle);            // returns at once; the horn keeps moving
-  long d = pingOnce();
-
-  int reported = angle - LAG_DEG * dir;
-  if (reported < 0) reported = 0;
-  if (reported > 180) reported = 180;
-  if (MIRROR) reported = 180 - reported;
-
-  Serial.print(reported);
-  Serial.print(',');
-  Serial.println(d);
-
-  // hold the cadence steady whatever the ping cost
-  nextTick += PERIOD_US;
-  long wait = (long)(nextTick - micros());
-  while (wait > 16000) { delayMicroseconds(16000); wait -= 16000; }
-  if (wait > 0) delayMicroseconds((unsigned int)wait);
-  if ((long)(micros() - nextTick) > (long)PERIOD_US) nextTick = micros();
+async function readLoop(){
+  const decoder = new TextDecoderStream();
+  const closed = port.readable.pipeTo(decoder.writable).catch(()=>{});
+  reader = decoder.readable.getReader();
+  let buf = "";
+  try{
+    while (keepReading){
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += value;
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0){
+        ingest(buf.slice(0, nl));
+        buf = buf.slice(nl + 1);
+      }
+      if (buf.length > 200) buf = "";
+    }
+  }catch(err){
+    say("Lost the connection.");
+  }finally{
+    try{ reader.releaseLock(); }catch(e){}
+    try{ await closed; }catch(e){}
+    try{ await port.close(); }catch(e){}
+    port = null; reader = null;
+    showCurtain("Board disconnected", "Plug it back in and this page picks it up automatically.");
+  }
 }
 
-void setup() {
-  Serial.begin(115200);
-  pinMode(PIN_TRIG, OUTPUT);
-  pinMode(PIN_ECHO, INPUT);
-  digitalWrite(PIN_TRIG, LOW);
+// One line = one direction. The beam always overwrites what was there:
+// a hit replaces the old dot, a miss erases it.
+function ingest(line){
+  const bits = line.trim().split(",");
+  if (bits.length !== 2) return;
+  const a = parseInt(bits[0], 10);
+  const d = parseFloat(bits[1]);
+  if (!Number.isFinite(a) || !Number.isFinite(d)) return;
+  if (a < 0 || a > 180) return;
 
-  sweeper.attach(PIN_SERVO);
-  sweeper.write(ANGLE_MIN);
-  delay(700);
-  nextTick = micros();
+  liveAngle = a;
+  const now = performance.now();
+  lines++; lastLine = now; seen.set(a, now);
+  if (d > 1 && d <= SENSOR_MAX){
+    const prev = contacts.get(a);
+    let ds = prev ? prev.ds.filter(e => now - e.t < HIST_MS) : [];
+    if (ds.length){
+      const settled = median(ds.map(e => e.d));
+      if (Math.abs(d - settled) > CHANGE_CM(settled)) ds = [];   // something moved
+    }
+    ds.push({ d, t: now });
+    if (ds.length > HIST) ds.shift();
+    contacts.set(a, { d, ds, t: now });     // d = latest ping, ds = recent passes
+    recent.push({ a, d, t: now });
+    while (recent.length && now - recent[0].t > LIVE_WIN_MS) recent.shift();
+  }else{ misses++; contacts.delete(a); }
 }
 
-void loop() {
-  for (int a = ANGLE_MIN; a <= ANGLE_MAX; a += ANGLE_STEP) reportAt(a, +1);
-  for (int a = ANGLE_MAX; a >= ANGLE_MIN; a -= ANGLE_STEP) reportAt(a, -1);
+function median(arr){
+  const s = [...arr].sort((x, y) => x - y);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
+
+/* One point for every direction the beam has visited, with no holes. Each is
+   the median of the hits within WALL_WIN degrees, so a single wild ping can't
+   move it. Where nothing echoed back at all, the wall sits at the edge of the
+   scale -- open space, not missing data. */
+function buildWall(edge){
+  const angles = [...seen.keys()];
+  if (!angles.length) return [];
+  const lo = Math.min(...angles), hi = Math.max(...angles);
+
+  // 1. median over time: each direction settles on its own recent passes
+  const steady = new Map();
+  for (const [a, c] of contacts) steady.set(a, median(c.ds.map(e => e.d)));
+
+  // 2. median over space: a wild direction can't pull its neighbours
+  const rough = [];
+  for (let a = lo; a <= hi; a++){
+    const pool = [];
+    let nearest = 99;
+    for (let k = a - WALL_WIN; k <= a + WALL_WIN; k++){
+      const v = steady.get(k);
+      if (v === undefined) continue;
+      pool.push(v);
+      nearest = Math.min(nearest, Math.abs(k - a));
+    }
+    const measured = pool.length >= MIN_HITS && nearest <= NEAR_DEG;
+    rough.push({ a, d: measured ? median(pool) : edge, open: !measured });
+  }
+
+  // 3. gentle average, only across points of the same kind, to lose the stairs
+  const out = [];
+  for (let i = 0; i < rough.length; i++){
+    if (rough[i].open){ out.push(rough[i]); continue; }
+    let sum = 0, n = 0;
+    for (let k = i - SMOOTH; k <= i + SMOOTH; k++){
+      if (k < 0 || k >= rough.length || rough[k].open) continue;
+      sum += rough[k].d; n++;
+    }
+    out.push({ a: rough[i].a, d: n ? sum / n : rough[i].d, open: false });
+  }
+  return out;
+}
+
+/* ---------- auto-ranging ----------
+   Zoom out at once if anything would fall off the edge. Zoom in only after the
+   closer scale has looked right for a moment, so the view doesn't flap. */
+function updateRange(maxD, now){
+  if (maxD === null) return;
+  let want = LADDER.findIndex(v => v >= maxD * 1.12);
+  if (want < 0) want = LADDER.length - 1;
+
+  if (want > rangeIdx){ rangeIdx = want; wantIdx = want; return; }
+  if (want !== wantIdx){ wantIdx = want; wantSince = now; return; }
+  if (want < rangeIdx && now - wantSince > SETTLE_MS) rangeIdx = want;
+}
+
+/* ---------- connecting ---------- */
+
+function say(t){ msg.textContent = t; }
+
+function showCurtain(title, text, showBtn = true){
+  ctitle.textContent = title;
+  ctext.textContent = text;
+  btn.classList.toggle("hidden", !showBtn);
+  curtain.classList.remove("hidden");
+}
+
+btn.addEventListener("click", async () => {
+  try{ await openPort(await navigator.serial.requestPort()); }
+  catch(err){ say("No port chosen."); }
+});
+
+if (!("serial" in navigator)){
+  showCurtain("This browser can't reach the serial port",
+    "Open this file in Chrome, Edge or Opera on a desktop. Safari has no support, and Firefox only behind a flag.",
+    false);
+  say("Web Serial unavailable.");
+}else{
+  navigator.serial.addEventListener("connect", e => openPort(e.target));
+  navigator.serial.addEventListener("disconnect", () => { keepReading = false; });
+  navigator.serial.getPorts().then(ps => { if (ps.length) openPort(ps[0]); });
+}
+
+/* ---------- drawing ---------- */
+
+function resize(){
+  const r = cv.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(r.width * dpr);
+  cv.height = Math.round(r.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener("resize", resize);
+
+function draw(){
+  const now = performance.now();
+  const w = cv.clientWidth, h = cv.clientHeight;
+  const cx = w / 2, cy = h - 42;
+  const R = Math.min(w / 2 - 52, h - 82);
+  const font = getComputedStyle(document.body).fontFamily;
+
+  const dt = lastFrame ? Math.min(now - lastFrame, 100) : 16;
+  lastFrame = now;
+
+  let maxD = null;
+  for (const c of contacts.values()) if (maxD === null || c.d > maxD) maxD = c.d;
+  updateRange(maxD, now);
+
+  // a new scale starts a glide, and cross-fades the old ring labels out
+  if (LADDER[rangeIdx] !== targetRange){
+    oldRange = targetRange;
+    targetRange = LADDER[rangeIdx];
+    ringFade = 1;
+  }
+  // exponential ease, framerate independent
+  shownRange += (targetRange - shownRange) * (1 - Math.exp(-dt / ZOOM_TAU));
+  if (Math.abs(targetRange - shownRange) < 0.05) shownRange = targetRange;
+  if (ringFade > 0){
+    ringFade -= dt / RING_FADE;
+    if (ringFade <= 0){ ringFade = 0; oldRange = null; }
+  }
+  const RANGE = shownRange;
+
+  ctx.clearRect(0, 0, w, h);
+
+  ctx.fillStyle = "#122236";
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, Math.PI, 0); ctx.closePath(); ctx.fill();
+
+  ctx.font = "11px " + font; ctx.textAlign = "center";
+
+  // Rings keep their real cm value and slide to wherever that lands on the
+  // current scale, so the grid moves with the dots instead of jumping.
+  function drawRings(rangeVal, alpha){
+    if (alpha <= 0) return;
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = "#1F3A57"; ctx.lineWidth = 1; ctx.fillStyle = "#7F9AB4";
+    for (let i = 1; i <= 4; i++){
+      const cmv = rangeVal * i / 4;
+      const rr = R * cmv / RANGE;
+      if (rr > R + 0.5 || rr < 6) continue;
+      ctx.beginPath(); ctx.arc(cx, cy, rr, Math.PI, 0); ctx.stroke();
+      ctx.fillText(i === 4 ? cmv + " cm" : String(cmv), cx, cy - rr - 5);
+    }
+    ctx.globalAlpha = 1;
+  }
+  if (oldRange !== null) drawRings(oldRange, ringFade * 0.9);
+  drawRings(targetRange, 1 - ringFade * 0.9);
+
+  ctx.strokeStyle = "#1F3A57"; ctx.lineWidth = 1; ctx.fillStyle = "#7F9AB4";
+
+  for (let a = 0; a <= 180; a += 30){
+    const th = a * Math.PI / 180;
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + R * Math.cos(th), cy - R * Math.sin(th)); ctx.stroke();
+    ctx.fillText(a + "\u00B0", cx + (R + 22) * Math.cos(th), cy - (R + 22) * Math.sin(th) + 4);
+  }
+
+  // beam plus a short afterglow, so you can see which way it is travelling
+  if (liveAngle !== null){
+    for (let i = TRAIL; i > 0; i--){
+      for (const dir of [-1, 1]){
+        const a = liveAngle + dir * i;
+        if (a < 0 || a > 180) continue;
+        const th = a * Math.PI / 180;
+        ctx.strokeStyle = "rgba(234,243,249," + (0.10 * (1 - i / TRAIL)).toFixed(3) + ")";
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + R * Math.cos(th), cy - R * Math.sin(th)); ctx.stroke();
+      }
+    }
+    const th = liveAngle * Math.PI / 180;
+    ctx.strokeStyle = "rgba(234,243,249,.5)"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + R * Math.cos(th), cy - R * Math.sin(th)); ctx.stroke();
+  }
+
+  // raw pings: small and quiet, they are the evidence not the answer
+  for (const [a, c] of contacts){
+    const th = a * Math.PI / 180, rr = R * c.d / RANGE;
+    if (rr > R + 1) continue;
+    const fresh = Math.max(0, 1 - (now - c.t) / 900);
+    ctx.fillStyle = fresh > 0 ? "#EAF3F9" : "#4E8FB3";
+    ctx.globalAlpha = 0.55 + 0.45 * fresh;
+    ctx.beginPath();
+    ctx.arc(cx + rr * Math.cos(th), cy - rr * Math.sin(th), 1.5 + 1.1 * fresh, 0, 6.284);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // the wall: one unbroken line across every direction scanned
+  const wall = buildWall(RANGE);
+  const ds = [];
+  let nearD = Infinity, nearA = null;
+  for (const p of wall){
+    if (p.open) continue;                    // open space is not a contact
+    ds.push(p.d);
+    if (p.d < nearD){ nearD = p.d; nearA = p.a; }
+  }
+
+  if (wall.length > 1){
+    const at = i => {
+      const th = wall[i].a * Math.PI / 180;
+      const rr = Math.min(R * wall[i].d / RANGE, R);
+      return [cx + rr * Math.cos(th), cy - rr * Math.sin(th)];
+    };
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+
+    // Walk the wall in runs of the same kind. Each run starts on the previous
+    // run's last point, so the styles change without the line breaking.
+    let i = 0;
+    while (i < wall.length - 1){
+      const open = wall[i + 1].open;
+      ctx.beginPath();
+      let [x, y] = at(i); ctx.moveTo(x, y);
+      let j = i + 1;
+      while (j < wall.length && wall[j].open === open){
+        [x, y] = at(j); ctx.lineTo(x, y); j++;
+      }
+      if (open){
+        ctx.setLineDash([4, 5]);
+        ctx.strokeStyle = "#4E8FB3"; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.85;
+      }else{
+        ctx.setLineDash([]);
+        ctx.strokeStyle = "#EAF3F9"; ctx.lineWidth = 2; ctx.globalAlpha = 1;
+      }
+      ctx.stroke();
+      i = j - 1;
+    }
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+  }
+
+  // live marker: the readout, drawn where it was taken
+  if (liveD !== null && liveA !== null){
+    const th = liveA * Math.PI / 180, rr = Math.min(R * liveD / RANGE, R);
+    const x = cx + rr * Math.cos(th), y = cy - rr * Math.sin(th);
+    ctx.strokeStyle = "#EAF3F9"; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(x, y, 6.5, 0, 6.284); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - 11, y); ctx.lineTo(x - 8, y);
+    ctx.moveTo(x + 8, y); ctx.lineTo(x + 11, y); ctx.stroke();
+
+    const label = liveD.toFixed(liveD < 100 ? 1 : 0) + " cm";
+    ctx.font = "600 14px " + font;
+    ctx.textAlign = x < cx ? "right" : "left";
+    const lx = x + (x < cx ? -14 : 14);
+    ctx.fillStyle = "#0B1622"; ctx.globalAlpha = 0.75;
+    const tw = ctx.measureText(label).width;
+    ctx.fillRect(x < cx ? lx - tw - 4 : lx - 4, y - 16, tw + 8, 18);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#EAF3F9"; ctx.fillText(label, lx, y - 3);
+    ctx.textAlign = "center";
+  }
+
+  if (nearA !== null && R * nearD / RANGE <= R + 1){
+    const th = nearA * Math.PI / 180, rr = R * nearD / RANGE;
+    const x = cx + rr * Math.cos(th), y = cy - rr * Math.sin(th);
+    ctx.strokeStyle = "#F2A33C"; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(x, y, 8, 0, 6.284); ctx.stroke();
+    ctx.fillStyle = "#F2A33C";
+    ctx.beginPath(); ctx.arc(x, y, 3.4, 0, 6.284); ctx.fill();
+  }
+
+  const cm = v => v.toFixed(v < 100 ? 1 : 0) + "<i>cm</i>";
+  document.getElementById("vMedian").innerHTML = ds.length ? cm(median(ds)) : "\u2014";
+  document.getElementById("vNear").innerHTML = nearA !== null ? cm(nearD) : "\u2014";
+  document.getElementById("lNear").textContent =
+    nearA !== null ? "nearest contact, at " + nearA + "\u00B0" : "nearest contact";
+  document.getElementById("vRange").innerHTML = targetRange + "<i>cm</i>";
+
+  // Live readout: at 50 readings a second a raw number is unreadable, so each
+  // third of a second gets one value -- the median of that window.
+  if (now - tickAt >= LIVE_MS){
+    tickAt += LIVE_MS;                       // fixed step, so it can't drift slow
+    if (now - tickAt > LIVE_MS) tickAt = now;
+    while (recent.length && now - recent[0].t > LIVE_WIN_MS) recent.shift();
+    const last = recent[recent.length - 1];
+    if (last){
+      // Only readings aimed within LIVE_ARC of where the beam is now, and only
+      // ones on the same surface as the newest -- otherwise the number blends
+      // two objects together every time the beam crosses an edge.
+      const tol = Math.max(10, 0.2 * last.d);
+      const pool = recent
+        .filter(r => Math.abs(r.a - last.a) <= LIVE_ARC && Math.abs(r.d - last.d) <= tol)
+        .map(r => r.d);
+      liveD = pool.length ? median(pool) : last.d;
+      liveA = last.a;
+    }else{
+      liveD = null; liveA = null;
+    }
+  }
+  const liveEl = document.getElementById("vLive");
+  liveEl.innerHTML = liveD === null ? "\u2014" : cm(liveD);
+  liveEl.parentElement.classList.toggle("stale", liveD === null);
+  document.getElementById("lLive").textContent =
+    liveD === null ? "live distance, nothing in range" : "live distance, at " + liveA + "\u00B0";
+
+  const openDeg = wall.filter(p => p.open).length;
+  document.getElementById("vCount").textContent = openDeg + "\u00B0";
+
+  // an empty scope should say why it is empty
+  if (port){
+    if (!lines) say("Connected, but no data arriving. Is the sketch uploaded?");
+    else if (now - lastLine > 2000) say("Data stopped. Check the servo is not resetting the board.");
+    else if (!contacts.size) say("Receiving " + lines + " readings, nothing echoing back. "
+                                 + "Point it at a wall under " + SENSOR_MAX + " cm.");
+    else say("Sweeping. " + Math.round(100 * misses / lines) + "% of pings find nothing.");
+  }
+
+  requestAnimationFrame(draw);
+}
+
+resize();
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

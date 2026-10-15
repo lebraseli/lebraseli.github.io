@@ -59,6 +59,13 @@
   button:hover{background:#fff}
   button:focus-visible{outline:2px solid var(--alert); outline-offset:2px}
 
+  button.ghost{
+    margin-top:0; font-size:.85rem; font-weight:500;
+    color:var(--quiet); background:transparent;
+    border:1px solid var(--grid); padding:.45rem .9rem;
+  }
+  button.ghost:hover{color:var(--plot); border-color:var(--haze); background:transparent}
+
   #curtain{
     position:absolute; inset:0; display:grid; place-content:center;
     text-align:center; gap:.4rem; padding:2rem; background:var(--ink);
@@ -90,6 +97,7 @@
     <span><i class="dash"></i>nothing within range</span>
   </div>
   <div id="status"><p id="msg">Waiting for a board.</p></div>
+  <button id="again" class="ghost">Connect again</button>
 </div>
 
 <script>
@@ -127,6 +135,7 @@ const curtain = document.getElementById("curtain");
 const ctitle = document.getElementById("ctitle");
 const ctext = document.getElementById("ctext");
 const btn = document.getElementById("connect");
+const again = document.getElementById("again");
 const msg = document.getElementById("msg");
 
 const contacts = new Map();  // angle -> {d, t}   exactly one reading per direction
@@ -136,7 +145,7 @@ let targetRange = LADDER[4];     // the scale we want
 let shownRange  = LADDER[4];     // the scale actually drawn, eased toward target
 let oldRange = null, ringFade = 0;   // outgoing ring set, cross-faded out
 let lastFrame = 0;
-let port = null, reader = null, keepReading = false;
+let port = null, reader = null, keepReading = false, manualStop = false;
 let lines = 0, misses = 0, lastLine = 0;
 const seen = new Map();   // every direction the beam has visited, hit or miss
 let recent = [], tickAt = 0, liveD = null, liveA = null;
@@ -179,10 +188,18 @@ async function readLoop(){
     say("Lost the connection.");
   }finally{
     try{ reader.releaseLock(); }catch(e){}
-    try{ await closed; }catch(e){}
+    // never block teardown on the pipe: if it does not settle promptly the
+    // button would appear to do nothing at all
+    try{ await Promise.race([closed, new Promise(r => setTimeout(r, 300))]); }catch(e){}
     try{ await port.close(); }catch(e){}
     port = null; reader = null;
-    showCurtain("Board disconnected", "Plug it back in and this page picks it up automatically.");
+    if (manualStop){
+      manualStop = false;
+      showCurtain("Disconnected", "Pick a port to start scanning again.", true, "Connect again");
+    }else{
+      showCurtain("Board disconnected",
+                  "Plug it back in and this page picks it up automatically.", true, "Connect again");
+    }
   }
 }
 
@@ -279,12 +296,31 @@ function updateRange(maxD, now){
 
 function say(t){ msg.textContent = t; }
 
-function showCurtain(title, text, showBtn = true){
+function showCurtain(title, text, showBtn = true, label = null){
   ctitle.textContent = title;
   ctext.textContent = text;
+  if (label) btn.textContent = label;
   btn.classList.toggle("hidden", !showBtn);
   curtain.classList.remove("hidden");
 }
+
+/* Drop the port and raise the curtain. Cancelling the reader is what actually
+   ends readLoop -- clearing keepReading alone leaves it parked on an await. */
+async function disconnect(){
+  contacts.clear(); seen.clear();
+  recent = []; liveD = null; liveA = null; liveAngle = null;
+  lines = 0; misses = 0;
+
+  if (!port){
+    showCurtain("Disconnected", "Pick a port to start scanning again.", true, "Connect again");
+    return;
+  }
+  manualStop = true;
+  keepReading = false;
+  if (reader){ try{ await reader.cancel(); }catch(e){} }   // readLoop closes the port
+}
+
+again.addEventListener("click", disconnect);
 
 btn.addEventListener("click", async () => {
   try{ await openPort(await navigator.serial.requestPort()); }
@@ -298,7 +334,10 @@ if (!("serial" in navigator)){
   say("Web Serial unavailable.");
 }else{
   navigator.serial.addEventListener("connect", e => openPort(e.target));
-  navigator.serial.addEventListener("disconnect", () => { keepReading = false; });
+  navigator.serial.addEventListener("disconnect", () => {
+    keepReading = false;
+    if (reader){ try{ reader.cancel(); }catch(e){} }   // don't wait for the stream to error
+  });
   navigator.serial.getPorts().then(ps => { if (ps.length) openPort(ps[0]); });
 }
 

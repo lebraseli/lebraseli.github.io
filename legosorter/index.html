@@ -77,6 +77,11 @@ function lin2lab(r, g, b, out, o) {
   const fx = fLab(X), fy = fLab(Y), fz = fLab(Z);
   out[o] = 116 * fy - 16; out[o + 1] = 500 * (fx - fy); out[o + 2] = 200 * (fy - fz);
 }
+// the 8 piles: every Lego colour goes to one of these
+const GROUPS = {red: '#C91A09', orange: '#FE8A18', yellow: '#F2CD37', green: '#237841', blue: '#0055BF', black: '#1B2A34', grey: '#9BA19D', white: '#F4F4F4'};
+const TO_GROUP = {'red': 'red', 'dark red': 'red', 'pink': 'red', 'purple': 'red', 'orange': 'orange', 'brown': 'orange', 'yellow': 'yellow', 'tan': 'yellow',
+  'lime': 'green', 'green': 'green', 'dark green': 'green', 'azure': 'blue', 'blue': 'blue', 'dark blue': 'blue', 'black': 'black',
+  'dark gray': 'grey', 'light gray': 'grey', 'white': 'white'};
 const PAL_LAB = PAL.map(([n, h, f]) => { const v = parseInt(h.slice(1), 16), o = new Float32Array(3); lin2lab(LIN[v >> 16], LIN[(v >> 8) & 255], LIN[v & 255], o, 0); return {name: n, hex: h, fam: f, lab: o}; });
 
 // ------------------------------------------------------------------ image helpers
@@ -708,12 +713,12 @@ function find(cur, ref, opts) {
     let cx = 0, cy = 0; for (const i of p.idx) { cx += i % w; cy += (i / w) | 0; }
     const R = p.g.rect;
     return {idx: p.idx, area: p.idx.length, cx: cx / p.idx.length, cy: cy / p.idx.length, angle: R.ang, rect: R, fill: p.g.fill,
-      lab, color: cl.pal.name, hex: cl.pal.hex, family: cl.pal.fam, colorDist: cl.dist,
+      lab, color: TO_GROUP[cl.pal.name], hex: GROUPS[TO_GROUP[cl.pal.name]], shade: cl.pal.name, family: cl.pal.fam, colorDist: cl.dist,
       sure: pieceP.has(p.idx) ? pieceP.get(p.idx) : 1, maybeTwo: (pieceP.has(p.idx) ? pieceP.get(p.idx) : 1) < P.unsureT};
   });
   return {pieces: out, rejects, mode, refOk, gain, wb, seams: ctx.seams, ms: Date.now() - t0, w, h, trainPairs, trainUnary};
 }
-const api = {find, PAL, DEF};
+const api = {find, PAL, DEF, GROUPS, TO_GROUP};
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.LegoVision = api;
 })(this);
 </script>
@@ -781,8 +786,17 @@ function frame(){                                   // current video frame as 12
   gctx.drawImage(v, (W - vw * s) / 2, (H - vh * s) / 2, vw * s, vh * s);
   return gctx.getImageData(0, 0, W, H);
 }
-function small(img){ const s = new Float32Array(80 * 45); for (let y = 0; y < 45; y++) for (let x = 0; x < 80; x++){ const i = 4 * ((y * 16 + 8) * W + x * 16 + 8); s[y * 80 + x] = img.data[i] + img.data[i + 1] + img.data[i + 2]; } return s; }
-function motion(a, b){ let d = 0; for (let i = 0; i < a.length; i++) d += Math.abs(a[i] - b[i]); return d / a.length / 3; }
+function small(img){                            // 80x45 grid, each cell the average of a 4x4 patch (less noise)
+  const s = new Float32Array(80 * 45), d = img.data;
+  for (let y = 0; y < 45; y++) for (let x = 0; x < 80; x++){ let t = 0; for (let dy = 6; dy < 10; dy++) for (let dx = 6; dx < 10; dx++){ const i = 4 * ((y * 16 + dy) * W + x * 16 + dx); t += d[i] + d[i + 1] + d[i + 2]; } s[y * 80 + x] = t / 16; }
+  return s;
+}
+function motion(a, b){                          // % of the picture that really changed (ignores noise and brightness flicker)
+  const df = new Float32Array(a.length); for (let i = 0; i < a.length; i++) df[i] = a[i] - b[i];
+  const med = Float32Array.from(df).sort()[df.length >> 1]; let c = 0;
+  for (let i = 0; i < df.length; i++) if (Math.abs(df[i] - med) > 75) c++;
+  return 100 * c / df.length;
+}
 async function learnFloor(){
   learning = true; ref = null; result = null; drawGroups([]);
   try{ const t = stream.getVideoTracks()[0], c = t.getCapabilities ? t.getCapabilities() : {}; if (c.focusMode && c.focusMode.includes('continuous')) await t.applyConstraints({advanced: [{focusMode: 'continuous'}]}); }catch(e){}
@@ -792,7 +806,7 @@ async function learnFloor(){
   for (let k = 0; k < 40 && shots.length < 5; k++){
     await new Promise(r => setTimeout(r, 120));
     const f = frame(); if (!f) continue; const sm = small(f);
-    if (prev && motion(sm, prev) > 4){ shots.length = 0; prev = sm; continue; }   // something moved: start again
+    if (prev && motion(sm, prev) > 2){ shots.length = 0; prev = sm; continue; }   // something moved: start again
     prev = sm; shots.push(f);
   }
   if (!shots.length){ flag(''); learning = false; return; }
@@ -818,12 +832,12 @@ async function loop(){
   const sm = small(f), now = performance.now();
   if (prevSmall){
     const m = motion(sm, prevSmall);
-    if (m > 3){ stillSince = now; flag(result ? '' : ''); }
+    if (m > 2){ stillSince = now; flag(result ? '' : ''); }
   }
   prevSmall = sm;
   if (!stillSince) stillSince = now;
-  const still = now - stillSince > 600;
-  if (!still){ if (now - stillSince < 600 && result) flag('Waiting for the picture to be still…'); return; }
+  const still = now - stillSince > 400;
+  if (!still){ if (result) flag('Waiting for the picture to be still…'); return; }
   flag('');
   if (result && now - lastFindAt < 1500 && !result.dirty) return;
   busy = true;

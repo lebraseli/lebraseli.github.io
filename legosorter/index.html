@@ -27,6 +27,7 @@ main{max-width:1100px;margin:0 auto;padding:12px 14px 40px}
 #detail{font-size:14px;color:var(--mute)}
 .hint{font-size:13px;color:var(--mute)}
 label.tg{display:flex;align-items:center;gap:6px;font-size:14px}
+label.set{display:flex;align-items:center;gap:10px;font-weight:600;flex-wrap:wrap}label.set input{flex:1;min-width:140px}
 </style></head>
 <body>
 <header><span class="dot" id="dot"></span><h1>Lego Finder</h1><button id="btnConnect">Connect arm</button></header>
@@ -41,6 +42,12 @@ label.tg{display:flex;align-items:center;gap:6px;font-size:14px}
   </div>
   <div id="status">1. Connect the arm (optional for now). 2. Turn the camera on with <b>no Legos in view</b>. 3. Put Legos down.</div>
   <div id="stage"><canvas id="view" width="1280" height="720"></canvas><div id="banner"></div></div>
+  <div class="card"><h2>Settings</h2>
+    <label class="set">Smallest piece <input type="range" id="rngMin" min="100" max="2000" step="50"> <span id="valMin"></span></label>
+    <div class="hint">Anything smaller is ignored (carpet bits). Slide it and a square shows the size on the picture: make it a bit smaller than your smallest Lego.</div>
+    <label class="set" style="margin-top:10px">Join pieces <span class="hint">more</span> <input type="range" id="rngSplit" min="1" max="5" step="1"> <span class="hint">less</span></label>
+    <div class="hint">One Lego shown as several pieces? Slide toward <b>more</b>. Two touching Legos shown as one? Slide toward <b>less</b>.</div>
+  </div>
   <div class="card"><h2 id="sumTitle">Pieces</h2><div id="groups"><span class="hint">No pieces yet.</span></div><div id="detail" style="margin-top:8px"></div></div>
   <div class="card hint">
     <b>How it tells pieces apart:</b> it compares with the empty floor it saw first, so it can see even carpet-coloured bricks and ignores shadows.
@@ -532,9 +539,67 @@ function agglomerate(regs, ctx, model, oracle, log) {
   }
   return R.filter(r => r.alive);
 }
+
+// ------------------------------------------------------------------ cleanup: no crumbs, no one-brick-in-six-pieces
+function cleanup(pieces, ctx, P) {
+  const {w, Ls, As, Bs} = ctx;
+  let R = pieces.map(idx => ({idx, alive: true}));
+  const lab = r => { let a = 0, b = 0, l = 0; for (const i of r.idx) { l += Ls[i]; a += As[i]; b += Bs[i]; } const n = r.idx.length; return [l / n, a / n, b / n]; };
+  const fam = r => famOf(lab(r));
+  const borders = () => {               // shared border length between touching pieces
+    const own = new Map(); R.forEach((r, k) => { if (r.alive) r.idx.forEach(i => own.set(i, k)); });
+    const E = new Map();
+    R.forEach((r, k) => { if (!r.alive) return; for (const i of r.idx) for (const q of [i + 1, i + w]) { const o = own.get(q); if (o !== undefined && o !== k) { const key = Math.min(k, o) + ',' + Math.max(k, o); E.set(key, (E.get(key) || 0) + 1); } } });
+    return E;
+  };
+  const merge = (a, b) => { R[a].idx = R[a].idx.concat(R[b].idx); R[b].alive = false; R[a].g = null; };
+  const geom = r => r.g || (r.g = regionGeom(r.idx, w));
+  const small = r => r.idx.length < P.minPiece || Math.min(geom(r).rect.w, geom(r).rect.h) < P.minWidth;
+  // 1) crumbs join the piece they touch most (same colour family first); crumbs touching nothing are dropped
+  for (let pass = 0; pass < 6; pass++) {
+    const E = borders(); let changed = false;
+    R.forEach((r, k) => {
+      if (!r.alive || !small(r)) return;
+      let best = -1, bs = 0; const fk = fam(r);
+      for (const [key, len] of E) { const [a, b] = key.split(',').map(Number); if (a !== k && b !== k) continue; const o = a === k ? b : a; if (!R[o].alive) continue; const sc = len * (fam(R[o]) === fk ? 3 : 1); if (sc > bs) { bs = sc; best = o; } }
+      if (best >= 0) { merge(best, k); changed = true; }
+    });
+    if (!changed) break;
+  }
+  // 2) same-colour neighbours that together still look like one brick (solid rectangle-ish) and are not separated by a seam
+  for (let pass = 0; pass < 6; pass++) {
+    const E = borders(); let changed = false;
+    const cand = [...E].map(([key, len]) => [key.split(',').map(Number), len]).sort((x, y) => y[1] - x[1]);
+    for (const [[a, b], len] of cand) {
+      if (!R[a].alive || !R[b].alive) continue;
+      const la = lab(R[a]), lb = lab(R[b]);
+      if (famOf(la) !== famOf(lb) || Math.hypot(la[1] - lb[1], la[2] - lb[2]) > P.joinDab) continue;
+      const U = regionGeom(R[a].idx.concat(R[b].idx), w);
+      const minN = Math.min(R[a].idx.length, R[b].idx.length);
+      if (len < P.joinBorder * Math.sqrt(minN)) continue;                      // only along a real shared side
+      if (U.fill < P.joinFill) continue;
+      // a seam = thin dark straight line all along the border; keep those apart
+      if (seamAlong(R[a].idx, R[b].idx, ctx) > P.joinSeam) continue;
+      merge(a, b); changed = true;
+    }
+    if (!changed) break;
+  }
+  return R.filter(r => r.alive && r.idx.length >= P.minPiece).map(r => ({idx: r.idx, g: geom(r)}));
+}
+function seamAlong(A, B, ctx) {           // fraction of the shared border that is a thin dark line
+  const {w, Ls} = ctx, inB = new Set(B); let n = 0, v = 0;
+  for (const i of A) {
+    let touch = false; for (const q of [i - 1, i + 1, i - w, i + w]) if (inB.has(q)) { touch = true; break; } if (!touch) continue;
+    n++; let best = -1e9;
+    for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [1, -1]]) { const a1 = Ls[i + dy * 3 * w + dx * 3], a2 = Ls[i - dy * 3 * w - dx * 3], c = Math.min(Ls[i], Ls[i + dx + dy * w] === undefined ? 1e9 : Ls[i + dx + dy * w]); if (a1 === undefined || a2 === undefined) continue; const val = Math.min(a1, a2) - c - 0.5 * Math.abs(a1 - a2); if (val > best) best = val; }
+    if (best > P_SEAM) v++;
+  }
+  return n ? v / n : 0;
+}
+const P_SEAM = 3;
 // ------------------------------------------------------------------ main
-const DEF = {refT: 11, texVar: 6, edgeT: 1e9, carpetT: 6.5, minArea: 60, maxArea: 40000, minPiece: 70, minWidth: 6, holeFill: 1500,
-  seamD: 2, seamSide: 0.5, seamT: 2.5, seamSame: 6, unaryT: 0.5, mergeT: 0.65, unsureT: 0.85, colLo: 0.3, colHi: 0.85, colorWL: 0.8, wbPrior: 2, wbK0: 1.6, seamScore: 0.55, seamMinLen: 14, neckFill: 0.84, neckDepth: 3.5, colorSplit: 18};
+const DEF = {refT: 11, texVar: 6, edgeT: 1e9, carpetT: 6.5, minArea: 60, maxArea: 40000, minPiece: 300, minWidth: 10, joinDab: 12, joinBorder: 0.8, joinFill: 0.85, joinSeam: 0.25, holeFill: 1500,
+  seamD: 2, seamSide: 0.5, seamT: 2.5, seamSame: 6, unaryT: 0.5, mergeT: 0.5, unsureT: 0.85, colLo: 0.3, colHi: 0.85, colorWL: 0.8, wbPrior: 2, wbK0: 1.6, seamScore: 0.55, seamMinLen: 14, neckFill: 0.84, neckDepth: 3.5, colorSplit: 18};
 function fitPalette(tops, P) {      // tops: [r, g, b, weight] linear; returns per-channel gains
   if (!tops.length) return [1, 1, 1];
   const t = new Float32Array(3); let best = null;
@@ -625,7 +690,7 @@ function find(cur, ref, opts) {
       for (const m of merged) { pieces.push(m.idx); pieceP.set(m.idx, m.minP === undefined ? 1 : m.minP); }
     }
   }
-  let res = pieces.filter(p => p.length >= P.minPiece).map(idx => ({idx, g: regionGeom(idx, w)}));
+  let res = P.oracle ? pieces.filter(p => p.length >= P.minPiece).map(idx => ({idx, g: regionGeom(idx, w)})) : cleanup(pieces, ctx, P);
   // colour constancy: one exposure + white-balance correction that makes the pieces' colours fit real Lego colours best
   const lin = C.lin, tops = res.map(p => {
     const v = p.idx.map(i => Ls[i]).sort((a, b) => a - b), cut = v[Math.floor(v.length * P.colLo)], hi = v[Math.floor(v.length * P.colHi)];
@@ -663,6 +728,13 @@ let jobId = 0; const jobs = {};
 worker.onmessage = e => { const j = jobs[e.data.id]; delete jobs[e.data.id]; if (j) (e.data.error ? j.reject(e.data.error) : j.resolve(e.data.res)); };
 const runFind = (cur, ref, opts) => new Promise((resolve, reject) => { const id = ++jobId; jobs[id] = {resolve, reject}; worker.postMessage({id, cur, ref, opts}); });
 
+// ---------------------------------------------------------------- settings (remembered on this phone)
+const SPLIT = {1: {mergeT: 0.3, joinSeam: 0.5, joinFill: 0.75}, 2: {mergeT: 0.4, joinSeam: 0.35, joinFill: 0.8}, 3: {mergeT: 0.5, joinSeam: 0.25, joinFill: 0.85}, 4: {mergeT: 0.6, joinSeam: 0.18, joinFill: 0.88}, 5: {mergeT: 0.7, joinSeam: 0.12, joinFill: 0.9}};
+const settings = {minPiece: 350, split: 2};
+try { Object.assign(settings, JSON.parse(localStorage.getItem('legoFinder') || '{}')); } catch (e) {}
+function opts(){ return Object.assign({minPiece: settings.minPiece, minWidth: Math.max(6, Math.round(Math.sqrt(settings.minPiece) * 0.45))}, SPLIT[settings.split]); }
+let showSizeUntil = 0;
+function saveSettings(){ try { localStorage.setItem('legoFinder', JSON.stringify(settings)); } catch (e) {} if (result) result.dirty = true; }
 // ---------------------------------------------------------------- UI helpers
 const $ = id => document.getElementById(id);
 const view = $('view'), vctx = view.getContext('2d', {willReadFrequently: true});
@@ -755,7 +827,7 @@ async function loop(){
   flag('');
   if (result && now - lastFindAt < 1500 && !result.dirty) return;
   busy = true;
-  try{ const r = await runFind(f, ref, {}); result = r; result.frame = f; lastFindAt = performance.now(); drawGroups(r.pieces); say(`${r.pieces.length} piece${r.pieces.length === 1 ? '' : 's'} found (${r.mode === 'reference' ? 'compared with the empty floor' : 'compared with the carpet colours'}, ${r.ms} ms).`); }
+  try{ const r = await runFind(f, ref, opts()); result = r; result.frame = f; lastFindAt = performance.now(); drawGroups(r.pieces); say(`${r.pieces.length} piece${r.pieces.length === 1 ? '' : 's'} found (${r.mode === 'reference' ? 'compared with the empty floor' : 'compared with the carpet colours'}, ${r.ms} ms).`); }
   catch(e){ say('Finder error: ' + e); }
   busy = false;
 }
@@ -763,6 +835,7 @@ async function loop(){
 function draw(){
   if (!last) return;
   vctx.putImageData(last, 0, 0);
+  if (performance.now() < showSizeUntil){ const a = Math.sqrt(settings.minPiece); vctx.lineWidth = 3; vctx.strokeStyle = '#ff2d55'; vctx.fillStyle = 'rgba(255,45,85,.35)'; vctx.fillRect(W / 2 - a / 2, H / 2 - a / 2, a, a); vctx.strokeRect(W / 2 - a / 2, H / 2 - a / 2, a, a); vctx.fillStyle = '#fff'; vctx.font = 'bold 18px system-ui'; vctx.fillText('smallest piece', W / 2 + a / 2 + 8, H / 2 + 6); }
   if (!result || !$('chkOutline').checked) return;
   const r = result;
   vctx.lineWidth = 3; vctx.font = 'bold 18px system-ui';
@@ -790,6 +863,12 @@ view.addEventListener('click', ev => {
   const a = Math.max(1, Math.round(Math.min(p.rect.w, p.rect.h) / sc)), b2 = Math.max(1, Math.round(Math.max(p.rect.w, p.rect.h) / sc));
   $('detail').innerHTML = `<b>#${best + 1}: ${p.color}</b>, about ${a}×${b2} studs as seen (rough until the arm calibrates the camera), turned ${Math.round((p.angle * 180 / Math.PI + 360) % 180)}°.`;
 });
+$('rngMin').value = settings.minPiece; $('valMin').textContent = settings.minPiece + ' px';
+$('rngSplit').value = settings.split;
+$('rngMin').oninput = () => { settings.minPiece = +$('rngMin').value; $('valMin').textContent = settings.minPiece + ' px'; showSizeUntil = performance.now() + 2000; saveSettings(); draw(); };
+$('rngSplit').oninput = () => { settings.split = +$('rngSplit').value; saveSettings(); };
+$('rngMin').onchange = $('rngSplit').onchange = () => { if (!stream && last) refind(); };
+async function refind(){ const r = await runFind(last, ref, opts()); result = r; draw(); drawGroups(r.pieces); say(`${r.pieces.length} pieces found (${r.ms} ms).`); }
 // ---------------------------------------------------------------- test with a photo (no camera)
 $('btnPhoto').onclick = () => $('file').click();
 $('file').onchange = async () => {
@@ -797,7 +876,7 @@ $('file').onchange = async () => {
   const img = new Image(); img.src = URL.createObjectURL(f); await img.decode();
   const s = Math.min(W / img.width, H / img.height); gctx.fillStyle = '#000'; gctx.fillRect(0, 0, W, H); gctx.drawImage(img, (W - img.width * s) / 2, (H - img.height * s) / 2, img.width * s, img.height * s);
   last = gctx.getImageData(0, 0, W, H); say('Looking at the photo (comparing with carpet colours, since there is no empty-floor picture)…');
-  const r = await runFind(last, null, {}); result = r; draw(); drawGroups(r.pieces);
+  const r = await runFind(last, null, opts()); result = r; draw(); drawGroups(r.pieces);
   say(`${r.pieces.length} pieces found in the photo (${r.ms} ms).`);
 };
 </script>

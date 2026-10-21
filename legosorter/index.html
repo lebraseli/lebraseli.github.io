@@ -604,7 +604,7 @@ function seamAlong(A, B, ctx) {           // fraction of the shared border that 
 const P_SEAM = 3;
 // ------------------------------------------------------------------ main
 const DEF = {refT: 11, texVar: 6, edgeT: 1e9, carpetT: 6.5, minArea: 60, maxArea: 40000, minPiece: 300, minWidth: 10, joinDab: 12, joinBorder: 0.8, joinFill: 0.85, joinSeam: 0.25, holeFill: 1500,
-  seamD: 2, seamSide: 0.5, seamT: 2.5, seamSame: 6, unaryT: 0.5, mergeT: 0.5, unsureT: 0.85, colLo: 0.3, colHi: 0.85, colorWL: 0.8, wbPrior: 2, wbK0: 1.6, seamScore: 0.55, seamMinLen: 14, neckFill: 0.84, neckDepth: 3.5, colorSplit: 18};
+  seamD: 2, seamSide: 0.5, seamT: 2.5, seamSame: 6, unaryT: 0.5, mergeT: 0.5, unsureT: 0.85, chromaPx: 16, chromaFrac: 0.2, whiteL: 82, colLo: 0.3, colHi: 0.85, colorWL: 0.8, wbPrior: 2, wbK0: 1.6, seamScore: 0.55, seamMinLen: 14, neckFill: 0.84, neckDepth: 3.5, colorSplit: 18};
 function fitPalette(tops, P) {      // tops: [r, g, b, weight] linear; returns per-channel gains
   if (!tops.length) return [1, 1, 1];
   const t = new Float32Array(3); let best = null;
@@ -708,8 +708,25 @@ function find(cur, ref, opts) {
     let sL = 0, sA = 0, sB = 0, m = 0;
     for (const i of p.idx) if (Ls[i] >= cut && Ls[i] <= hi) { sL += Ls[i]; sA += As[i]; sB += Bs[i]; m++; }
     const t = new Float32Array(3), c = tops[k]; lin2lab(Math.min(1, c[0] * wb[0]), Math.min(1, c[1] * wb[1]), Math.min(1, c[2] * wb[2]), t, 0);
-    const lab = [t[0], t[1], t[2]];
-    const cl = classify(lab, P.colorWL);
+    let lab = [t[0], t[1], t[2]];
+    let cl = classify(lab, P.colorWL);
+    // glare check: per-pixel colour (white-balanced). Shiny spots are white-ish but small; a white/grey/black brick must be
+    // colourless almost everywhere, and "white" must be really white
+    const q = new Float32Array(3); let nC = 0, nTot = 0, sCL = 0, sCA = 0, sCB = 0, cn = 0; const Lv = [];
+    for (const i of p.idx) {
+      lin2lab(Math.min(1, lin[3 * i] * wb[0]), Math.min(1, lin[3 * i + 1] * wb[1]), Math.min(1, lin[3 * i + 2] * wb[2]), q, 0);
+      nTot++; Lv.push(q[0]);
+      if (Math.hypot(q[1], q[2]) > P.chromaPx && q[0] > 12) { nC++; sCL += q[0]; sCA += q[1]; sCB += q[2]; cn++; }
+    }
+    Lv.sort((a, b) => a - b); const Lmed = Lv[Lv.length >> 1];
+    if (TO_GROUP[cl.pal.name] === 'white' || TO_GROUP[cl.pal.name] === 'grey' || TO_GROUP[cl.pal.name] === 'black') {
+      if (nC > P.chromaFrac * nTot) {                          // really a coloured brick with glare / grey shading
+        lab = [sCL / cn, sCA / cn, sCB / cn];
+        let best = null, bd = 1e9;
+        for (const pp of PAL_LAB) { if (pp.fam === 'neutral') continue; const d = Math.hypot((lab[0] - pp.lab[0]) * P.colorWL, lab[1] - pp.lab[1], lab[2] - pp.lab[2]); if (d < bd) { bd = d; best = pp; } }
+        cl = {pal: best, dist: bd};
+      } else if (TO_GROUP[cl.pal.name] === 'white' && Lmed < P.whiteL) cl = {pal: PAL_LAB.find(pp => pp.name === 'light gray'), dist: cl.dist};
+    }
     let cx = 0, cy = 0; for (const i of p.idx) { cx += i % w; cy += (i / w) | 0; }
     const R = p.g.rect;
     return {idx: p.idx, area: p.idx.length, cx: cx / p.idx.length, cy: cy / p.idx.length, angle: R.ang, rect: R, fill: p.g.fill,

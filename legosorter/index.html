@@ -42,6 +42,8 @@ label.set{display:flex;align-items:center;gap:10px;font-weight:600;flex-wrap:wra
   </div>
   <div id="status">1. Connect the arm (optional for now). 2. Turn the camera on with <b>no Legos in view</b>. 3. Put Legos down.</div>
   <div id="stage"><canvas id="view" width="1280" height="720"></canvas><div id="banner"></div></div>
+  <div class="row" style="margin-top:6px;align-items:center"><label class="set" style="flex:1">Zoom <input type="range" id="rngZoom" min="1" max="3" step="0.05" value="1"> <span id="valZoom" class="mono">1.0×</span></label></div>
+  <div class="hint" id="zoomHint">Fills the whole picture (no black bars). Zoom in until the Legos' play area fills the view. Hold the phone <b>sideways</b> for the widest view.</div>
   <div class="card"><h2>Arm: sort &amp; inventory</h2>
     <div class="row">
       <button id="btnCal" disabled>1. Calibrate arm</button>
@@ -1286,7 +1288,7 @@ const runFind = (cur, ref, opts) => new Promise((resolve, reject) => { const id 
 const SPLIT = {1: {mergeT: 0.3, joinSeam: 0.5, joinFill: 0.75}, 2: {mergeT: 0.4, joinSeam: 0.35, joinFill: 0.8}, 3: {mergeT: 0.5, joinSeam: 0.25, joinFill: 0.85}, 4: {mergeT: 0.6, joinSeam: 0.18, joinFill: 0.88}, 5: {mergeT: 0.7, joinSeam: 0.12, joinFill: 0.9}};
 const settings = {minPiece: 350, split: 2};
 try { Object.assign(settings, JSON.parse(localStorage.getItem('legoFinder') || '{}')); } catch (e) {}
-function opts(){ return Object.assign({minPiece: settings.minPiece, minWidth: Math.max(6, Math.round(Math.sqrt(settings.minPiece) * 0.45))}, SPLIT[settings.split]); }
+function opts(){ return Object.assign({minPiece: settings.minPiece, minWidth: Math.max(6, Math.round(Math.sqrt(settings.minPiece) * 0.45)), pxPerStud: 18 * (typeof zoom === 'number' ? zoom : 1)}, SPLIT[settings.split]); }   // zoom makes studs bigger on screen
 let showSizeUntil = 0;
 function saveSettings(){ try { localStorage.setItem('legoFinder', JSON.stringify(settings)); } catch (e) {} if (result) result.dirty = true; }
 // ---------------------------------------------------------------- UI helpers
@@ -1333,19 +1335,41 @@ $('btnConnect').onclick = () => { if (!link) connect(); };
 let stream = null, ref = null, last = null, prevSmall = null, stillSince = 0, busy = false, result = null, lastFindAt = 0, frameW = W, frameH = H, learning = false;
 async function startCam(){
   try{
-    stream = await navigator.mediaDevices.getUserMedia({audio: false, video: {facingMode: {ideal: 'environment'}, width: {ideal: 1920}, height: {ideal: 1080}}});
+    const vc = {facingMode: {ideal: 'environment'}, width: {ideal: 1920}, height: {ideal: 1080}, aspectRatio: {ideal: 16 / 9}};
+    try { stream = await navigator.mediaDevices.getUserMedia({audio: false, video: Object.assign({zoom: true}, vc)}); }
+    catch (e1) { stream = await navigator.mediaDevices.getUserMedia({audio: false, video: vc}); }
   }catch(e){ say('Camera blocked: ' + (e.message || e) + '. Allow the camera for this page.'); return; }
   const v = $('vid'); v.srcObject = stream; await v.play();
+  await applyZoom();
+  if (v.videoHeight > v.videoWidth) say('The phone is upright: <b>turn it sideways</b> for a wider view (the picture is cropped to fit).');
   $('btnCam').textContent = 'Camera off'; $('btnFloor').disabled = false; $('btnNoRef').disabled = false;
   learnFloor();
   requestAnimationFrame(loop);
 }
 function stopCam(){ if (stream) stream.getTracks().forEach(t => t.stop()); stream = null; $('btnCam').textContent = 'Turn camera on'; $('btnFloor').disabled = true; $('btnNoRef').disabled = true; }
 $('btnCam').onclick = () => stream ? stopCam() : startCam();
-function frame(){                                   // current video frame as 1280x720 RGBA (letterboxed if the camera is not 16:9)
+// ---------------------------------------------------------------- zoom: the camera's own zoom where the phone allows it
+// (never below 1x, so it doesn't jump to the ultra-wide lens), the rest by cropping; the picture always fills 16:9
+let zoom = 1, hwZoom = 1;
+try { zoom = Math.min(3, Math.max(1, +localStorage.getItem('legoFinder.zoom') || 1)); } catch (e) {}
+$('rngZoom').value = zoom; $('valZoom').textContent = zoom.toFixed(1) + '×';
+async function applyZoom(){
+  hwZoom = 1;
+  try { const t = stream && stream.getVideoTracks()[0], c = t && t.getCapabilities ? t.getCapabilities() : {};
+    if (c.zoom && c.zoom.max > c.zoom.min) { const z = Math.min(c.zoom.max, Math.max(Math.max(1, c.zoom.min), zoom)); await t.applyConstraints({advanced: [{zoom: z}]}); hwZoom = z; } } catch (e) { hwZoom = 1; }
+}
+$('rngZoom').oninput = () => { zoom = +$('rngZoom').value; $('valZoom').textContent = zoom.toFixed(1) + '×'; };
+$('rngZoom').onchange = async () => {
+  try { localStorage.setItem('legoFinder.zoom', String(zoom)); } catch (e) {}
+  if (stream) { await applyZoom(); if (!learning) learnFloor(); }
+  if (typeof cam !== 'undefined' && cam && cam.zoom !== zoom) { cam = null; const a = $('armStatus'); if (a) a.innerHTML = 'Zoom changed: <b>calibrate the arm again</b>.'; }
+};
+function frame(){                                   // current video frame as 1280x720 RGBA: centre crop (no black bars) + zoom
   const v = $('vid'); const vw = v.videoWidth, vh = v.videoHeight; if (!vw) return null;
-  const s = Math.min(W / vw, H / vh); gctx.fillStyle = '#000'; gctx.fillRect(0, 0, W, H);
-  gctx.drawImage(v, (W - vw * s) / 2, (H - vh * s) / 2, vw * s, vh * s);
+  const dz = Math.max(1, zoom / hwZoom);            // what the camera's own zoom did not cover
+  let cw = vw, ch = vw * H / W; if (ch > vh) { ch = vh; cw = vh * W / H; }
+  cw /= dz; ch /= dz;
+  gctx.drawImage(v, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, W, H);
   return gctx.getImageData(0, 0, W, H);
 }
 function small(img){                            // 80x45 grid, each cell the average of a 4x4 patch (less noise)
@@ -1465,7 +1489,7 @@ function setGripHead(h){ if (!(h in HEAD_DL)) h = 'fixed'; ARM_CONST.L3 = L3_FIX
   sel.onchange = () => { setGripHead(sel.value); armSay && document.getElementById('armStatus') && (document.getElementById('armStatus').innerHTML = 'Gripper changed: calibrate the arm again.'); }; }
 const RAD = Math.PI / 180;
 let sorting = false, stopWanted = false, cam = null, piles = null, inventory = [], armBusy = false;
-try { const c = JSON.parse(localStorage.getItem('legoFinder.cam') || 'null'); if (c && c.P) cam = c; } catch (e) {}
+try { const c = JSON.parse(localStorage.getItem('legoFinder.cam') || 'null'); if (c && c.P && (c.zoom || 1) === zoom) cam = c; } catch (e) {}   // a calibration only holds for the zoom it was made at
 let armCal = {sign: {base: 1, sh: 1, el: 1, wp: 1, wr: 1, grip: 1}, trim: {base: 0, sh: 0, el: 0, wp: 0, wr: 0, grip: 0}};
 try { const c = JSON.parse(localStorage.getItem('bigarm6.cal') || 'null'); if (c && c.sign) armCal = c; } catch (e) {}   // directions & trims set on the control page (same site)
 const armSay = s => { $('armStatus').innerHTML = s; (window.__armLog = window.__armLog || []).push(s); };
@@ -1540,7 +1564,7 @@ async function calibrate(){
       if (f) spots.push({X: [c.p.x, c.p.y, c.p.z], axis: Robot.pointAxis(q), uv: [f.u, f.v]});
     }
     const CAL = Robot.calibrate(spots); window.__calSpots = spots;
-    cam = {P: CAL.P, t: CAL.t, rms: CAL.err, n: spots.length, when: Date.now()};
+    cam = {P: CAL.P, t: CAL.t, rms: CAL.err, n: spots.length, when: Date.now(), zoom};
     try { localStorage.setItem('legoFinder.cam', JSON.stringify(cam)); } catch (e) {}
     await park();
     const good = CAL.err < 6 ? 'good' : CAL.err < 12 ? 'OK' : 'poor: check the phone can see the whole work area';

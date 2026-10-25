@@ -643,7 +643,7 @@ const P_SEAM = 3;
 // ------------------------------------------------------------------ main
 const DEF = {refT: 11, texVar: 6, edgeT: 1e9, carpetT: 6.5, minArea: 60, maxArea: 40000, minPiece: 300, minWidth: 10, joinDab: 12, joinBorder: 0.8, joinFill: 0.85, joinSeam: 0.25, holeFill: 1500,
   seamD: 2, seamSide: 0.5, seamT: 2.5, seamSame: 6, unaryT: 0.5, mergeT: 0.5, unsureT: 0.85, chromaPx: 16, chromaFrac: 0.2, whiteL: 82, colLo: 0.3, colHi: 0.85, colorWL: 0.8, wbPrior: 2, wbK0: 1.6, seamScore: 0.55, seamMinLen: 14, neckFill: 0.84, neckDepth: 3.5, colorSplit: 18,
-  whiteL75: 80, neutralT: 0.35, colorSwitch: 0.5, edgeBand: 6, edgeThin: 1.0, edgeThin2: 1.6, edgeAspect: 2.5, thinLine: 0.5, edgeFill: 0.6};
+  whiteL75: 80, neutralT: 0.35, colorSwitch: 0, edgeBand: 6, edgeThin: 1.0, edgeThin2: 1.6, edgeAspect: 2.5, thinLine: 0.5, edgeFill: 0.6};
 function fitPalette(tops, P) {      // tops: [r, g, b, weight] linear; returns per-channel gains
   if (!tops.length) return [1, 1, 1];
   const t = new Float32Array(3); let best = null;
@@ -1285,7 +1285,8 @@ worker.onmessage = e => { const j = jobs[e.data.id]; delete jobs[e.data.id]; if 
 const runFind = (cur, ref, opts) => new Promise((resolve, reject) => { const id = ++jobId; jobs[id] = {resolve, reject}; worker.postMessage({id, cur, ref, opts}); });
 
 // ---------------------------------------------------------------- settings (remembered on this phone)
-const SPLIT = {1: {mergeT: 0.3, joinSeam: 0.5, joinFill: 0.75}, 2: {mergeT: 0.4, joinSeam: 0.35, joinFill: 0.8}, 3: {mergeT: 0.5, joinSeam: 0.25, joinFill: 0.85}, 4: {mergeT: 0.6, joinSeam: 0.18, joinFill: 0.88}, 5: {mergeT: 0.7, joinSeam: 0.12, joinFill: 0.9}};
+// every notch half a step toward joining (a few fewer pieces than before)
+const SPLIT = {1: {mergeT: 0.25, joinSeam: 0.58, joinFill: 0.72}, 2: {mergeT: 0.35, joinSeam: 0.42, joinFill: 0.78}, 3: {mergeT: 0.45, joinSeam: 0.3, joinFill: 0.82}, 4: {mergeT: 0.55, joinSeam: 0.21, joinFill: 0.86}, 5: {mergeT: 0.65, joinSeam: 0.15, joinFill: 0.89}};
 const settings = {minPiece: 350, split: 2};
 try { Object.assign(settings, JSON.parse(localStorage.getItem('legoFinder') || '{}')); } catch (e) {}
 function opts(){ return Object.assign({minPiece: settings.minPiece, minWidth: Math.max(6, Math.round(Math.sqrt(settings.minPiece) * 0.45)), pxPerStud: 18 * (typeof zoom === 'number' ? zoom : 1)}, SPLIT[settings.split]); }   // zoom makes studs bigger on screen

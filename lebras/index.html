@@ -84,7 +84,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 <div id="app">
   <div id="view">
     <canvas id="c3d"></canvas>
-    <div id="hud"><h1>BIG ARM</h1><div class="sub mono">6-AXIS · DS3218 · MG996R · MG90S · XENON BLE</div></div>
+    <div id="hud"><h1>BIG ARM</h1><div class="sub mono">6-AXIS · DS3218 · MG996R · MG90S · XENON BLE · v6 Nov</div></div>
     <div id="tags"></div>
     <div id="viewbtns"><button id="vIso">3D</button><button id="vSide">Side</button><button id="vTop">Top</button></div>
     <div id="dragHint">Disc = X / Y · ▲ = Z · tap to move there · drag empty space to rotate · pinch to zoom</div>
@@ -1239,11 +1239,11 @@ const JOINTS = [
 const LS = k => 'bigarm6.' + k;
 function load(k, d){ try{ const v = localStorage.getItem(LS(k)); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
 function save(k, v){ try{ localStorage.setItem(LS(k), JSON.stringify(v)); }catch(e){} }
-// trims measured on Lea's arm (Nov 2026): at HOME the real joints sit at servo 95 / 94 / 93 / 98 (shoulder, elbow, wrist, roll)
-const HOME_TRIM = {base:0, sh:5, el:4, wp:3, wr:8, grip:0};
-const CAL0 = () => ({sign:{base:1,sh:1,el:1,wp:1,wr:1,grip:1}, trim:{...HOME_TRIM}});
+// Home offsets now live in the Xenon firmware (TRIM[] in big_arm6_xenon.ino), so they work with any copy of this page.
+// Clear the page-side offsets an earlier version of this page stored (otherwise they would be added twice).
+const CAL0 = () => ({sign:{base:1,sh:1,el:1,wp:1,wr:1,grip:1}, trim:{base:0,sh:0,el:0,wp:0,wr:0,grip:0}});
 let cal = load('cal', CAL0());
-if (!load('homeTrim1', false)){ cal.trim = {...cal.trim, sh:HOME_TRIM.sh, el:HOME_TRIM.el, wp:HOME_TRIM.wp, wr:HOME_TRIM.wr}; save('cal', cal); save('homeTrim1', true); }
+if (!load('homeTrim2', false)){ cal.trim = {...cal.trim, sh:0, el:0, wp:0, wr:0}; save('cal', cal); save('homeTrim2', true); }
 let head = load('head', 'fixed'); if (!HEADS[head]) head = 'fixed';
 L3 = C.L3 + (HEADS[head].grasp - C.GRASP_U);
 let target = {...HOME};       // commanded pose

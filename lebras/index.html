@@ -1807,6 +1807,7 @@ function onLine(chunk){
     if (/^A[0-9a-fA-F]{12}$/.test(line)){
       const a = []; for (let k = 0; k < 6; k++) a.push(parseInt(line.substr(1 + 2*k, 2), 16));
       document.getElementById('actual').textContent = 'ARM ' + a.join(' · ');
+      window.__armActual = {a, t: performance.now()};
     }
   }
 }
@@ -2032,7 +2033,10 @@ function updateReachRing(){
   const el = document.getElementById('reachDia'); if (el) el.textContent = `Ring: the farthest it can pick up off the floor, ${Math.round(rf/10)} cm from the middle of the base (a circle ${Math.round(rf/5)} cm across).`;
 }
 updateReachRing();
-window.__arm = {get onCar(){return onCar}, driveCmd, setJoy: (x, y) => { joy = {x, y}; }, keys: () => keys, ikPhi, toServo2: () => toServo(target), get target(){return target}, get shown(){return shown}, setJoint, setTarget, toServo, poseOK, okQ, envClear, fk, ik, ikPhi, phiOf, reachTo, nearest, aimGripper, tipWorld: () => { applyPose(target); const v = new THREE.Vector3(0,0,GRASP_U); scene.updateMatrixWorld(true); gGrip.localToWorld(v); applyPose(shown); return {x:v.x,y:v.y,z:v.z}; }, handle: () => gHandle.position.clone(), camera, canvas};
+window.__arm = {sendPose, clampMove, write: (str) => write(str), get linked(){ return !!writer && ready; }, get speed(){ return speed; }, get head(){ return head; },
+  graspTipOffset: () => head === 'B' ? 10.0 : 4.1,                     // finger tips are this far past the grasp point (mm)
+  jawAxis: (q) => { applyPose(q); scene.updateMatrixWorld(true); const o = new THREE.Vector3(0,0,0), xv = new THREE.Vector3(1,0,0); gGrip.localToWorld(o); gGrip.localToWorld(xv); applyPose(shown); scene.updateMatrixWorld(true); return [xv.x-o.x, xv.y-o.y, xv.z-o.z]; },
+  get onCar(){return onCar}, driveCmd, setJoy: (x, y) => { joy = {x, y}; }, keys: () => keys, ikPhi, toServo2: () => toServo(target), get target(){return target}, get shown(){return shown}, setJoint, setTarget, toServo, poseOK, okQ, envClear, fk, ik, ikPhi, phiOf, reachTo, nearest, aimGripper, tipWorld: () => { applyPose(target); const v = new THREE.Vector3(0,0,GRASP_U); scene.updateMatrixWorld(true); gGrip.localToWorld(v); applyPose(shown); return {x:v.x,y:v.y,z:v.z}; }, handle: () => gHandle.position.clone(), camera, canvas};
 </script>
 </body>
 </html>

@@ -4449,7 +4449,7 @@ const ChessApp = (() => {
   async function setGap(gap) {
     const A = arm(); curGap = gap;
     const q = { ...A.target, grip: gap / 2 }; A.setTarget(q, false); A.sendPose(true);
-    await waitArrive(q, 3000); await sleep(T.fast ? 0 : 250);
+    await waitArrive(q, 8000); await sleep(T.fast ? 0 : 250);
   }
   // straight line of the grasp point to p at v mm/s (streams poses so the gripper doesn't swing through the pieces)
   async function lineTo(p, v = 70) {

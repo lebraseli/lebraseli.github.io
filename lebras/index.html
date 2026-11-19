@@ -130,8 +130,8 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
     </div>
     <p class="note" style="margin-top:4px">Pick the head that is on the arm: reach and the gripper slider follow it. To swap: <b>Swap position</b>, pull the lock pin, twist the head 32° anticlockwise, lift off; drop the next one on (hex onto the hub), twist clockwise to the stop, push the pin in.</p>
 
-    <div class="sec"><span>DRIVE (robot car)</span><label class="note" style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="carOn"> arm is on the car</label></div>
-    <div id="driveBox">
+    <div class="sec" style="display:none"><span>DRIVE (robot car)</span><label class="note" style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="carOn"> arm is on the car</label></div>
+    <div id="driveBox" style="display:none">
       <div id="drivePad" style="position:relative;height:170px;border:1px solid var(--line);border-radius:10px;background:#0b1726;touch-action:none;user-select:none">
         <div style="position:absolute;left:50%;top:0;bottom:0;border-left:1px dashed var(--line)"></div><div style="position:absolute;top:50%;left:0;right:0;border-top:1px dashed var(--line)"></div>
         <div id="driveDot" style="position:absolute;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:var(--amber);left:50%;top:50%"></div>
@@ -141,6 +141,8 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
         <input type="range" id="drivePow" min="60" max="255" step="5" value="180"><span class="mono" id="drivePowVal" style="width:70px;text-align:right">70%</span></div>
       <p class="note" style="margin-top:4px">Let go = stop. The car also stops by itself if Bluetooth drops. Fold the arm in (Ready) before driving fast. The floor is 49 mm below the deck: the arm can reach down to it beside the car.</p>
     </div>
+
+    <div id="soundHost"></div>
 
     <div class="sec"><span>SETUP</span></div>
     <div class="jrow"><span class="note" style="width:150px">Table edge (mm from base centre)</span>
@@ -1804,6 +1806,7 @@ function onLine(chunk){
     const line = rxBuf.slice(0, i).trim(); rxBuf = rxBuf.slice(i+1);
     if (readyResolve && /^(B$|A[0-9a-fA-F]{12}$)/.test(line)){ const r = readyResolve; readyResolve = null; r(true); continue; }
     if (line === 'B' && ready){ lastSent = ''; write('V ' + speed + '\n'); sendPose(true); setStatus('The arm restarted: pose re-sent', 'ok'); continue; }
+    if ((line[0] === 'C' || line[0] === 'D') && window.__armSound){ window.__armSound.onCfg(line); continue; }
     if (/^A[0-9a-fA-F]{12}$/.test(line)){
       const a = []; for (let k = 0; k < 6; k++) a.push(parseInt(line.substr(1 + 2*k, 2), 16));
       document.getElementById('actual').textContent = 'ARM ' + a.join(' · ');
@@ -2037,6 +2040,238 @@ window.__arm = {sendPose, clampMove, write: (str) => write(str), get linked(){ r
   graspTipOffset: () => head === 'B' ? 10.0 : 4.1,                     // finger tips are this far past the grasp point (mm)
   jawAxis: (q) => { applyPose(q); scene.updateMatrixWorld(true); const o = new THREE.Vector3(0,0,0), xv = new THREE.Vector3(1,0,0); gGrip.localToWorld(o); gGrip.localToWorld(xv); applyPose(shown); scene.updateMatrixWorld(true); return [xv.x-o.x, xv.y-o.y, xv.z-o.z]; },
   get onCar(){return onCar}, driveCmd, setJoy: (x, y) => { joy = {x, y}; }, keys: () => keys, ikPhi, toServo2: () => toServo(target), get target(){return target}, get shown(){return shown}, setJoint, setTarget, toServo, poseOK, okQ, envClear, fk, ik, ikPhi, phiOf, reachTo, nearest, aimGripper, tipWorld: () => { applyPose(target); const v = new THREE.Vector3(0,0,GRASP_U); scene.updateMatrixWorld(true); gGrip.localToWorld(v); applyPose(shown); return {x:v.x,y:v.y,z:v.z}; }, handle: () => gHandle.position.clone(), camera, canvas};
+</script>
+<script>
+// ===================================================================== SOUND (arm speaker: DFPlayer Mini)
+// Voice picker, volume, automatic-sound switches, phrases, sound effects, songs, piano, and spoken sentences.
+// Needs: window.__arm.write(str) and window.__arm.linked. The arm reports "C voice volume flags" (handled by onCfg).
+(function () {
+  const D = {"voices":{"phrases":["Hello. I am Le Bras.","Your move.","Check!","Checkmate!","Good game.","Power on.","Power off.","Connected.","Goodbye.","You win!","I win!","It's a draw.","That move is not allowed.","Let me think.","Ready.","New game.","Low power.","This is my voice.","A.","B.","C.","D.","E.","F.","G.","H.","One.","Two.","Three.","Four.","Five.","Six.","Seven.","Eight.","to","takes","Pawn","Knight","Bishop","Rook","Queen","King","Castles king side.","Castles queen side.","promotes to","Check.","En passant.","Hello there!","Beep boop.","I am a robot.","Watch this!","Ta-da!","Oops!","Thank you!","Yes.","No.","Okay.","Let's play chess!","Nice move!","Hmm. Interesting.","Your turn.","Good morning!","Good night!","Ouch!","Wow!","Great job!","Try again.","Mission complete.","Systems online.","Shutting down.","Calibrating.","Moving.","Done.","Ready when you are.","Want to play a game?","I am the best!","Well played.","Do you resign?","Bye bye!","Happy birthday!","I am thinking.","Your move, human.","I see what you did there.","That was close!","Let's go!","Excuse me.","Sorry!","I play","You played","I take the","on","becomes a queen.","Did you play","or","I'm not sure.","Lift the piece you moved and put it down again, or tap your move on the phone.","I can't make that move myself.","Please move my","from","My pawn on","Please put my queen on","Please help me: move my","then take your hand away.","Reach over the board from your side to choose your colour.","You play beige.","You play black.","You go first.","I go first.","Take your hand away.","Please set up the pieces.","Check","Checkmate. I win. Good game!","Checkmate! You win. Well played!","Stalemate. It is a draw.","Draw by repetition.","Draw: not enough pieces to mate.","Draw.","That move is not legal. Please put it back.","Something went wrong.","the"],"dur":[[1.85,0.63,0.42,0.63,0.65,0.63,0.65,0.55,0.5,0.84,0.71,0.71,1.33,0.81,0.37,0.6,0.65,1.31,0.34,0.42,0.5,0.47,0.39,0.42,0.47,0.47,0.47,0.44,0.52,0.47,0.57,0.73,0.57,0.37,0.42,0.55,0.5,0.47,0.52,0.44,0.52,0.47,1.1,1.07,0.78,0.42,0.63,0.63,0.52,1.04,0.81,0.71,0.52,0.57,0.52,0.42,0.39,1.04,1.02,1.41,0.6,0.57,0.47,0.6,0.63,0.89,0.63,0.99,1.18,0.71,0.68,0.5,0.44,0.84,0.84,1.28,0.68,0.78,0.55,0.91,1.18,1.1,1.12,1.02,0.81,0.65,0.55,0.63,0.65,0.71,0.42,0.91,0.73,0.47,0.76,3.71,1.52,1.02,0.5,1.02,1.12,1.78,1.1,2.4,0.99,0.81,0.81,0.71,0.86,1.12,0.39,2.53,2.72,1.7,1.18,2.04,0.47,2.35,1.04,0.42],[1.88,0.73,0.44,0.68,0.65,0.71,0.73,0.6,0.47,0.89,0.71,0.73,1.52,0.94,0.39,0.65,0.73,1.38,0.42,0.5,0.55,0.52,0.42,0.47,0.52,0.55,0.47,0.5,0.71,0.73,0.63,0.78,0.57,0.44,0.47,0.63,0.52,0.52,0.57,0.52,0.55,0.47,1.2,1.18,0.91,0.5,0.63,0.63,0.44,1.18,0.81,0.71,0.47,0.57,0.6,0.42,0.42,1.07,1.15,1.49,0.57,0.63,0.47,0.65,0.71,0.91,0.68,1.1,1.25,0.81,0.78,0.55,0.39,0.86,0.86,1.36,0.71,0.81,0.55,0.91,0.91,1.18,1.18,1.18,0.81,0.76,0.57,0.63,0.76,0.71,0.47,1.1,0.76,0.5,0.86,4.02,1.75,1.1,0.57,1.07,1.25,1.91,1.23,2.72,1.1,0.89,0.91,0.81,0.94,1.31,0.44,2.59,2.69,1.78,1.38,2.25,0.5,2.64,1.1,0.63],[1.91,0.68,0.52,0.76,0.6,0.73,0.73,0.55,0.5,0.89,0.73,0.71,1.49,0.91,0.39,0.63,0.71,1.38,0.39,0.78,0.55,0.52,0.42,0.47,0.55,0.5,0.47,0.63,0.78,0.71,0.76,0.73,0.73,0.44,0.44,0.6,0.5,0.71,0.78,0.52,0.55,0.47,1.12,1.1,0.84,0.47,0.63,0.6,0.52,1.15,0.84,0.73,0.5,0.57,0.55,0.44,0.42,1.12,1.02,1.44,0.6,0.6,0.55,0.65,0.71,0.86,0.65,1.12,1.2,0.78,0.73,0.55,0.44,0.84,0.81,1.33,0.73,0.73,0.5,0.97,0.99,1.04,1.1,1.02,0.91,0.65,0.52,0.63,0.68,0.78,0.42,1.07,0.71,0.44,0.78,3.89,1.59,1.12,0.52,1.04,1.2,1.67,1.15,2.56,1.02,0.86,0.86,0.81,0.84,1.25,0.47,2.48,2.61,1.78,1.23,2.06,0.47,2.53,1.07,0.42],[1.83,0.71,0.47,0.68,0.65,0.73,0.71,0.55,0.55,0.86,0.71,0.73,1.67,0.68,0.42,0.65,0.71,1.31,0.44,0.52,0.57,0.52,0.44,0.47,0.55,0.5,0.5,0.5,0.57,0.57,0.6,0.6,0.6,0.42,0.42,0.57,0.55,0.5,0.5,0.44,0.55,0.47,1.18,1.23,0.84,0.44,0.65,0.68,0.55,1.07,0.81,0.71,0.47,0.63,0.52,0.42,0.47,1.04,0.97,1.46,0.6,0.68,0.57,0.65,0.73,0.91,0.71,1.02,1.25,0.78,0.76,0.55,0.47,0.91,0.94,1.46,0.76,0.81,0.57,1.02,0.89,1.1,1.28,1.07,0.68,0.71,0.57,0.6,0.68,0.68,0.44,0.97,0.71,0.39,0.81,4.21,1.7,1.04,0.5,1.02,1.25,1.91,1.33,2.85,0.97,0.91,0.89,0.86,0.99,1.36,0.44,2.72,2.82,1.88,1.33,2.32,0.52,2.74,1.15,0.39],[1.7,0.76,0.52,0.63,0.81,0.81,0.81,0.73,0.76,0.65,0.73,0.81,1.33,0.86,0.5,0.81,0.84,1.04,0.52,0.52,0.55,0.47,0.52,0.57,0.52,0.57,0.57,0.57,0.55,0.55,0.63,0.65,0.6,0.52,0.47,0.63,0.65,0.52,0.5,0.52,0.65,0.63,1.31,1.41,0.89,0.52,0.81,0.78,0.68,0.91,0.89,0.63,0.6,0.6,0.68,0.57,0.68,1.1,0.91,1.52,0.76,0.76,0.71,0.65,0.57,0.84,0.84,1.15,1.2,0.89,0.81,0.6,0.55,0.97,1.04,0.97,0.94,0.86,0.78,1.02,0.91,1.18,1.65,0.89,0.84,0.84,0.6,0.73,0.73,0.78,0.57,1.02,0.84,0.52,0.91,3.66,1.83,1.02,0.57,0.89,1.41,1.83,1.31,2.32,0.97,0.91,0.89,0.94,1.1,1.33,0.5,2.06,2.27,1.52,1.2,2.04,0.57,2.59,1.12,0.42]]},"fx":[["Robot beeps",1.2],["R2 chirp",0.68],["Laser",0.5],["Laser x3",0.86],["Power up",1.41],["Power down",1.49],["Servo whirr",1.2],["Success",0.86],["Fail buzzer",0.89],["Wrong",0.78],["Alarm",1.8],["Siren",2.59],["Coin",0.68],["Jump",0.5],["Power-up item",0.81],["Explosion",2.19],["Small boom",0.99],["Drum roll",3.5],["Ba dum tss",1.54],["Applause",2.8],["Ding",1.7],["Doorbell",2.19],["Countdown 3-2-1",3.79],["Ticking clock",4.21],["Heartbeat",2.9],["Typing",3.24],["Camera shutter",0.39],["Bubble pop",0.29],["Bubbles",1.99],["Boing",0.89],["Slide whistle up",1.1],["Slide whistle down",1.1],["Whoosh",0.81],["Scanner",1.2],["Teleport",1.41],["Magic sparkle",1.83],["Victory jingle",3.0],["Sad trombone",2.85],["Dun dun dunnn",2.69],["Level up",1.15],["Game over",1.65],["UFO",2.19],["Computer thinking",2.01],["Error",0.86],["Notification",1.15],["Pop",0.26],["Click",0.21],["Clack (chess piece)",0.29],["Capture thunk",0.39],["Castle",0.5],["Promotion fanfare",1.33],["Check alarm",0.65],["Checkmate fanfare",1.59],["Thinking hum",2.19],["Wind-up",1.78],["Spring",0.71],["Cartoon run",1.2],["Snore",2.69],["Yawn",1.59],["Kiss",0.31],["Hiccup",0.31],["Ufo landing",2.19],["Metal clang",2.19],["Gong",4.21],["Cymbal crash",2.69],["Drum beat",4.21],["Rocket launch",3.71],["Engine start",2.3],["Bird tweet",0.78],["Cat meow",0.89],["Dog woof",0.76],["Duck quack",0.44],["Raspberry",0.99],["Ta-da!",1.31],["Mystery",3.19],["Spooky",3.19],["Glitch",1.57],["Modem",2.59],["Dial-up",1.59],["Phone ring",3.19],["Morse SOS",2.12],["Crowd ooh",1.8],["Crowd aww",1.8],["Cheer",2.8],["Robot walk",1.8],["Hydraulic",1.2],["Charging",2.14],["Battery low",0.94],["Startup chime 2",2.69],["Shutdown chime",2.77],["Rimshot",1.57]],"notes":[["C3",1.8],["C#3",1.8],["D3",1.8],["D#3",1.8],["E3",1.8],["F3",1.8],["F#3",1.8],["G3",1.8],["G#3",1.8],["A3",1.8],["A#3",1.8],["B3",1.8],["C4",1.8],["C#4",1.8],["D4",1.8],["D#4",1.8],["E4",1.8],["F4",1.8],["F#4",1.8],["G4",1.8],["G#4",1.8],["A4",1.8],["A#4",1.8],["B4",1.8],["C5",1.8],["C#5",1.8],["D5",1.8],["D#5",1.8],["E5",1.8],["F5",1.8],["F#5",1.8],["G5",1.8],["G#5",1.8],["A5",1.8],["A#5",1.8],["B5",1.8],["C6",1.8]],"songs":[["Twinkle Twinkle",24.19],["Happy Birthday",13.84],["Ode to Joy",14.97],["Fur Elise",7.5],["Mary Had a Little Lamb",14.97],["Jingle Bells",12.2],["Row Row Row Your Boat",9.8],["Old MacDonald",7.05],["Frere Jacques",14.97],["Brahms Lullaby",15.54],["William Tell (gallop)",6.61],["Morning (Grieg)",8.59],["Hall of the Mountain King",7.05],["Can-can",6.56]]};
+  const VOICES = ['Mark', 'Rachel', 'Adam', 'Bella', 'Robot'];
+  const ARM = () => window.__arm;
+  const linked = () => !!(ARM() && ARM().linked);
+  const st = { voice: 1, volume: 20, flags: 3, armVoice: true };
+  try { const s = JSON.parse(localStorage.getItem('armSound') || '{}'); Object.assign(st, s); } catch (e) {}
+  const save = () => { try { localStorage.setItem('armSound', JSON.stringify(st)); } catch (e) {} };
+
+  // ---- sending: retry if Bluetooth is busy with a pose write
+  async function send(str) {
+    for (let k = 0; k < 12; k++) {
+      if (!linked()) return false;
+      try { await ARM().write(str); return true; } catch (e) { await new Promise(r => setTimeout(r, 35)); }
+    }
+    return false;
+  }
+
+  // ---- queue: one sound after another (each item waits for the clip to finish)
+  // the next item goes when the player reports "finished" (any clip length works, e.g. ElevenLabs voices);
+  // if no report comes (no TX wire), it goes after the expected length (x2 + 0.6 s for safety)
+  let Q = [], timer = null, cur = null, lastFin = { p: -1, t: 0 };
+  function pump() {
+    if (timer) return;
+    const it = Q.shift(); if (!it) return;
+    cur = { t0: performance.now(), ms: it.ms };
+    send(it.cmd);
+    timer = setTimeout(next, Q.length ? it.ms * 2 + 600 : it.ms);
+  }
+  function next() { clearTimeout(timer); timer = null; pump(); }
+  function play(items) { Q = []; clearTimeout(timer); timer = null; Q.push(...items); pump(); }   // newest wins
+  function stop() { Q = []; clearTimeout(timer); timer = null; send('Q\n'); }
+  const phraseItem = n => ({ cmd: `S ${n}\n`, ms: Math.round(D.voices.dur[st.voice - 1][n - 1] * 1000) + 90 });
+  const say = n => play([phraseItem(n)]);
+  const fx = n => play([{ cmd: `P 7 ${n}\n`, ms: 100 }]);
+  const note = n => play([{ cmd: `P 8 ${n}\n`, ms: 50 }]);
+  const song = n => play([{ cmd: `P 9 ${n}\n`, ms: 100 }]);
+
+  // ---- sentences from phrase pieces ("I play knight g1 to f3.")
+  const norm = t => t.toLowerCase().replace(/[’']/g, "'").replace(/[^a-z0-9' ]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+  const BANK = D.voices.phrases.map((p, i) => ({ n: i + 1, w: norm(p) })).filter(b => b.w.length)
+    .sort((a, b) => b.w.length - a.w.length || b.n - a.n);   // same words: the later (plainer) recording
+  const FILE0 = D.voices.phrases.indexOf('A.') + 1, RANK0 = D.voices.phrases.indexOf('One.') + 1;
+  function compose(text) {
+    const w = norm(text), out = [];
+    for (let i = 0; i < w.length;) {
+      const sq = /^([a-h])([1-8])$/.exec(w[i]);
+      if (sq) { out.push(FILE0 + sq[1].charCodeAt(0) - 97, RANK0 + (+sq[2]) - 1); i++; continue; }
+      const b = BANK.find(b => b.w.every((x, k) => w[i + k] === x));
+      if (!b) return null;                                   // a word we have no recording for
+      out.push(b.n); i += b.w.length;
+    }
+    return out.length ? out : null;
+  }
+  function speak(text) {                                     // true = the arm says it
+    if (!linked()) return false;
+    const c = compose(text); if (!c) return false;
+    play(c.map(phraseItem)); return true;
+  }
+
+  // ---- what the DFPlayer reports (if its TX wire goes to the Xenon's RX)
+  const DFERR = { 1: 'busy: still reading the card', 2: 'asleep', 3: 'bad message', 4: 'bad checksum', 5: 'track number too big',
+                  6: 'file not found', 7: 'insert error', 8: 'card read error', 10: 'went to sleep' };
+  function onDf(line) {
+    const m = /^D([0-9A-F]{2}) ([0-9A-F]{4})/.exec(line); if (!m) return; ui.dbg = ui.dbg || { textContent: '' };
+    const c = parseInt(m[1], 16), p = parseInt(m[2], 16);
+    const t = c === 0x40 ? 'ERROR: ' + (DFERR[p] || p) : c === 0x41 ? 'got it' : c === 0x3D ? `finished track ${p}` : c === 0x3F ? `ready (card ${p})` :
+              c === 0x3A ? 'card inserted' : c === 0x3B ? 'card removed' : `0x${m[1]} ${p}`;
+    ui.dbg.textContent = 'Player: ' + t;
+    if (c === 0x3D) {                                              // clip finished: play the next piece now
+      const now = performance.now(), dup = p === lastFin.p && now - lastFin.t < 600;   // these players often report it twice
+      lastFin = { p, t: now };
+      const early = !cur || now - cur.t0 < Math.min(250, cur.ms * 0.4);                 // a report from the clip before
+      if (!dup && !early && timer && Q.length) setTimeout(next, 30);
+    }
+  }
+  // ---- when the arm reports its settings
+  function onCfg(line) {
+    if (line[0] === 'D') return onDf(line);
+    const m = /^C(\d+) (\d+)(?: (\d+))?/.exec(line); if (!m) return;
+    st.voice = +m[1]; st.volume = +m[2]; if (m[3] !== undefined) st.flags = +m[3]; save(); refresh();
+  }
+
+  // ---- phone speech -> arm speaker (chess page): whole sentences we can build go to the arm
+  if (window.speechSynthesis) {
+    const sp = speechSynthesis.speak.bind(speechSynthesis), cn = speechSynthesis.cancel.bind(speechSynthesis);
+    speechSynthesis.speak = u => { if (st.armVoice && speak(u.text || '')) return; sp(u); };
+    speechSynthesis.cancel = () => { cn(); };
+  }
+
+  // ---- UI
+  const css = `
+  .snd-tabs{display:flex;gap:6px;margin:10px 0 8px}.snd-tabs button{flex:1;min-height:36px;padding:4px 6px;font-size:13px}
+  .snd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px;max-height:260px;overflow-y:auto;padding-right:2px}
+  .snd-grid button{min-height:38px;padding:4px 6px;font-size:12px;line-height:1.15}
+  .snd-grp{grid-column:1/-1;font-size:10px;letter-spacing:.16em;color:var(--dim);margin-top:4px}
+  .snd-keys{display:flex;overflow-x:auto;padding-bottom:4px;height:120px;position:relative}
+  .snd-keys button{flex:none;width:34px;min-width:34px;height:110px;border-radius:0 0 6px 6px;padding:0 0 4px;display:flex;align-items:flex-end;justify-content:center;font-size:10px;background:#e9f6ff;color:#0b1726;border:1px solid #9ab}
+  .snd-keys button.blk{width:24px;min-width:24px;height:70px;margin:0 -12px;z-index:2;background:#0b1726;color:#9ab;border-color:#000}
+  .snd-sel{flex:1;min-height:40px;font:inherit;background:#0b1726;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+  .snd-search{width:100%;min-height:36px;font:inherit;background:#0b1726;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 8px;margin-bottom:6px}
+  .snd-chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)}`;
+  const el = (t, a = {}, ...k) => { const e = document.createElement(t); Object.assign(e, a); for (const x of k) e.append(x); return e; };
+  let ui = {};
+  function build(host, opts = {}) {
+    document.head.append(el('style', { textContent: css }));
+    const box = el('div', { id: 'soundBox' });
+    const stopB = el('button', { textContent: '■ Stop', style: 'min-height:36px;padding:4px 12px' }); stopB.onclick = stop;
+    box.append(el('div', { className: 'sec' }, el('span', { textContent: 'SOUND' }), stopB));
+    ui.voice = el('select', { className: 'snd-sel' });
+    VOICES.forEach((v, i) => ui.voice.append(el('option', { value: i + 1, textContent: `${i + 1} · ${v}` })));
+    ui.voice.onchange = () => { st.voice = +ui.voice.value; save(); send(`Y ${st.voice}\n`); };
+    box.append(el('div', { className: 'jrow' }, el('span', { className: 'note', style: 'width:70px', textContent: 'Voice' }), ui.voice));
+    ui.vol = el('input', { type: 'range', min: 0, max: 30, step: 1 });
+    ui.volV = el('span', { className: 'mono', style: 'width:70px;text-align:right' });
+    ui.vol.oninput = () => { ui.volV.textContent = ui.vol.value; };
+    ui.vol.onchange = () => { st.volume = +ui.vol.value; save(); send(`L ${st.volume}\n`); };
+    box.append(el('div', { className: 'jrow' }, el('span', { className: 'note', style: 'width:70px', textContent: 'Volume' }), ui.vol, ui.volV));
+    const chk = (label, get, set) => { const c = el('input', { type: 'checkbox' }); c.onchange = () => set(c.checked); const l = el('label', { className: 'snd-chk' }, c, label); l._c = c; l._get = get; return l; };
+    ui.chks = [
+      chk('Beeps (start, connect)', () => st.flags & 1, v => { st.flags = (st.flags & ~1) | (v ? 1 : 0); save(); send(`Z ${st.flags}\n`); }),
+      chk('Say “Power on / off”', () => st.flags & 2, v => { st.flags = (st.flags & ~2) | (v ? 2 : 0); save(); send(`Z ${st.flags}\n`); }),
+    ];
+    ui.chks.push(chk('Folder mode (only if sounds come out wrong)', () => st.flags & 4, v => { st.flags = (st.flags & ~4) | (v ? 4 : 0); save(); send(`Z ${st.flags}\n`); }));
+    if (opts.chess) ui.chks.push(chk('Talk through the arm (not the phone)', () => st.armVoice, v => { st.armVoice = v; save(); }));
+    box.append(el('div', { style: 'display:flex;flex-wrap:wrap;gap:4px 14px;margin:6px 0' }, ...ui.chks));
+
+    const panes = {}, tabs = el('div', { className: 'snd-tabs' });
+    const tab = (name, mk) => {
+      const b = el('button', { textContent: name }); tabs.append(b);
+      panes[name] = { b, mk, el: null };
+      b.onclick = () => show(name);
+    };
+    const holder = el('div');
+    function show(name) {
+      for (const k in panes) panes[k].b.classList.toggle('on', k === name);
+      const p = panes[name]; if (!p.el) p.el = p.mk();
+      holder.replaceChildren(p.el); try { localStorage.setItem('armSoundTab', name); } catch (e) {}
+    }
+    const grid = (groups) => {
+      const g = el('div', { className: 'snd-grid' });
+      for (const [title, items] of groups) {
+        if (title) g.append(el('div', { className: 'snd-grp', textContent: title }));
+        for (const [label, fn] of items) { const b = el('button', { textContent: label }); b.onclick = fn; g.append(b); }
+      }
+      return g;
+    };
+    const P = D.voices.phrases, idx = s => P.indexOf(s) + 1, rng = (a, b) => P.slice(idx(a) - 1, idx(b)).map((p, k) => [p, () => say(idx(a) + k)]);
+    tab('Say', () => {
+      const wrap = el('div');
+      const inp = el('input', { className: 'snd-search', placeholder: 'Say a move: e2e4, Nf3, O-O ↵' });
+      inp.onkeydown = e => { if (e.key === 'Enter') { if (!speakMove(inp.value)) inp.style.borderColor = 'var(--red)'; else inp.style.borderColor = ''; } };
+      wrap.append(inp, grid([
+        ['TALK', rng('Hello. I am Le Bras.', 'Hello. I am Le Bras.').concat(rng('Connected.', 'Goodbye.'), rng('Ready.', 'Ready.'), rng('Low power.', 'This is my voice.'), rng('Hello there!', 'Sorry!'))],
+        ['CHESS', rng('Your move.', 'Good game.').concat(rng('You win!', 'Let me think.'), rng('New game.', 'New game.'), rng('Castles king side.', 'En passant.'))],
+        ['ARM', rng('Power on.', 'Power off.')],
+      ]));
+      return wrap;
+    });
+    tab('Effects', () => {
+      const wrap = el('div'), s = el('input', { className: 'snd-search', placeholder: 'Search sound effects…' });
+      const g = grid([[null, D.fx.map(([n], i) => [n, () => fx(i + 1)])]]);
+      s.oninput = () => { const q = s.value.toLowerCase(); for (const b of g.children) b.style.display = b.textContent.toLowerCase().includes(q) ? '' : 'none'; };
+      wrap.append(s, g); return wrap;
+    });
+    tab('Songs', () => grid([[null, D.songs.map(([n], i) => [n, () => song(i + 1)])]]));
+    tab('Piano', () => {
+      const k = el('div', { className: 'snd-keys' });
+      D.notes.forEach(([n], i) => { const b = el('button', { textContent: n.includes('#') ? '' : n, className: n.includes('#') ? 'blk' : '' }); b.onpointerdown = e => { e.preventDefault(); note(i + 1); }; k.append(b); });
+      return el('div', {}, k, el('div', { className: 'note', textContent: 'Tap the keys to play. Each note is a short piano sound.' }));
+    });
+    tab('My sounds', () => {
+      const OK = /\.(mp3|wav|m4a|aac|aif|aiff|caf)$/i;
+      const cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;              // same order as the copy script (LC_ALL=C sort)
+      const load = () => { try { return JSON.parse(localStorage.getItem('armMySounds') || '[]'); } catch (e) { return []; } };
+      const pick = el('input', { type: 'file', multiple: true, style: 'display:none' }); pick.setAttribute('webkitdirectory', '');
+      const choose = el('button', { textContent: 'Choose your “Arm sounds” folder', style: 'width:100%;margin-bottom:6px' });
+      choose.onclick = () => pick.click();
+      const g = el('div', { className: 'snd-grid' });
+      const render = () => {
+        const L = load(); g.replaceChildren();
+        if (!L.length) g.append(el('div', { className: 'snd-grp', textContent: 'NO SOUNDS YET: SEE BELOW' }));
+        L.forEach((n, i) => { const b = el('button', { textContent: n.replace(/\.[^.]+$/, '') }); b.onclick = () => play([{ cmd: `P 10 ${i + 1}\n`, ms: 100 }]); g.append(b); });
+      };
+      pick.onchange = () => {
+        const names = [...pick.files].filter(f => (f.webkitRelativePath || '').split('/').length === 2 && !f.name.startsWith('.') && OK.test(f.name))
+          .map(f => f.name.normalize('NFD')).sort(cmp).map(n => n.normalize('NFC'));
+        try { localStorage.setItem('armMySounds', JSON.stringify(names)); } catch (e) {}
+        render();
+      };
+      render();
+      return el('div', {}, choose, pick, g, el('p', { className: 'note', innerHTML:
+        '1. Put sounds (MP3, WAV, voice memos…) in the <b>Arm sounds</b> folder on your Desktop.<br>' +
+        '2. Card in the Mac → in Terminal: <b>bash ~/Downloads/sync_sounds.sh</b><br>' +
+        '3. Card back in the arm, restart it. Then tap <b>Choose…</b> above and pick the same folder (only needed when the sounds change).' }));
+    });
+    ui.dbg = el('div', { className: 'note mono', style: 'margin-top:6px' });
+    box.append(tabs, holder, ui.dbg);
+    host.insertBefore(box, opts.before || null);
+    let first = 'Say'; try { first = localStorage.getItem('armSoundTab') || 'Say'; } catch (e) {}
+    show(panes[first] ? first : 'Say');
+    refresh();
+  }
+  function refresh() {
+    if (!ui.voice) return;
+    ui.voice.value = st.voice; ui.vol.value = st.volume; ui.volV.textContent = st.volume;
+    for (const c of ui.chks) c._c.checked = !!c._get();
+  }
+
+  // "e2e4" / "Nf3" / "Bxe5" / "O-O" / "e8=Q"
+  const PIECE = { N: 'knight', B: 'bishop', R: 'rook', Q: 'queen', K: 'king' };
+  function speakMove(s) {
+    s = (s || '').trim();
+    if (/^(o-o-o|0-0-0)$/i.test(s)) return speak('castles queen side');
+    if (/^(o-o|0-0)$/i.test(s)) return speak('castles king side');
+    let m = /^([a-h][1-8])\s*[-x ]?\s*([a-h][1-8])(?:=?([qrbn]))?$/i.exec(s);
+    if (m) return speak(`${m[1]} to ${m[2]}` + (m[3] ? ' becomes a queen' : ''));
+    m = /^([NBRQK])?([a-h])?([1-8])?(x)?([a-h][1-8])(?:=?([QRBN]))?[+#]?$/.exec(s);
+    if (!m) return false;
+    const who = m[1] ? PIECE[m[1]] : 'pawn';
+    return speak(`${who} ${m[4] ? 'takes' : 'to'} ${m[5]}` + (m[6] ? ' becomes a queen' : '') + (/#$/.test(s) ? ' checkmate' : /\+$/.test(s) ? ' check' : ''));
+  }
+
+  window.__armSound = { build, onCfg, say, fx, song, note, stop, speak, speakMove, compose, data: D };
+})();
+
+window.__armSound.build(document.getElementById("soundHost"), {});
 </script>
 </body>
 </html>

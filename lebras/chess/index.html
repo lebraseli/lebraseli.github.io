@@ -4985,13 +4985,14 @@ const ChessApp = (() => {
   }
   // wait until something over the board is different from ref (a hand)
   async function waitActivity(ref, abortIf) {
+    let hits = 0;                                        // a hand stays: need the change in 3 looks in a row (~0.5 s), or a big one
     for (;;) {
       await sleep(150);
       if (abortIf && abortIf()) return null;
       const cur = grab();
       const cf = CC.changedFraction(ref, cur.f);
       if (DEBUG && performance.now() - (waitActivity.lastLog || 0) > 4000) { waitActivity.lastLog = performance.now(); log(`  activity? changed ${(100 * cf).toFixed(2)}%`); }
-      if (cf > 0.004) return cur;
+      if (cf > 0.004) { if (++hits >= 3 || cf > 0.02) return cur; } else hits = 0;
     }
   }
 
@@ -5198,6 +5199,7 @@ const ChessApp = (() => {
   }
   // human move: wait for hands, then a still board, then read the move
   const CONF_OK = 6;                                    // below this the read is "not sure": ask
+  let lastAsk = '';
   async function humanTurn() {
     status('Your move', `You play ${human === 'w' ? 'beige' : 'black'}`);
     for (;;) {
@@ -5215,6 +5217,9 @@ const ChessApp = (() => {
           const mv = CC.motion(cur.f, c2.f);
           if (mv > noise * 2.5 + 0.004) continue;          // it moved: a hand. Watch again.
           cur = c2; r = CC.inferMove(model, game, ref.f, cur.f);   // not moving: shadows etc. Use it.
+        }
+        if (r.conf < CONF_OK && r.changed < 0.008) {     // tiny, unclear change (light, focus, phone wobble): not a move
+          log(`small change (${(100 * r.changed).toFixed(2)}%), no clear move: ignored`); ref = cur; status('Your move', ''); break;
         }
         if (r.conf < CONF_OK) {                          // look again a moment later
           await sleep(T.fast ? 0 : 1200);
@@ -5235,8 +5240,9 @@ const ChessApp = (() => {
         }
         // unsure: ask. The player can lift the piece and put it down again (we look again), or tap the move.
         const opts = r.ranked.slice(0, 3).map(x => x.move);
-        say(`I'm not sure. Did you play ${spoken(opts[0])}, or ${spoken(opts[1])}? Lift the piece you moved and put it down again, or tap your move on the phone.`);
-        showChoices(opts);
+        const key = opts.map(o => o.san).join();
+        if (key !== lastAsk) say(`I'm not sure. Did you play ${spoken(opts[0])}, or ${spoken(opts[1])}? Lift the piece you moved and put it down again, or tap your move on the phone.`);
+        lastAsk = key; showChoices(opts);
         const tapped = await Promise.race([new Promise(res => pick = res), waitActivity(cur.f, stopped).then(() => null)]);
         showChoices([]); pick = null;
         if (stopFlag) return null;
@@ -5302,12 +5308,15 @@ const ChessApp = (() => {
       let f0 = await waitStill(800, stopped); if (!f0) return;
       buildCamera(f0.img);                                // re-fit the camera every game (tripod bumped? no problem)
       f0 = grab(); { const a = grab(), b = grab(); noise = Math.max(0.002, CC.motion(a.f, b.f)); }
+      let tries = 0, lastList = '', lastSaid = 0;
       for (;;) {                                          // the start position must be on the board
         const bad = CC.verifyPosition(model, CC.posFromChess(game), f0.f);
         if (bad.length) log('start check: ' + bad.map(b => CC.sqName(b.sq)).join(' '));
         if (!bad.length || T.fast) break;
         const list = bad.slice(0, 4).map(b => CC.sqName(b.sq)).join(', ');
-        say(`Please set up the pieces. Check ${list}.`); status('Set up the pieces', 'check ' + list);
+        tries++;
+        if (list !== lastList || performance.now() - lastSaid > 30000) { say(`Please set up the pieces. Check ${list}.`); lastList = list; lastSaid = performance.now(); }   // don't repeat itself
+        status('Set up the pieces', 'check ' + list + (tries >= 3 ? ' · pieces right? then the grid is off: Setup → 1 (⟳ turn picture / tap the corners)' : ''));
         await waitActivity(f0.f, stopped); f0 = await waitStill(1500, stopped); if (!f0) return;
       }
       ref = f0;

@@ -4836,7 +4836,7 @@ const ChessApp = (() => {
   const LS = k => 'bigarm6.chess.' + k;
   const load = (k, d) => { try { const v = localStorage.getItem(LS(k)); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
   const save = (k, v) => { try { localStorage.setItem(LS(k), JSON.stringify(v)); } catch (e) {} };
-  const cfg = Object.assign({ taps: null, arm: {}, grave: null, park: null, skill: 6, think: 1500, voice: true, engine: 'maia', maia: 1500 }, load('cfg', {}));
+  const cfg = Object.assign({ taps: null, arm: {}, grave: null, park: null, skill: 6, think: 1500, voice: true, engine: 'maia', maia: 1500, view: 0, tapsWH: null }, load('cfg', {}));
   const saveCfg = () => save('cfg', cfg);
   const T = { fast: false };
   let DEBUG = false;                       // test mode: shorter waits
@@ -4873,11 +4873,23 @@ const ChessApp = (() => {
       for (let i = 0; i < 50 && !video.videoWidth; i++) await sleep(100);
       grabC = document.createElement('canvas'); grabC.width = video.videoWidth; grabC.height = video.videoHeight;
       grabX = grabC.getContext('2d', { willReadFrequently: true });
-      frameSource = () => { grabX.drawImage(video, 0, 0); return grabX.getImageData(0, 0, grabC.width, grabC.height); };
+      if (!cfg.tapsWH || cfg.tapsWH[0] !== grabC.width || cfg.tapsWH[1] !== grabC.height) cfg.taps = null;   // saved grid was for another picture shape
+      frameSource = () => { syncSize(); grabX.drawImage(video, 0, 0); return grabX.getImageData(0, 0, grabC.width, grabC.height); };
       camOn = true; log(`camera ${grabC.width}×${grabC.height}`);
       startAutoFind();
       return true;
     } catch (e) { status('No camera', 'Allow the camera for this page (and use the back camera).'); log('camera error: ' + e.message); return false; }
+  }
+  // If the phone turns (Android auto-rotate), the camera picture swaps width/height: resize and find the board again.
+  function syncSize() {
+    if (!video || !grabC) return;
+    const w = video.videoWidth, h = video.videoHeight;
+    if (!w || (w === grabC.width && h === grabC.height)) return;
+    grabC.width = w; grabC.height = h;
+    found = false; lastFind = null; cam = null; model = null; cfg.taps = null; saveCfg();
+    log(`camera picture turned (${w}×${h}): finding the board again`);
+    status('Looking for the board…', 'the picture turned: turn OFF Auto-rotate on the phone');
+    renderSetup();
   }
   function setFrameSource(fn) { frameSource = fn; camOn = true; }   // tests
 
@@ -4910,7 +4922,7 @@ const ChessApp = (() => {
       if (r && r.conf >= 1.15) {
         if (sameTaps(r.taps, lastFind, img.width)) {
           if (!found || !sameTaps(r.taps, cfg.taps, img.width)) {
-            cfg.taps = r.taps; saveCfg(); buildCamera(img);
+            cfg.taps = r.taps; cfg.tapsWH = [img.width, img.height]; saveCfg(); buildCamera(img);
             if (!found) { status('Board found ✓', taught() ? 'Press ▶ Start game' : 'Next: Setup → 2 (teach the arm the board corners, one time)'); log(`board found (${r.n} corners, sure ${r.conf.toFixed(2)})`); }
             else log('board moved: grid updated');
           }
@@ -5448,7 +5460,10 @@ const ChessApp = (() => {
       : 'Put the phone up high, looking down at the board (back camera, <b>whole board</b> in view), pieces in the <b>start position</b>. It finds the board by itself: the blue grid appears on the squares.' }));
     const bt = el('button', { textContent: tapList.length ? `Tap corner ${['a1', 'h1', 'h8', 'a8'][tapList.length]}…` : 'Trouble? Tap the corners by hand' });
     bt.onclick = () => { tapList = []; tapping = true; status('Tap corner a1', 'on the camera picture'); renderSetup(); };
-    s.append(el('div', { className: 'row' }, bt));
+    const turn = el('button', { textContent: '⟳ Turn picture 90°' });
+    turn.onclick = () => { cfg.view = ((cfg.view || 0) + 90) % 360; saveCfg(); };
+    s.append(el('div', { className: 'row' }, turn, bt));
+    s.append(el('p', { className: 'note', innerHTML: 'Turn <b>OFF Auto-rotate</b> on the phone, or the picture flips when the phone is nearly flat.' }));
     // 2 arm corners
     s.append(el('div', { className: 'sec' }, el('span', { textContent: '2 · BOARD CORNERS (ARM)' }), ck(taught())));
     s.append(el('p', { className: 'note', innerHTML: 'Connect the arm. Jog the gripper (pointing straight down) over the <b>middle</b> of the square, lower it until the <b>finger tips just touch</b> the board, then press its button. Do a1, h1, h8, a8.' }));
@@ -5466,26 +5481,35 @@ const ChessApp = (() => {
   // camera picture + grid
   let tapping = false;
   function onTap(ev) {
-    if (!tapping || !grabC) return;
+    if (!tapping || !grabC || !viewM) return;
     const r = ui.canvas.getBoundingClientRect(), W = grabC.width, H = grabC.height;
-    const sc = Math.min(r.width / W, r.height / H), ox = (r.width - W * sc) / 2, oy = (r.height - H * sc) / 2;
-    const x = (ev.clientX - r.left - ox) / sc, y = (ev.clientY - r.top - oy) / sc;
+    const q = viewM.inverse().transformPoint(new DOMPoint((ev.clientX - r.left) * ui.canvas.width / r.width, (ev.clientY - r.top) * ui.canvas.height / r.height));
+    const x = q.x, y = q.y;
     if (x < 0 || y < 0 || x > W || y > H) return;
     tapList.push([x, y]);
     if (tapList.length < 4) { status(`Tap corner ${['a1', 'h1', 'h8', 'a8'][tapList.length]}`, ''); renderSetup(); return; }
-    tapping = false; cfg.taps = tapList; tapList = []; saveCfg(); found = true; lastFind = cfg.taps;
+    tapping = false; cfg.taps = tapList; cfg.tapsWH = [grabC.width, grabC.height]; tapList = []; saveCfg(); found = true; lastFind = cfg.taps;
     const img = frameSource(); const rc = buildCamera(img);
     status(rc ? 'Camera set: check the grid lines' : 'Corners saved (the grid did not snap: is the start position set up?)', rc ? `${rc.n} corners found, ${rc.rms.toFixed(1)} px` : '');
     renderSetup();
   }
+  let viewM = null;                       // picture -> screen transform (with the chosen turn)
   function drawLoop() {
     requestAnimationFrame(drawLoop);
     if (!ui.root || !ui.root.classList.contains('open') || !video || !grabC) return;
+    syncSize();
     const c = ui.canvas, r = c.getBoundingClientRect();
     if (c.width !== Math.round(r.width) || c.height !== Math.round(r.height)) { c.width = Math.round(r.width); c.height = Math.round(r.height); }
-    const g = c.getContext('2d'), W = grabC.width, H = grabC.height, sc = Math.min(c.width / W, c.height / H), ox = (c.width - W * sc) / 2, oy = (c.height - H * sc) / 2;
-    g.fillStyle = '#000'; g.fillRect(0, 0, c.width, c.height); g.drawImage(video, ox, oy, W * sc, H * sc);
-    const P = (x, y) => { const p = cam.P(x, y, 0); return [ox + p[0] * sc, oy + p[1] * sc]; };
+    const g = c.getContext('2d'), W = grabC.width, H = grabC.height;
+    const rot = (((cfg.view || 0) % 360) + 360) % 360, side = rot % 180 !== 0;
+    const sc = side ? Math.min(c.width / H, c.height / W) : Math.min(c.width / W, c.height / H);
+    g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#000'; g.fillRect(0, 0, c.width, c.height);
+    g.translate(c.width / 2, c.height / 2); g.rotate(rot * Math.PI / 180); g.scale(sc, sc); g.translate(-W / 2, -H / 2);
+    viewM = g.getTransform();
+    g.drawImage(video, 0, 0, W, H);
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    const scr = (x, y) => { const p = viewM.transformPoint(new DOMPoint(x, y)); return [p.x, p.y]; };
+    const P = (x, y) => { const p = cam.P(x, y, 0); return scr(p[0], p[1]); };
     if (cam) {
       g.strokeStyle = 'rgba(79,209,255,.8)'; g.lineWidth = 1.5;
       for (let k = 0; k <= 8; k++) { g.beginPath(); g.moveTo(...P(k * SQ, 0)); g.lineTo(...P(k * SQ, 8 * SQ)); g.stroke(); g.beginPath(); g.moveTo(...P(0, k * SQ)); g.lineTo(...P(8 * SQ, k * SQ)); g.stroke(); }
@@ -5493,7 +5517,7 @@ const ChessApp = (() => {
       for (const [n, x, y] of [['a1', 0.5, 0.5], ['h1', 7.5, 0.5], ['h8', 7.5, 7.5], ['a8', 0.5, 7.5]]) { const p = P(x * SQ, y * SQ); g.fillText(n, p[0] - 9, p[1] + 6); }
     }
     g.fillStyle = '#ffb347';
-    for (const [x, y] of tapList) { g.beginPath(); g.arc(ox + x * sc, oy + y * sc, 7, 0, 7); g.fill(); }
+    for (const [x, y] of tapList) { const p = scr(x, y); g.beginPath(); g.arc(p[0], p[1], 7, 0, 7); g.fill(); }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build); else build();

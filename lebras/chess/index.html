@@ -4677,9 +4677,108 @@ const ChessCore = (() => {
     return { taps: hyps[0].taps, conf, n: lat.L.length, hyps: hyps.length, cost: hyps[0].cost, sep: hyps[0].sep };
   }
 
+
+  // ------------------------------------------------------------------ stand guess
+  // When findBoard can't lock on: we know roughly where the phone is (Le Bras stand: ~0.4-0.6 m up, right above one
+  // board corner, looking at the board centre). Try those camera poses, keep the one whose 7 x 7 inner grid corners
+  // land on the most X-corners seen in the picture, fit it, then pick which corner is a1 from the colours.
+  function standGuess(img, pts) {
+    const { width: W, height: H, data } = img;
+    pts = pts || xCorners(img); if (pts.length < 8) return null;
+    const CELL = 12, gw = Math.ceil(W / CELL) + 1, grid = new Map();
+    pts.forEach((p, k) => { const key = Math.floor(p[0] / CELL) + gw * Math.floor(p[1] / CELL); (grid.get(key) || grid.set(key, []).get(key)).push(k); });
+    const near = (u, v, tol) => { let best = -1, bd = tol * tol;
+      const x0 = Math.floor((u - tol) / CELL), x1 = Math.floor((u + tol) / CELL), y0 = Math.floor((v - tol) / CELL), y1 = Math.floor((v + tol) / CELL);
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const L = grid.get(x + gw * y); if (!L) continue;
+        for (const k of L) { const d = (pts[k][0] - u) ** 2 + (pts[k][1] - v) ** 2; if (d < bd) { bd = d; best = k; } } }
+      return best; };
+    const INNER = []; for (let j = 1; j <= 7; j++) for (let i = 1; i <= 7; i++) INNER.push([i * SQ, j * SQ]);
+    const cx = W / 2, cy = H / 2, M = Math.max(W, H);
+    const nrm = v => { const l = Math.hypot(...v); return v.map(a => a / l); };
+    const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    let cands = [];
+    for (const p of [-50, -25, 0, 25]) for (const h of [360, 420, 480, 540, 600]) for (const tx of [-40, 0, 40]) for (const ty of [-40, 0, 40]) {
+      const C = [p, p, h], Z = nrm([GRID / 2 + tx - p, GRID / 2 + ty - p, -h]), X0 = nrm(cross(Z, [0, 0, 1])), Y0 = cross(Z, X0);
+      for (let a = 0; a < 360; a += 8) {
+        const ca = Math.cos(a * Math.PI / 180), sa = Math.sin(a * Math.PI / 180);
+        const X = X0.map((v, i) => ca * v + sa * Y0[i]), Y = X0.map((v, i) => -sa * v + ca * Y0[i]);
+        for (const ff of [0.6, 0.7, 0.8, 0.92]) {
+          const f = ff * M;
+          const P = (x, y) => { const d = [x - C[0], y - C[1], -C[2]]; const zc = d[0] * Z[0] + d[1] * Z[1] + d[2] * Z[2];
+            return [f * (d[0] * X[0] + d[1] * X[1] + d[2] * X[2]) / zc + cx, f * (d[0] * Y[0] + d[1] * Y[1] + d[2] * Y[2]) / zc + cy]; };
+          let inFrame = true;
+          for (const [x, y] of [[0, 0], [GRID, 0], [GRID, GRID], [0, GRID]]) { const q = P(x, y); if (q[0] < 0 || q[1] < 0 || q[0] > W || q[1] > H) { inFrame = false; break; } }
+          if (!inFrame) continue;
+          const c0 = P(GRID / 2, GRID / 2), c1 = P(GRID / 2 + SQ, GRID / 2), c2 = P(GRID / 2, GRID / 2 + SQ);
+          const tol = Math.max(3, 0.3 * Math.min(Math.hypot(c1[0] - c0[0], c1[1] - c0[1]), Math.hypot(c2[0] - c0[0], c2[1] - c0[1])));
+          let n = 0; for (const [x, y] of INNER) { const q = P(x, y); if (near(q[0], q[1], tol) >= 0) n++; }
+          if (n >= 6) cands.push({ n, P, tol });
+        }
+      }
+    }
+    if (!cands.length) return null;
+    cands.sort((a, b) => b.n - a.n); cands = cands.slice(0, 12);
+    // fit: match -> homography -> re-match (3 rounds) for each of the best poses
+    let best = null;
+    for (const c of cands) {
+      let proj = INNER.map(([x, y]) => c.P(x, y)), Hm = null, src = [], dst = [];
+      for (let it = 0; it < 4; it++) {
+        src = []; dst = []; const used = new Set();
+        INNER.forEach((s, k) => { const m = near(proj[k][0], proj[k][1], c.tol); if (m >= 0 && !used.has(m)) { used.add(m); src.push(s); dst.push([pts[m][0], pts[m][1]]); } });
+        if (src.length < 8) break;
+        Hm = homographyLS(src, dst); if (!Hm) break;
+        proj = INNER.map(([x, y]) => applyH(Hm, x, y));
+      }
+      if (Hm && src.length >= 8 && (!best || src.length > best.n)) best = { n: src.length, Hm };
+    }
+    if (!best || best.n < 14) return null;
+    let taps = [[0, 0], [GRID, 0], [GRID, GRID], [0, GRID]].map(([x, y]) => applyH(best.Hm, x, y));
+    const rc = refineCorners(img, taps);
+    if (rc && rc.n >= 12) { const H2 = homographyLS(rc.src, rc.dst); if (H2) taps = [[0, 0], [GRID, 0], [GRID, GRID], [0, GRID]].map(([x, y]) => applyH(H2, x, y)); }
+    // the grid can still be off by a square or two (the piece rows hide the corners) and we don't know which corner is
+    // a1: try every shift and turn. Empty middle ranks must alternate (a1 dark), cells just outside the board must not,
+    // beige pieces (lighter) stand on ranks 1-2.
+    const lum = (Hk, x, y) => { let s = 0, n = 0; for (const [dx, dy] of [[0, 0], [4, 0], [-4, 0], [0, 4], [0, -4]]) { const q = applyH(Hk, x + dx, y + dy);
+      const xi = Math.round(q[0]), yi = Math.round(q[1]); if (xi < 0 || yi < 0 || xi >= W || yi >= H) continue; const j = (yi * W + xi) * 4;
+      s += 0.3 * data[j] + 0.59 * data[j + 1] + 0.11 * data[j + 2]; n++; } return n === 5 ? s / n : NaN; };
+    const B4 = [[0, 0], [GRID, 0], [GRID, GRID], [0, GRID]], H0 = homography(B4, taps);
+    const picks = [];
+    for (let k = 0; k < 4; k++) for (let di = -2; di <= 2; di++) for (let dj = -2; dj <= 2; dj++) {
+      // board corners of this hypothesis in the fitted grid's coordinates, turned k quarter turns
+      const sh = B4.map(([x, y]) => [x + di * SQ, y + dj * SQ]);
+      const tk = [0, 1, 2, 3].map(i => applyH(H0, ...sh[(i + k) % 4]));
+      const Hk = homography(B4, tk); if (!Hk) continue;
+      const cell = (f, r) => lum(Hk, (f + 0.5) * SQ, (r + 0.5) * SQ);
+      let alt = 0, na = 0; for (let r = 2; r <= 5; r++) for (let f = 0; f < 8; f++) { const v = cell(f, r); if (isNaN(v)) continue; alt += ((f + r) % 2 ? 1 : -1) * v; na++; }
+      if (na < 20) continue; alt /= na;
+      let out = 0, no = 0;
+      for (let r = 2; r <= 5; r++) for (const f of [-1, 8]) { const a = cell(f, r), b = cell(f, r + 1); if (!isNaN(a) && !isNaN(b)) { out += Math.abs(a - b) / 2; no++; } }
+      for (let f = 0; f < 8; f++) for (const r of [-1, 8]) { const a = cell(f, r), b = cell(f + 1, r); if (!isNaN(a) && !isNaN(b)) { out += Math.abs(a - b) / 2; no++; } }
+      out = no ? out / no : 0;
+      let pw = 0, pb = 0, nw = 0, nb = 0;
+      for (let f = 0; f < 8; f++) { for (const r of [0, 1]) { const v = cell(f, r); if (!isNaN(v)) { pw += v; nw++; } } for (const r of [6, 7]) { const v = cell(f, r); if (!isNaN(v)) { pb += v; nb++; } } }
+      const pcs = (nw && nb) ? pw / nw - pb / nb : 0;
+      // pieces make a square busy (its colour varies), empty squares are plain: busy ranks 1, 2, 7, 8; plain 3-6
+      const sd = (f, r) => { const v = []; for (const dx of [-0.3, 0, 0.3]) for (const dy of [-0.3, 0, 0.3]) { const x = lum(Hk, (f + 0.5 + dx) * SQ, (r + 0.5 + dy) * SQ); if (!isNaN(x)) v.push(x); }
+        if (v.length < 5) return NaN; const m = v.reduce((a, b) => a + b) / v.length; return Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / v.length); };
+      let sP = 0, nP = 0, sE = 0, nE = 0;
+      for (let f = 0; f < 8; f++) for (let r = 0; r < 8; r++) { const v = sd(f, r); if (isNaN(v)) continue; if (r <= 1 || r >= 6) { sP += v; nP++; } else { sE += v; nE++; } }
+      const busy = (nP && nE) ? sP / nP - sE / nE : 0;
+      let inF = 0; for (let f = 0; f < 8; f++) for (let r = 0; r < 8; r++) if (!isNaN(cell(f, r))) inF++;
+      const score = alt - out + 0.1 * pcs + 0.5 * busy - 40 * (1 - inF / 64);   // the stand is set so the whole board is in view
+      if (alt > 0 && pcs > 0) picks.push({ taps: tk, score, alt, out, pcs });
+    }
+    if (!picks.length) return null;
+    picks.sort((a, b) => b.score - a.score);
+    const pick = picks[0];
+    { const rc2 = refineCorners(img, pick.taps); if (rc2 && rc2.n >= 12) { const H3 = homographyLS(rc2.src, rc2.dst); if (H3) pick.taps = B4.map(([x, y]) => applyH(H3, x, y)); } }
+    if (picks[1] && picks[1].score > 0.85 * pick.score) pick.unsure = true;
+    return { taps: pick.taps, conf: pick.unsure ? 1.0 : best.n >= 20 ? 2 : 1.2, n: best.n, guess: true, unsure: !!pick.unsure, alt: pick.alt, out: pick.out, pcs: pick.pcs };
+  }
+
   return { SQ, GRID, ENV, TYPES, homography, homographyLS, applyH, refineCorners, cameraFromCorners, buildModel, features, labels, posFromChess,
            gains, normalise, colourStats, nearest, verifyPosition, inferMove, motion, changedFraction, checkPosition, contrast, sqName, sqIndex,
-           xCorners, fitLattice, findBoard, START };
+           xCorners, fitLattice, findBoard, standGuess, START };
 })();
 if (typeof module !== 'undefined') module.exports = ChessCore;
 </script>
@@ -4852,7 +4951,9 @@ const ChessApp = (() => {
   let ui = {};
   function log(t) { if (!ui.log) return; const d = document.createElement('div'); d.textContent = t; ui.log.prepend(d); while (ui.log.childNodes.length > 60) ui.log.lastChild.remove(); }
   function status(big, small) { if (ui.big) ui.big.textContent = big; if (ui.small) ui.small.textContent = small || ''; }
-  function say(t) {
+  const lastNag = {};
+  function say(t, nag) {                               // nag: a reminder; said at most once a minute
+    if (nag) { const now = performance.now(); if (now - (lastNag[nag] || -1e9) < 60000) { log('🗣 (quiet) ' + t); return; } lastNag[nag] = now; }
     log('🗣 ' + t);
     if (!cfg.voice || !window.speechSynthesis || T.fast) return;
     try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.rate = 1.0; speechSynthesis.speak(u); } catch (e) {}
@@ -4923,7 +5024,7 @@ const ChessApp = (() => {
         if (sameTaps(r.taps, lastFind, img.width)) {
           if (!found || !sameTaps(r.taps, cfg.taps, img.width)) {
             cfg.taps = r.taps; cfg.tapsWH = [img.width, img.height]; saveCfg(); buildCamera(img);
-            if (!found) { status('Board found ✓', taught() ? 'Press ▶ Start game' : 'Next: Setup → 2 (teach the arm the board corners, one time)'); log(`board found (${r.n} corners, sure ${r.conf.toFixed(2)})`); }
+            if (!found) { status('Board found ✓', taught() ? 'Press ▶ Start game' : 'Next: Setup → 2 (teach the arm the board corners, one time)'); log(`board found (${r.n} corners, sure ${r.conf.toFixed(2)}${r.guess ? ', from where the stand puts the phone' : ''})`); }
             else log('board moved: grid updated');
           }
           found = true;
@@ -4945,7 +5046,7 @@ const ChessApp = (() => {
       const src = [...document.scripts].find(s => s.textContent.trimStart().startsWith('// chesscore.js'));
       if (!src || typeof Worker === 'undefined') throw new Error('no worker');
       const code = src.textContent + '\n;self.onmessage = e => { const d = e.data; let r = null, err = null;' +
-        ' try { r = ChessCore.findBoard({ width: d.w, height: d.h, data: new Uint8ClampedArray(d.buf) }); } catch (x) { err = String(x && x.message || x); }' +
+        ' try { const im = { width: d.w, height: d.h, data: new Uint8ClampedArray(d.buf) }; r = ChessCore.findBoard(im) || ChessCore.standGuess(im); } catch (x) { err = String(x && x.message || x); }' +
         ' self.postMessage({ id: d.id, r, err }); };';
       finder = new Worker(URL.createObjectURL(new Blob([code], { type: 'application/javascript' })));
       log('board finder: background thread');
@@ -4955,11 +5056,11 @@ const ChessApp = (() => {
   let findId = 0;
   function findBoardAsync(img) {
     const wk = getFinder();
-    if (!wk) return Promise.resolve(CC.findBoard(img));
+    if (!wk) return Promise.resolve(CC.findBoard(img) || CC.standGuess(img));
     return new Promise(res => {
       const id = ++findId, copy = new Uint8ClampedArray(img.data);
       wk.onmessage = e => { if (e.data.id !== id) return; if (e.data.err) log('board finder: ' + e.data.err); res(e.data.r); };
-      wk.onerror = ev => { ev.preventDefault && ev.preventDefault(); finder = false; log('board finder thread failed: using main thread'); res(CC.findBoard(img)); };
+      wk.onerror = ev => { ev.preventDefault && ev.preventDefault(); finder = false; log('board finder thread failed: using main thread'); res(CC.findBoard(img) || CC.standGuess(img)); };
       wk.postMessage({ id, w: img.width, h: img.height, buf: copy.buffer }, [copy.buffer]);
     });
   }
@@ -5241,7 +5342,7 @@ const ChessApp = (() => {
         // unsure: ask. The player can lift the piece and put it down again (we look again), or tap the move.
         const opts = r.ranked.slice(0, 3).map(x => x.move);
         const key = opts.map(o => o.san).join();
-        if (key !== lastAsk) say(`I'm not sure. Did you play ${spoken(opts[0])}, or ${spoken(opts[1])}? Lift the piece you moved and put it down again, or tap your move on the phone.`);
+        if (key !== lastAsk) say(`I'm not sure. Did you play ${spoken(opts[0])}, or ${spoken(opts[1])}? Lift the piece you moved and put it down again, or tap your move on the phone.`, 'unsure');
         lastAsk = key; showChoices(opts);
         const tapped = await Promise.race([new Promise(res => pick = res), waitActivity(cur.f, stopped).then(() => null)]);
         showChoices([]); pick = null;
@@ -5315,7 +5416,7 @@ const ChessApp = (() => {
         if (!bad.length || T.fast) break;
         const list = bad.slice(0, 4).map(b => CC.sqName(b.sq)).join(', ');
         tries++;
-        if (list !== lastList || performance.now() - lastSaid > 30000) { say(`Please set up the pieces. Check ${list}.`); lastList = list; lastSaid = performance.now(); }   // don't repeat itself
+        say(`Please set up the pieces. Check ${list}.`, 'setup');
         status('Set up the pieces', 'check ' + list + (tries >= 3 ? ' · pieces right? then the grid is off: Setup → 1 (⟳ turn picture / tap the corners)' : ''));
         await waitActivity(f0.f, stopped); f0 = await waitStill(1500, stopped); if (!f0) return;
       }
@@ -5330,7 +5431,7 @@ const ChessApp = (() => {
         if (!r) break;
         if (humansTurn) {
           const m = game.move({ from: r.move.from, to: r.move.to, promotion: 'q' });
-          if (!m) { say('That move is not legal. Please put it back.'); continue; }
+          if (!m) { say('That move is not legal. Please put it back.', 'illegal'); continue; }
           say(`You played ${spoken(m)}.`);
         }
         ref = r.frame; renderMoves();
@@ -5469,9 +5570,12 @@ const ChessApp = (() => {
       : 'Put the phone up high, looking down at the board (back camera, <b>whole board</b> in view), pieces in the <b>start position</b>. It finds the board by itself: the blue grid appears on the squares.' }));
     const bt = el('button', { textContent: tapList.length ? `Tap corner ${['a1', 'h1', 'h8', 'a8'][tapList.length]}…` : 'Trouble? Tap the corners by hand' });
     bt.onclick = () => { tapList = []; tapping = true; status('Tap corner a1', 'on the camera picture'); renderSetup(); };
+    const snap = el('button', { textContent: '📷 Save picture' });
+    snap.onclick = () => { if (!grabC || !video) return; const c = document.createElement('canvas'); c.width = grabC.width; c.height = grabC.height; c.getContext('2d').drawImage(video, 0, 0);
+      c.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'chess_camera.png'; a.click(); }, 'image/png'); };
     const turn = el('button', { textContent: '⟳ Turn picture 90°' });
     turn.onclick = () => { cfg.view = ((cfg.view || 0) + 90) % 360; saveCfg(); };
-    s.append(el('div', { className: 'row' }, turn, bt));
+    s.append(el('div', { className: 'row' }, turn, snap, bt));
     s.append(el('p', { className: 'note', innerHTML: 'Turn <b>OFF Auto-rotate</b> on the phone, or the picture flips when the phone is nearly flat.' }));
     // 2 arm corners
     s.append(el('div', { className: 'sec' }, el('span', { textContent: '2 · BOARD CORNERS (ARM)' }), ck(taught())));

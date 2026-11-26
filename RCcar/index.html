@@ -52,10 +52,7 @@
     </div>
     <div class="card"><button id="connect">Connect (Bluetooth)</button>
       <button id="usb" class="secondary" style="margin-top:8px">Connect by USB cable</button></div>
-    <div class="card">
-      <label><span>PIN</span><span id="armed">locked</span></label>
-      <div class="row"><input type="password" id="pin" placeholder="1234" inputmode="numeric" maxlength="12"><button id="unlock" class="secondary">Unlock</button></div>
-    </div>
+
     <div class="card">
       <label><span>Max speed</span><span id="maxv">100%</span></label>
       <input type="range" id="max" min="20" max="100" value="100">
@@ -95,8 +92,8 @@ const enc = new TextEncoder(), dec = new TextDecoder();
 function log(msg) { const d = $("log"); d.textContent += msg + "\n"; d.scrollTop = d.scrollHeight;
   if (d.textContent.length > 4000) d.textContent = d.textContent.slice(-3000); }
 function setStatus(txt, state) { $("status").textContent = txt; $("dot").className = "dot" + (state === 2 ? " on" : state === 1 ? " half" : ""); }
-function setArmed(a) { armed = a; $("armed").textContent = a ? "armed" : "locked"; $("armed").style.color = a ? "var(--go)" : "var(--muted)";
-  if (rx) setStatus((rx.usb ? "USB · " : "Connected · ") + (a ? "armed" : "enter PIN"), a ? 2 : 1); }
+function setArmed(a) { armed = a;
+  if (rx) setStatus((rx.usb ? "Connected by USB" : "Connected"), 2); }
 
 if (!navigator.bluetooth) { setStatus("No Web Bluetooth here. Use Chrome or Edge (not iPhone/iPad).", 0); $("connect").disabled = true; }
 if (!navigator.serial) { $("usb").disabled = true; $("usb").textContent = "USB needs Chrome"; }
@@ -124,8 +121,7 @@ $("connect").onclick = async () => {
     await tx.startNotifications();
     tx.addEventListener("characteristicvaluechanged", e => onMsg(dec.decode(e.target.value)));
     $("connect").textContent = "Disconnect"; $("connect").className = "secondary";
-    setArmed(false); log("connected to " + (device.name || "device"));
-    const saved = sessionStorage.getItem("pin"); if (saved) { $("pin").value = saved; unlock(); }
+    setArmed(true); log("connected to " + (device.name || "device"));
   } catch (e) { setStatus("Not connected", 0); if (e.name !== "NotFoundError") log("error: " + e.message); }
 };
 
@@ -147,9 +143,8 @@ $("usb").onclick = async () => {
     usbWriter = port.writable.getWriter();
     rx = { usb: true };                                  // lets tick() send
     $("usb").textContent = "Disconnect USB"; $("connect").disabled = true;
-    setArmed(false); log("connected by USB");
+    setArmed(true); log("connected by USB");
     usbHb = setInterval(() => write("H"), 250);
-    const saved = sessionStorage.getItem("pin"); if (saved) { $("pin").value = saved; unlock(); }
     usbRead();
   } catch (e) { log("USB error: " + e.message); await usbClose(); }
 };
@@ -184,11 +179,7 @@ if (navigator.serial) navigator.serial.addEventListener("disconnect", () => { if
 function onDisconnect() { rx = null; setArmed(false); setStatus("Disconnected. The car stops by itself.", 0);
   $("connect").textContent = "Reconnect"; $("connect").className = ""; log("disconnected"); }
 
-async function unlock() { const p = $("pin").value.trim(); if (!p) return;
-  try { sessionStorage.setItem("pin", p); } catch (e) {}
-  if (await write("P" + p)) log("→ PIN sent"); }
-$("unlock").onclick = unlock;
-$("pin").addEventListener("keydown", e => { if (e.key === "Enter") { unlock(); e.target.blur(); } });
+
 
 // ---- mixing: forward-only differential drive (one side stopped = pivot) ----
 function command() {
@@ -231,7 +222,7 @@ function draw() {
   ctx.beginPath(); ctx.moveTo(c - R, c); ctx.lineTo(c + R, c); ctx.moveTo(c, c - R); ctx.lineTo(c, c + R); ctx.stroke();
   ctx.fillStyle = "#8b909a"; ctx.font = "600 32px system-ui"; ctx.textAlign = "center";
   ctx.fillText("FORWARD", c, c - R - 16); ctx.fillText("PIVOT ◀", c - R * 0.62, c - 16); ctx.fillText("▶ PIVOT", c + R * 0.62, c - 16);
-  ctx.fillStyle = "#5a5f69"; ctx.fillText(armed ? "no reverse" : "locked: enter PIN", c, c + R * 0.6);
+  ctx.fillStyle = "#5a5f69"; ctx.fillText(armed ? "no reverse" : "not connected", c, c + R * 0.6);
   ctx.fillStyle = dragging ? "#ffb020" : "#3a3f49";
   ctx.beginPath(); ctx.arc(c + stick.x * R, c - stick.yRaw * R, kr, 0, 7); ctx.fill();
   requestAnimationFrame(draw);

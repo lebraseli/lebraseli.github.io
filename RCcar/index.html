@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>XenonCar Remote</title>
+<style>
+  :root { --bg:#14161a; --panel:#1d2026; --line:#2c3038; --text:#e8e9ec; --muted:#8b909a;
+          --accent:#ffb020; --go:#3ecf8e; --stop:#ff5a52; --blue:#4a9dff; }
+  * { box-sizing:border-box; -webkit-user-select:none; user-select:none; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--text);
+    font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif; overflow:hidden; touch-action:none; }
+  .app { display:grid; grid-template-columns:minmax(280px,1fr) 320px; gap:16px; height:100%; padding:16px; }
+  @media (max-width:760px){ .app{ grid-template-columns:1fr; grid-template-rows:1fr auto; overflow:auto; } }
+  .stage { position:relative; display:grid; place-items:center; background:var(--panel); border:1px solid var(--line); border-radius:16px; min-height:300px; }
+  canvas { width:min(74vmin,500px); height:min(74vmin,500px); touch-action:none; cursor:grab; }
+  .hint { position:absolute; bottom:12px; left:0; right:0; text-align:center; color:var(--muted); font-size:13px; }
+  .side { display:flex; flex-direction:column; gap:12px; min-height:0; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 16px; }
+  h1 { font-size:18px; margin:0 0 2px; }
+  .status { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:14px; }
+  .dot { width:10px; height:10px; border-radius:50%; background:var(--stop); flex:none; }
+  .dot.on { background:var(--go); box-shadow:0 0 10px var(--go); } .dot.half { background:var(--accent); }
+  button { width:100%; padding:13px; font:600 16px system-ui; border-radius:12px; border:0; background:var(--accent); color:#1a1300; cursor:pointer; }
+  button.secondary { background:transparent; color:var(--text); border:1px solid var(--line); }
+  button.stop { background:var(--stop); color:#fff; font-size:18px; padding:16px; }
+  .row { display:flex; gap:8px; }
+  input[type=password] { flex:1; min-width:0; background:#111317; color:var(--text); border:1px solid var(--line); border-radius:10px; padding:10px; font:15px system-ui; -webkit-user-select:text; user-select:text; }
+  .row button { width:auto; padding:10px 16px; }
+  label { display:flex; justify-content:space-between; color:var(--muted); font-size:13px; margin-bottom:6px; }
+  input[type=range] { width:100%; accent-color:var(--accent); }
+  .bars { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .bar { height:90px; background:#111317; border:1px solid var(--line); border-radius:10px; position:relative; overflow:hidden; }
+  .bar i { position:absolute; left:0; right:0; bottom:0; background:var(--blue); transition:height 60ms linear; }
+  .bar span { position:absolute; top:6px; left:0; right:0; text-align:center; font-size:12px; color:var(--text); z-index:1; mix-blend-mode:difference; }
+  #log { height:96px; overflow:auto; font:12px ui-monospace,monospace; color:var(--muted); background:#111317; border-radius:8px; padding:6px 8px; -webkit-user-select:text; user-select:text; }
+  .keys { color:var(--muted); font-size:12px; }
+  kbd { background:#111317; border:1px solid var(--line); border-bottom-width:2px; border-radius:5px; padding:0 5px; font:11px ui-monospace,monospace; color:var(--text); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <canvas id="stick" width="1000" height="1000"></canvas>
+    <div class="hint">Hold and drag up to drive, sideways to steer or pivot. Let go to stop.</div>
+  </div>
+  <div class="side">
+    <div class="card">
+      <h1>XenonCar</h1>
+      <div class="status"><span class="dot" id="dot"></span><span id="status">Not connected</span></div>
+      <div class="status" style="margin-top:4px">Battery: <span id="batt" style="color:var(--text)">–</span></div>
+    </div>
+    <div class="card"><button id="connect">Connect</button></div>
+    <div class="card">
+      <label><span>PIN</span><span id="armed">locked</span></label>
+      <div class="row"><input type="password" id="pin" placeholder="1234" inputmode="numeric" maxlength="12"><button id="unlock" class="secondary">Unlock</button></div>
+    </div>
+    <div class="card">
+      <label><span>Max speed</span><span id="maxv">100%</span></label>
+      <input type="range" id="max" min="20" max="100" value="100">
+    </div>
+    <div class="card">
+      <label><span>Race mode (linked cars)</span><span id="racev">off</span></label>
+      <div class="row" style="align-items:center;margin-bottom:8px"><input type="checkbox" id="race" style="width:22px;height:22px;accent-color:var(--accent)"><span style="color:var(--muted);font-size:13px">Car never goes slower than:</span></div>
+      <input type="range" id="minspd" min="20" max="70" value="40">
+    </div>
+    <div class="card">
+      <div class="bars">
+        <div class="bar"><span>LEFT</span><i id="barL" style="height:0"></i></div>
+        <div class="bar"><span>RIGHT</span><i id="barR" style="height:0"></i></div>
+      </div>
+    </div>
+    <div class="card"><div id="log"></div></div>
+    <div class="card keys"><kbd>W</kbd>/<kbd>↑</kbd> drive · <kbd>A</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> steer (alone = pivot) · <kbd>Space</kbd> stop</div>
+    <button class="stop" id="stop">STOP</button>
+  </div>
+</div>
+
+<script>
+// Nordic UART Service — same as XenonTest firmware
+const SVC = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+const RX  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";   // browser -> Xenon (write without response)
+const TX  = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";   // Xenon -> browser (notify)
+const SEND_HZ = 20;                                    // 50 ms, well inside the 500 ms failsafe
+
+const $ = id => document.getElementById(id);
+let device = null, rx = null, busy = false, armed = false, wasMoving = false;
+let stick = { x: 0, y: 0, yRaw: 0 }, dragging = false, paused = false;
+const raceOn = () => $("race").checked;
+const keys = new Set();
+const enc = new TextEncoder(), dec = new TextDecoder();
+
+function log(msg) { const d = $("log"); d.textContent += msg + "\n"; d.scrollTop = d.scrollHeight;
+  if (d.textContent.length > 4000) d.textContent = d.textContent.slice(-3000); }
+function setStatus(txt, state) { $("status").textContent = txt; $("dot").className = "dot" + (state === 2 ? " on" : state === 1 ? " half" : ""); }
+function setArmed(a) { armed = a; $("armed").textContent = a ? "armed" : "locked"; $("armed").style.color = a ? "var(--go)" : "var(--muted)";
+  if (rx) setStatus(a ? "Connected · armed" : "Connected · enter PIN", a ? 2 : 1); }
+
+if (!navigator.bluetooth) { setStatus("No Web Bluetooth here. Use Chrome or Edge (not iPhone/iPad).", 0); $("connect").disabled = true; }
+
+async function write(text) {               // payload <= 20 bytes
+  if (!rx || busy) return false;
+  busy = true;
+  try { await rx.writeValueWithoutResponse(enc.encode(text)); return true; }
+  catch (e) { return false; }
+  finally { busy = false; }
+}
+
+$("connect").onclick = async () => {
+  if (device && device.gatt.connected) { await write("S"); device.gatt.disconnect(); return; }
+  try {
+    setStatus("Searching…", 0);
+    device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SVC] }] });
+    device.addEventListener("gattserverdisconnected", onDisconnect);
+    setStatus("Connecting…", 0);
+    const server = await device.gatt.connect();
+    const svc = await server.getPrimaryService(SVC);
+    rx = await svc.getCharacteristic(RX);
+    const tx = await svc.getCharacteristic(TX);
+    await tx.startNotifications();
+    tx.addEventListener("characteristicvaluechanged", e => {
+      const msg = dec.decode(e.target.value);
+      if (msg === "armed") setArmed(true);
+      if (msg === "locked" || msg === "bad pin") setArmed(false);
+      const v = msg.match(/(\d+\.\d+)V/);
+      if (v) { const volts = parseFloat(v[1]); const pct = Math.max(0, Math.min(100, Math.round((volts - 6.6) / (8.4 - 6.6) * 100)));
+               $("batt").textContent = volts.toFixed(2) + " V (" + pct + "%)"; $("batt").style.color = volts < 7.0 ? "var(--stop)" : "var(--text)"; }
+      if (!msg.startsWith("up ")) log("← " + msg);
+    });
+    $("connect").textContent = "Disconnect"; $("connect").className = "secondary";
+    setArmed(false); log("connected to " + (device.name || "device"));
+    const saved = sessionStorage.getItem("pin"); if (saved) { $("pin").value = saved; unlock(); }
+  } catch (e) { setStatus("Not connected", 0); if (e.name !== "NotFoundError") log("error: " + e.message); }
+};
+
+function onDisconnect() { rx = null; setArmed(false); setStatus("Disconnected. The car stops by itself.", 0);
+  $("connect").textContent = "Reconnect"; $("connect").className = ""; log("disconnected"); }
+
+async function unlock() { const p = $("pin").value.trim(); if (!p) return;
+  try { sessionStorage.setItem("pin", p); } catch (e) {}
+  if (await write("P" + p)) log("→ PIN sent"); }
+$("unlock").onclick = unlock;
+$("pin").addEventListener("keydown", e => { if (e.key === "Enter") { unlock(); e.target.blur(); } });
+
+// ---- mixing: forward-only differential drive (one side stopped = pivot) ----
+function command() {
+  let x = stick.x, y = stick.y;
+  if (!dragging && keys.size) {
+    y = (keys.has("w") || keys.has("arrowup")) ? 1 : 0;
+    x = ((keys.has("d") || keys.has("arrowright")) ? 1 : 0) - ((keys.has("a") || keys.has("arrowleft")) ? 1 : 0);
+  }
+  const max = $("max").value / 100;
+  let l = Math.min(1, Math.max(0, y + x)), r = Math.min(1, Math.max(0, y - x));
+  if (raceOn() && !paused) {                       // race mode: both sides always >= the minimum (steer by speeding one side up)
+    const mn = $("minspd").value / 100;
+    l = mn + (1 - mn) * l; r = mn + (1 - mn) * r;
+  }
+  const L = Math.round(l * 255 * max);
+  const R = Math.round(r * 255 * max);
+  return { L, R };
+}
+
+async function tick() {
+  const { L, R } = command();
+  $("barL").style.height = (L / 2.55) + "%"; $("barR").style.height = (R / 2.55) + "%";
+  if (!rx || !armed) return;
+  const moving = L > 0 || R > 0;
+  if (moving) await write(`L${L},R${R}`);                  // repeats while held = keeps failsafe fed
+  else if (wasMoving) await write("S");
+  wasMoving = moving;
+}
+setInterval(tick, 1000 / SEND_HZ);
+
+// ---- joystick ----
+const cv = $("stick"), ctx = cv.getContext("2d");
+function draw() {
+  const S = cv.width, c = S / 2, R = S * 0.42, kr = S * 0.11;
+  ctx.clearRect(0, 0, S, S);
+  ctx.fillStyle = "#111317"; ctx.beginPath(); ctx.arc(c, c, R, 0, 7); ctx.fill();
+  ctx.fillStyle = "rgba(255,90,82,0.07)"; ctx.beginPath(); ctx.arc(c, c, R, 0, Math.PI); ctx.fill();
+  ctx.strokeStyle = "#2c3038"; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(c, c, R, 0, 7); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(c - R, c); ctx.lineTo(c + R, c); ctx.moveTo(c, c - R); ctx.lineTo(c, c + R); ctx.stroke();
+  ctx.fillStyle = "#8b909a"; ctx.font = "600 32px system-ui"; ctx.textAlign = "center";
+  ctx.fillText("FORWARD", c, c - R - 16); ctx.fillText("PIVOT ◀", c - R * 0.62, c - 16); ctx.fillText("▶ PIVOT", c + R * 0.62, c - 16);
+  ctx.fillStyle = "#5a5f69"; ctx.fillText(armed ? "no reverse" : "locked: enter PIN", c, c + R * 0.6);
+  ctx.fillStyle = dragging ? "#ffb020" : "#3a3f49";
+  ctx.beginPath(); ctx.arc(c + stick.x * R, c - stick.yRaw * R, kr, 0, 7); ctx.fill();
+  requestAnimationFrame(draw);
+}
+function setFromPointer(e) {
+  const r = cv.getBoundingClientRect();
+  let x = ((e.clientX - r.left) / r.width * 2 - 1) / 0.84, y = -((e.clientY - r.top) / r.height * 2 - 1) / 0.84;
+  const m = Math.hypot(x, y); if (m > 1) { x /= m; y /= m; }
+  stick.x = x; stick.yRaw = y; stick.y = Math.max(0, y);
+}
+const release = () => { dragging = false; stick.x = stick.y = stick.yRaw = 0; };
+cv.addEventListener("pointerdown", e => { dragging = true; paused = false; cv.setPointerCapture(e.pointerId); setFromPointer(e); });
+cv.addEventListener("pointermove", e => { if (dragging) setFromPointer(e); });
+cv.addEventListener("pointerup", release); cv.addEventListener("pointercancel", release);
+draw();
+
+window.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  const k = e.key.toLowerCase();
+  if (k === " ") { keys.clear(); release(); paused = true; write("S"); e.preventDefault(); return; }
+  if (["w","a","d","arrowup","arrowleft","arrowright"].includes(k)) { keys.add(k); paused = false; e.preventDefault(); }
+});
+window.addEventListener("keyup", e => keys.delete(e.key.toLowerCase()));
+window.addEventListener("blur", () => { keys.clear(); release(); });
+document.addEventListener("visibilitychange", () => { if (document.hidden) { keys.clear(); release(); paused = true; write("S"); } });
+$("stop").onclick = () => { keys.clear(); release(); paused = true; write("S"); };
+$("max").oninput = () => $("maxv").textContent = $("max").value + "%";
+function raceLabel() { $("racev").textContent = raceOn() ? ("on · min " + $("minspd").value + "%") : "off"; $("racev").style.color = raceOn() ? "var(--accent)" : "var(--muted)"; }
+$("race").onchange = () => { paused = true; raceLabel(); log(raceOn() ? "race mode ON: touch the controls to start" : "race mode off"); };
+$("minspd").oninput = raceLabel; raceLabel();
+</script>
+</body>
+</html>

@@ -99,7 +99,11 @@ if (!navigator.bluetooth) { setStatus("No Web Bluetooth here. Use Chrome or Edge
 if (!navigator.serial) { $("usb").disabled = true; $("usb").textContent = "USB needs Chrome"; }
 
 async function write(text) {               // payload <= 20 bytes
-  if (usbWriter) { try { await usbWriter.write(enc.encode(text + "\n")); return true; } catch (e) { return false; } }
+  if (usbWriter) {                         // one write at a time: if the Xenon isn't reading, don't pile up writes
+    if (busy) return false;
+    busy = true;
+    try { await usbWriter.write(enc.encode(text + "\n")); return true; } catch (e) { return false; } finally { busy = false; }
+  }
   if (!rx || busy) return false;
   busy = true;
   try { await rx.writeValueWithoutResponse(enc.encode(text)); return true; }
@@ -150,19 +154,21 @@ $("usb").onclick = async () => {
 };
 async function usbRead() {
   let buf = "";
+  let ended = false;
   try {
-    while (port && port.readable) {
+    while (port && port.readable && !ended) {
       const reader = port.readable.getReader(); usbReader = reader;
       try {
         for (;;) {
           const { value, done } = await reader.read();
-          if (done) break;
+          if (done) { ended = true; break; }              // stream closed: stop (never spin)
           buf += dec.decode(value);
           let i; while ((i = buf.indexOf("\n")) >= 0) { const line = buf.slice(0, i).replace("\r", ""); buf = buf.slice(i + 1); if (line) onMsg(line); }
         }
       } finally { reader.releaseLock(); }
     }
-  } catch (e) { log("USB lost: " + e.message); await usbClose(); }
+  } catch (e) { log("USB lost: " + e.message); }
+  if (port) { log("USB link closed"); await usbClose(); }
 }
 async function usbClose() {
   clearInterval(usbHb); usbHb = null;

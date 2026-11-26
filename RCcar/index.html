@@ -50,7 +50,8 @@
       <div class="status"><span class="dot" id="dot"></span><span id="status">Not connected</span></div>
       <div class="status" style="margin-top:4px">Battery: <span id="batt" style="color:var(--text)">–</span></div>
     </div>
-    <div class="card"><button id="connect">Connect</button></div>
+    <div class="card"><button id="connect">Connect (Bluetooth)</button>
+      <button id="usb" class="secondary" style="margin-top:8px">Connect by USB cable</button></div>
     <div class="card">
       <label><span>PIN</span><span id="armed">locked</span></label>
       <div class="row"><input type="password" id="pin" placeholder="1234" inputmode="numeric" maxlength="12"><button id="unlock" class="secondary">Unlock</button></div>
@@ -84,6 +85,7 @@ const TX  = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";   // Xenon -> browser (notif
 const SEND_HZ = 20;                                    // 50 ms, well inside the 500 ms failsafe
 
 const $ = id => document.getElementById(id);
+let port = null, usbWriter = null, usbHb = null, usbReader = null;
 let device = null, rx = null, busy = false, armed = false, wasMoving = false;
 let stick = { x: 0, y: 0, yRaw: 0 }, dragging = false, paused = false;
 const raceOn = () => $("race").checked;
@@ -94,11 +96,13 @@ function log(msg) { const d = $("log"); d.textContent += msg + "\n"; d.scrollTop
   if (d.textContent.length > 4000) d.textContent = d.textContent.slice(-3000); }
 function setStatus(txt, state) { $("status").textContent = txt; $("dot").className = "dot" + (state === 2 ? " on" : state === 1 ? " half" : ""); }
 function setArmed(a) { armed = a; $("armed").textContent = a ? "armed" : "locked"; $("armed").style.color = a ? "var(--go)" : "var(--muted)";
-  if (rx) setStatus(a ? "Connected · armed" : "Connected · enter PIN", a ? 2 : 1); }
+  if (rx) setStatus((rx.usb ? "USB · " : "Connected · ") + (a ? "armed" : "enter PIN"), a ? 2 : 1); }
 
 if (!navigator.bluetooth) { setStatus("No Web Bluetooth here. Use Chrome or Edge (not iPhone/iPad).", 0); $("connect").disabled = true; }
+if (!navigator.serial) { $("usb").disabled = true; $("usb").textContent = "USB needs Chrome"; }
 
 async function write(text) {               // payload <= 20 bytes
+  if (usbWriter) { try { await usbWriter.write(enc.encode(text + "\n")); return true; } catch (e) { return false; } }
   if (!rx || busy) return false;
   busy = true;
   try { await rx.writeValueWithoutResponse(enc.encode(text)); return true; }
@@ -118,20 +122,64 @@ $("connect").onclick = async () => {
     rx = await svc.getCharacteristic(RX);
     const tx = await svc.getCharacteristic(TX);
     await tx.startNotifications();
-    tx.addEventListener("characteristicvaluechanged", e => {
-      const msg = dec.decode(e.target.value);
-      if (msg === "armed") setArmed(true);
-      if (msg === "locked" || msg === "bad pin") setArmed(false);
-      const v = msg.match(/(\d+\.\d+)V/);
-      if (v) { const volts = parseFloat(v[1]); const pct = Math.max(0, Math.min(100, Math.round((volts - 6.6) / (8.4 - 6.6) * 100)));
-               $("batt").textContent = volts.toFixed(2) + " V (" + pct + "%)"; $("batt").style.color = volts < 7.0 ? "var(--stop)" : "var(--text)"; }
-      if (!msg.startsWith("up ")) log("← " + msg);
-    });
+    tx.addEventListener("characteristicvaluechanged", e => onMsg(dec.decode(e.target.value)));
     $("connect").textContent = "Disconnect"; $("connect").className = "secondary";
     setArmed(false); log("connected to " + (device.name || "device"));
     const saved = sessionStorage.getItem("pin"); if (saved) { $("pin").value = saved; unlock(); }
   } catch (e) { setStatus("Not connected", 0); if (e.name !== "NotFoundError") log("error: " + e.message); }
 };
+
+function onMsg(msg) {
+  if (msg === "armed") setArmed(true);
+  if (msg === "locked" || msg === "bad pin") setArmed(false);
+  const v = msg.match(/(\d+\.\d+)V/);
+  if (v) { const volts = parseFloat(v[1]); const pct = Math.max(0, Math.min(100, Math.round((volts - 6.6) / (8.4 - 6.6) * 100)));
+           $("batt").textContent = volts.toFixed(2) + " V (" + pct + "%)"; $("batt").style.color = volts < 7.0 ? "var(--stop)" : "var(--text)"; }
+  if (!msg.startsWith("up ")) log("← " + msg);
+}
+
+// ---- USB cable (Web Serial): same commands, one per line; heartbeat keeps the link alive ----
+$("usb").onclick = async () => {
+  if (port) { await write("S"); await usbClose(); return; }
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 115200 });
+    usbWriter = port.writable.getWriter();
+    rx = { usb: true };                                  // lets tick() send
+    $("usb").textContent = "Disconnect USB"; $("connect").disabled = true;
+    setArmed(false); log("connected by USB");
+    usbHb = setInterval(() => write("H"), 250);
+    const saved = sessionStorage.getItem("pin"); if (saved) { $("pin").value = saved; unlock(); }
+    usbRead();
+  } catch (e) { log("USB error: " + e.message); await usbClose(); }
+};
+async function usbRead() {
+  let buf = "";
+  try {
+    while (port && port.readable) {
+      const reader = port.readable.getReader(); usbReader = reader;
+      try {
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value);
+          let i; while ((i = buf.indexOf("\n")) >= 0) { const line = buf.slice(0, i).replace("\r", ""); buf = buf.slice(i + 1); if (line) onMsg(line); }
+        }
+      } finally { reader.releaseLock(); }
+    }
+  } catch (e) { log("USB lost: " + e.message); await usbClose(); }
+}
+async function usbClose() {
+  clearInterval(usbHb); usbHb = null;
+  try { if (usbReader) await usbReader.cancel(); } catch (e) {}
+  usbReader = null;
+  try { if (usbWriter) { usbWriter.releaseLock(); } } catch (e) {}
+  usbWriter = null;
+  try { if (port) await port.close(); } catch (e) {}
+  port = null; rx = null; setArmed(false); setStatus("Not connected", 0);
+  $("usb").textContent = "Connect by USB cable"; $("connect").disabled = !navigator.bluetooth;
+}
+if (navigator.serial) navigator.serial.addEventListener("disconnect", () => { if (port) { log("USB unplugged"); usbClose(); } });
 
 function onDisconnect() { rx = null; setArmed(false); setStatus("Disconnected. The car stops by itself.", 0);
   $("connect").textContent = "Reconnect"; $("connect").className = ""; log("disconnected"); }

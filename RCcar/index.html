@@ -82,7 +82,7 @@ const TX  = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";   // Xenon -> browser (notif
 const SEND_HZ = 20;                                    // 50 ms, well inside the 500 ms failsafe
 
 const $ = id => document.getElementById(id);
-let port = null, usbWriter = null, usbHb = null, usbReader = null;
+let port = null, usbWriter = null, usbHb = null, usbReader = null, busySince = 0;
 let device = null, rx = null, busy = false, armed = false, wasMoving = false;
 let stick = { x: 0, y: 0, yRaw: 0 }, dragging = false, paused = false;
 const raceOn = () => $("race").checked;
@@ -104,8 +104,9 @@ async function write(text) {               // payload <= 20 bytes
     busy = true;
     try { await usbWriter.write(enc.encode(text + "\n")); return true; } catch (e) { return false; } finally { busy = false; }
   }
-  if (!rx || busy) return false;
-  busy = true;
+  if (!rx) return false;
+  if (busy && performance.now() - busySince < 300) return false;   // a BLE write that never finishes can't block driving
+  busy = true; busySince = performance.now();
   try { const b = enc.encode(text);
         if (rx.writeValueWithoutResponse) await rx.writeValueWithoutResponse(b); else await rx.writeValue(b);
         return true; }

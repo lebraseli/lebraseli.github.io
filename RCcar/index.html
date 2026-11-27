@@ -106,28 +106,43 @@ async function write(text) {               // payload <= 20 bytes
   }
   if (!rx || busy) return false;
   busy = true;
-  try { await rx.writeValueWithoutResponse(enc.encode(text)); return true; }
+  try { const b = enc.encode(text);
+        if (rx.writeValueWithoutResponse) await rx.writeValueWithoutResponse(b); else await rx.writeValue(b);
+        return true; }
   catch (e) { return false; }
   finally { busy = false; }
 }
 
 $("connect").onclick = async () => {
-  if (device && device.gatt.connected) { await write("S"); device.gatt.disconnect(); return; }
+  if (device && device.gatt.connected) { await sendStop(); device.gatt.disconnect(); return; }
   try {
-    setStatus("Searching…", 0);
-    device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SVC] }] });
-    device.addEventListener("gattserverdisconnected", onDisconnect);
-    setStatus("Connecting…", 0);
-    const server = await device.gatt.connect();
+    if (!device) {                                       // first time: pick the car from the list
+      setStatus("Searching…", 0);
+      device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SVC] }] });
+      device.addEventListener("gattserverdisconnected", onDisconnect);
+    }
+    setStatus("Connecting…", 0);                         // reconnects go straight to the same car (no list)
+    let server = null;
+    for (let i = 0; i < 3 && !server; i++) {             // BLE connects sometimes fail once: retry
+      try { server = await device.gatt.connect(); } catch (e) { if (i === 2) throw e; await new Promise(r => setTimeout(r, 400)); }
+    }
     const svc = await server.getPrimaryService(SVC);
     rx = await svc.getCharacteristic(RX);
     const tx = await svc.getCharacteristic(TX);
     await tx.startNotifications();
     tx.addEventListener("characteristicvaluechanged", e => onMsg(dec.decode(e.target.value)));
-    $("connect").textContent = "Disconnect"; $("connect").className = "secondary";
-    setArmed(true); log("connected to " + (device.name || "device"));
-  } catch (e) { setStatus("Not connected", 0); if (e.name !== "NotFoundError") log("error: " + e.message); }
+    $("connect").textContent = "Disconnect"; $("connect").className = "secondary"; $("usb").disabled = true;
+    setArmed(true); log("connected to " + (device.name || "car"));
+  } catch (e) {
+    rx = null; setStatus("Not connected", 0);
+    if (e.name !== "NotFoundError") log("error: " + e.message + "  (is the Xenon LED blinking blue? tap Connect again)");
+    if (e.name === "NotFoundError") device = null;
+  }
 };
+$("connect").addEventListener("contextmenu", e => { e.preventDefault(); device = null; log("forgot the car: next Connect shows the list"); });
+
+let stopsToSend = 0;                                    // STOP is repeated on the next ticks so it can't get lost
+async function sendStop() { stopsToSend = 3; for (let i = 0; i < 5; i++) { if (await write("S")) { stopsToSend = 2; return; } await new Promise(r => setTimeout(r, 20)); } }
 
 function onMsg(msg) {
   if (msg === "armed") setArmed(true);
@@ -140,7 +155,7 @@ function onMsg(msg) {
 
 // ---- USB cable (Web Serial): same commands, one per line; heartbeat keeps the link alive ----
 $("usb").onclick = async () => {
-  if (port) { await write("S"); await usbClose(); return; }
+  if (port) { await sendStop(); await usbClose(); return; }
   try {
     port = await navigator.serial.requestPort();
     await port.open({ baudRate: 115200 });
@@ -182,7 +197,7 @@ async function usbClose() {
 }
 if (navigator.serial) navigator.serial.addEventListener("disconnect", () => { if (port) { log("USB unplugged"); usbClose(); } });
 
-function onDisconnect() { rx = null; setArmed(false); setStatus("Disconnected. The car stops by itself.", 0);
+function onDisconnect() { rx = null; $("usb").disabled = !navigator.serial; setArmed(false); setStatus("Disconnected. The car stops by itself.", 0);
   $("connect").textContent = "Reconnect"; $("connect").className = ""; log("disconnected"); }
 
 
@@ -210,8 +225,11 @@ async function tick() {
   $("barL").style.height = (L / 2.55) + "%"; $("barR").style.height = (R / 2.55) + "%";
   if (!rx || !armed) return;
   const moving = L > 0 || R > 0;
-  if (moving) await write(`L${L},R${R}`);                  // repeats while held = keeps failsafe fed
-  else if (wasMoving) await write("S");
+  if (moving) { stopsToSend = 0; await write(`L${L},R${R}`); }   // repeats while held = keeps the failsafe fed
+  else {
+    if (wasMoving) stopsToSend = 3;                       // released: send "S" on the next 3 ticks
+    if (stopsToSend > 0 && await write("S")) stopsToSend--;
+  }
   wasMoving = moving;
 }
 setInterval(tick, 1000 / SEND_HZ);
@@ -254,7 +272,7 @@ window.addEventListener("keydown", e => {
 window.addEventListener("keyup", e => keys.delete(e.key.toLowerCase()));
 window.addEventListener("blur", () => { keys.clear(); release(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden) { keys.clear(); release(); paused = true; write("S"); } });
-$("stop").onclick = () => { keys.clear(); release(); paused = true; write("S"); };
+$("stop").onclick = () => { keys.clear(); release(); paused = true; sendStop(); };
 $("max").oninput = () => $("maxv").textContent = $("max").value + "%";
 function raceLabel() { $("racev").textContent = raceOn() ? ("on · min " + $("minspd").value + "%") : "off"; $("racev").style.color = raceOn() ? "var(--accent)" : "var(--muted)"; }
 $("race").onchange = () => { paused = true; raceLabel(); log(raceOn() ? "race mode ON: touch the controls to start" : "race mode off"); };
